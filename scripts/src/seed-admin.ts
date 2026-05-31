@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { usuariosTable } from "@workspace/db/schema";
+import { usuariosTable, rolesTable, usuariosRolesTable } from "@workspace/db/schema";
 import { createHash, createCipheriv, randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -38,11 +38,11 @@ async function main() {
   const email = process.argv[2] ?? "admin@escola.edu.br";
 
   // Check if admin already exists
-  const all = await db.select({ id: usuariosTable.id, perfil: usuariosTable.perfil }).from(usuariosTable);
-  const hasAdmin = all.some((u) => u.perfil === "administrador");
+  const all = await db.select({ id: usuariosTable.id }).from(usuariosTable);
+  const hasAdmin = all.length > 0;
 
   if (hasAdmin) {
-    console.log("⚠️  Já existe um administrador cadastrado.");
+    console.log("⚠️  Já existe um usuário cadastrado.");
     console.log("    Para criar outro, use a interface de Usuários após fazer login.");
     process.exit(0);
   }
@@ -53,11 +53,30 @@ async function main() {
 
   const [u] = await db.insert(usuariosTable).values({
     emailEncrypted: encrypt(email),
+    emailHash: createHash("sha256").update(email.toLowerCase()).digest("hex"),
     codigoAcesso,
     senhaHash,
-    perfil: "administrador",
     primeiroAcesso: true,
   }).returning();
+
+  // Create 'administrador' role if not exists
+  const roles = await db.select().from(rolesTable).where(eq(rolesTable.nome, "administrador"));
+  let adminRoleId: string;
+  if (roles.length === 0) {
+    const [newRole] = await db.insert(rolesTable).values({
+      nome: "administrador",
+      descricao: "Administrador do sistema com acesso total",
+    }).returning();
+    adminRoleId = newRole.id;
+  } else {
+    adminRoleId = roles[0].id;
+  }
+
+  // Link user to role
+  await db.insert(usuariosRolesTable).values({
+    usuarioId: u.id,
+    roleId: adminRoleId,
+  });
 
   console.log("");
   console.log("✅  Administrador criado com sucesso!");
