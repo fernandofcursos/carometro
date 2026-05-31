@@ -1,0 +1,1873 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.5.0
+  description: Carômetro API - Sistema de registro fotográfico de estudantes por turma e turno
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: turnos
+    description: Turnos operations
+  - name: cursos
+    description: Cursos operations
+  - name: turmas
+    description: Turmas operations
+  - name: estudantes
+    description: Estudantes operations
+  - name: carometro
+    description: Carômetro view operations
+  - name: import
+    description: Spreadsheet import operations
+  - name: ocorrencias
+    description: Ocorrências operations
+  - name: usuarios
+    description: Usuários operations
+  - name: disciplinas
+    description: Disciplinas operations
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with codigoAcesso and senha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMe"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMe"
+        "401":
+          description: Not authenticated
+
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [auth]
+      summary: Refresh access token using refresh token cookie
+      responses:
+        "200":
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMe"
+        "401":
+          description: Invalid or expired refresh token
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change password (required on first access)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "204":
+          description: Password changed
+        "400":
+          description: Invalid input
+
+  /turnos:
+    get:
+      operationId: listTurnos
+      tags: [turnos]
+      summary: List all turnos
+      responses:
+        "200":
+          description: List of turnos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Turno"
+    post:
+      operationId: createTurno
+      tags: [turnos]
+      summary: Create a turno
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TurnoInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turno"
+
+  /turnos/{id}:
+    put:
+      operationId: updateTurno
+      tags: [turnos]
+      summary: Update a turno
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TurnoInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turno"
+    delete:
+      operationId: deleteTurno
+      tags: [turnos]
+      summary: Delete a turno
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /cursos:
+    get:
+      operationId: listCursos
+      tags: [cursos]
+      summary: List all cursos
+      responses:
+        "200":
+          description: List of cursos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Curso"
+    post:
+      operationId: createCurso
+      tags: [cursos]
+      summary: Create a curso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CursoInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Curso"
+
+  /cursos/{id}:
+    put:
+      operationId: updateCurso
+      tags: [cursos]
+      summary: Update a curso
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CursoInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Curso"
+    delete:
+      operationId: deleteCurso
+      tags: [cursos]
+      summary: Delete a curso
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /turmas:
+    get:
+      operationId: listTurmas
+      tags: [turmas]
+      summary: List all turmas
+      parameters:
+        - name: turnoId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursoId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of turmas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Turma"
+    post:
+      operationId: createTurma
+      tags: [turmas]
+      summary: Create a turma
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TurmaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turma"
+
+  /turmas/{id}:
+    get:
+      operationId: getTurma
+      tags: [turmas]
+      summary: Get turma by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Turma
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turma"
+    put:
+      operationId: updateTurma
+      tags: [turmas]
+      summary: Update a turma
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TurmaInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Turma"
+    delete:
+      operationId: deleteTurma
+      tags: [turmas]
+      summary: Delete a turma
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /estudantes:
+    get:
+      operationId: listEstudantes
+      tags: [estudantes]
+      summary: List all estudantes
+      parameters:
+        - name: turmaId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: turnoId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursoId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of estudantes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Estudante"
+    post:
+      operationId: createEstudante
+      tags: [estudantes]
+      summary: Create an estudante
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstudanteInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Estudante"
+
+  /estudantes/{id}:
+    get:
+      operationId: getEstudante
+      tags: [estudantes]
+      summary: Get estudante by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Estudante
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Estudante"
+        "404":
+          description: Not found
+    put:
+      operationId: updateEstudante
+      tags: [estudantes]
+      summary: Update an estudante
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstudanteUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Estudante"
+    delete:
+      operationId: deleteEstudante
+      tags: [estudantes]
+      summary: Delete an estudante
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /estudantes/{id}/foto:
+    post:
+      operationId: uploadFotoEstudante
+      tags: [estudantes]
+      summary: Upload or update photo for an estudante
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FotoInput"
+      responses:
+        "200":
+          description: Updated estudante with photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Estudante"
+
+  /carometro:
+    get:
+      operationId: getCarometro
+      tags: [carometro]
+      summary: Get carômetro view grouped by turma
+      parameters:
+        - name: turnoId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: turmaId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cursoId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Carômetro data grouped by turma
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CarometroGroup"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [carometro]
+      summary: Get summary statistics
+      responses:
+        "200":
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /import/cursos:
+    post:
+      operationId: importCursos
+      tags: [import]
+      summary: Import cursos from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportCursosBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /import/turmas:
+    post:
+      operationId: importTurmas
+      tags: [import]
+      summary: Import turmas from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportTurmasBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /import/estudantes:
+    post:
+      operationId: importEstudantes
+      tags: [import]
+      summary: Import estudantes from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportEstudantesBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /tipos-ocorrencias:
+    get:
+      operationId: listTiposOcorrencias
+      tags: [ocorrencias]
+      summary: List all tipos de ocorrencias
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ativo, inativo]
+      responses:
+        "200":
+          description: List of tipos de ocorrencias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TipoOcorrencia"
+    post:
+      operationId: createTipoOcorrencia
+      tags: [ocorrencias]
+      summary: Create a tipo de ocorrencia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipoOcorrenciaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoOcorrencia"
+
+  /tipos-ocorrencias/{id}:
+    put:
+      operationId: updateTipoOcorrencia
+      tags: [ocorrencias]
+      summary: Update a tipo de ocorrencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipoOcorrenciaInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipoOcorrencia"
+    delete:
+      operationId: deleteTipoOcorrencia
+      tags: [ocorrencias]
+      summary: Delete a tipo de ocorrencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /ocorrencias:
+    get:
+      operationId: listOcorrencias
+      tags: [ocorrencias]
+      summary: List ocorrencias
+      parameters:
+        - name: estudanteId
+          in: query
+          schema:
+            type: string
+        - name: tipoOcorrenciaId
+          in: query
+          schema:
+            type: string
+        - name: disciplinaId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of ocorrencias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ocorrencia"
+    post:
+      operationId: createOcorrencia
+      tags: [ocorrencias]
+      summary: Create an ocorrencia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcorrenciaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ocorrencia"
+
+  /ocorrencias/{id}:
+    put:
+      operationId: updateOcorrencia
+      tags: [ocorrencias]
+      summary: Update an ocorrencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OcorrenciaInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ocorrencia"
+    delete:
+      operationId: deleteOcorrencia
+      tags: [ocorrencias]
+      summary: Delete an ocorrencia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /ocorrencias/export:
+    get:
+      operationId: exportOcorrencias
+      tags: [ocorrencias]
+      summary: Export ocorrencias as XLSX
+      parameters:
+        - name: estudanteId
+          in: query
+          schema:
+            type: string
+        - name: disciplinaId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: XLSX file
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /roles:
+    get:
+      operationId: listRoles
+      tags: [usuarios]
+      summary: List all roles
+      responses:
+        "200":
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Role"
+    post:
+      operationId: createRole
+      tags: [usuarios]
+      summary: Create a role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+
+  /roles/permissoes:
+    get:
+      operationId: listPermissoes
+      tags: [usuarios]
+      summary: List all available permissions
+      responses:
+        "200":
+          description: List of permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Permissao"
+
+  /roles/{id}:
+    put:
+      operationId: updateRole
+      tags: [usuarios]
+      summary: Update a role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+    delete:
+      operationId: deleteRole
+      tags: [usuarios]
+      summary: Delete a role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /roles/{id}/permissoes:
+    put:
+      operationId: setRolePermissoes
+      tags: [usuarios]
+      summary: Set permissions for a role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPermissoesInput"
+      responses:
+        "200":
+          description: Updated role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+
+  /usuarios:
+    get:
+      operationId: listUsuarios
+      tags: [usuarios]
+      summary: List all usuarios
+      responses:
+        "200":
+          description: List of usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Usuario"
+    post:
+      operationId: createUsuario
+      tags: [usuarios]
+      summary: Create a usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsuarioInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsuarioCreated"
+
+  /usuarios/{id}:
+    put:
+      operationId: updateUsuario
+      tags: [usuarios]
+      summary: Update a usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsuarioUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+    delete:
+      operationId: deleteUsuario
+      tags: [usuarios]
+      summary: Delete a usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /usuarios/{id}/resetar-senha:
+    post:
+      operationId: resetarSenhaUsuario
+      tags: [usuarios]
+      summary: Reset password for a usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResetarSenhaResponse"
+
+  /usuarios/{id}/disciplinas:
+    put:
+      operationId: setUsuarioDisciplinas
+      tags: [usuarios]
+      summary: Set disciplinas for a usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDisciplinasInput"
+      responses:
+        "200":
+          description: Updated usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+
+  /usuarios/{id}/roles:
+    put:
+      operationId: setUsuarioRoles
+      tags: [usuarios]
+      summary: Set roles for a usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRolesInput"
+      responses:
+        "200":
+          description: Updated roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RoleSummary"
+
+  /usuarios/{id}/foto:
+    put:
+      operationId: uploadFotoUsuario
+      tags: [usuarios]
+      summary: Upload or update profile photo for a usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadFotoUsuarioBody"
+      responses:
+        "200":
+          description: Updated usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+        "404":
+          description: Usuario not found
+
+  /disciplinas:
+    get:
+      operationId: listDisciplinas
+      tags: [disciplinas]
+      summary: List all disciplinas
+      responses:
+        "200":
+          description: List of disciplinas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Disciplina"
+    post:
+      operationId: createDisciplina
+      tags: [disciplinas]
+      summary: Create a disciplina
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisciplinaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Disciplina"
+
+  /disciplinas/{id}:
+    put:
+      operationId: updateDisciplina
+      tags: [disciplinas]
+      summary: Update a disciplina
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisciplinaInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Disciplina"
+    delete:
+      operationId: deleteDisciplina
+      tags: [disciplinas]
+      summary: Delete a disciplina
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /disciplinas/{id}/ofertas:
+    put:
+      operationId: setDisciplinaOfertas
+      tags: [disciplinas]
+      summary: Set cursos and turnos (ofertas) for a disciplina
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDisciplinaOfertasInput"
+      responses:
+        "200":
+          description: Updated disciplina with ofertas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Disciplina"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    LoginInput:
+      type: object
+      required: [codigoAcesso, senha]
+      properties:
+        codigoAcesso:
+          type: string
+        senha:
+          type: string
+
+    ChangePasswordInput:
+      type: object
+      required: [senhaAtual, senhaNova]
+      properties:
+        senhaAtual:
+          type: string
+        senhaNova:
+          type: string
+          minLength: 6
+
+    AuthMe:
+      type: object
+      required: [id, email, codigoAcesso, primeiroAcesso, roles, permissions, disciplinas]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        codigoAcesso:
+          type: string
+        primeiroAcesso:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        disciplinas:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsuarioDisciplina"
+
+    UsuarioDisciplina:
+      type: object
+      required: [ofertaId, disciplinaId, disciplinaNome, cursoId, cursoNome, turnoId, turnoNome]
+      properties:
+        ofertaId:
+          type: string
+          format: uuid
+        disciplinaId:
+          type: string
+          format: uuid
+        disciplinaNome:
+          type: string
+        cursoId:
+          type: string
+          format: uuid
+        cursoNome:
+          type: string
+        turnoId:
+          type: string
+          format: uuid
+        turnoNome:
+          type: string
+
+    Turno:
+      type: object
+      required: [id, nome, criadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        criadoEm:
+          type: string
+
+    TurnoInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+
+    Curso:
+      type: object
+      required: [id, nome, criadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        criadoEm:
+          type: string
+
+    CursoInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+
+    Turma:
+      type: object
+      required: [id, sigla, descricao, turnoId, turnoNome, cursoId, cursoNome, criadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sigla:
+          type: string
+        descricao:
+          type: string
+        turnoId:
+          type: string
+          format: uuid
+        turnoNome:
+          type: string
+        cursoId:
+          type: string
+          format: uuid
+        cursoNome:
+          type: string
+        criadoEm:
+          type: string
+
+    TurmaInput:
+      type: object
+      required: [sigla, descricao, turnoId, cursoId]
+      properties:
+        sigla:
+          type: string
+        descricao:
+          type: string
+        turnoId:
+          type: string
+          format: uuid
+        cursoId:
+          type: string
+          format: uuid
+
+    EstudanteEmail:
+      type: object
+      required: [id, email, tipo]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        tipo:
+          type: string
+          enum: [proprio, responsavel]
+
+    EstudanteEmailInput:
+      type: object
+      required: [email, tipo]
+      properties:
+        email:
+          type: string
+        tipo:
+          type: string
+          enum: [proprio, responsavel]
+
+    Estudante:
+      type: object
+      required: [id, nome, registro, turmaId, turmaSigla, turmaDescricao, turnoNome, cursoNome, criadoEm, emails]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        registro:
+          type: string
+        fotoUrl:
+          type: string
+          nullable: true
+        observacao:
+          type: string
+          nullable: true
+        emails:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstudanteEmail"
+        turmaId:
+          type: string
+          format: uuid
+        turmaSigla:
+          type: string
+        turmaDescricao:
+          type: string
+        turnoNome:
+          type: string
+        cursoNome:
+          type: string
+        criadoEm:
+          type: string
+
+    EstudanteInput:
+      type: object
+      required: [nome, registro, turmaId]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        registro:
+          type: string
+          minLength: 1
+        observacao:
+          type: string
+          nullable: true
+          maxLength: 300
+        emails:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstudanteEmailInput"
+        turmaId:
+          type: string
+          format: uuid
+
+    EstudanteUpdate:
+      type: object
+      required: [nome, registro, turmaId]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        registro:
+          type: string
+          minLength: 1
+        observacao:
+          type: string
+          nullable: true
+          maxLength: 300
+        emails:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstudanteEmailInput"
+        turmaId:
+          type: string
+          format: uuid
+
+    FotoInput:
+      type: object
+      required: [fotoBase64]
+      properties:
+        fotoBase64:
+          type: string
+
+    CarometroEstudante:
+      type: object
+      required: [id, nome, registro, fotoUrl]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        registro:
+          type: string
+        fotoUrl:
+          type: string
+          nullable: true
+
+    CarometroGroup:
+      type: object
+      required: [turmaId, turmaSigla, turmaDescricao, turnoNome, cursoNome, estudantes]
+      properties:
+        turmaId:
+          type: string
+          format: uuid
+        turmaSigla:
+          type: string
+        turmaDescricao:
+          type: string
+        turnoNome:
+          type: string
+        cursoNome:
+          type: string
+        estudantes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CarometroEstudante"
+
+    Stats:
+      type: object
+      required: [totalEstudantes, totalTurmas, totalCursos, totalTurnos, comFoto, semFoto]
+      properties:
+        totalEstudantes:
+          type: integer
+        totalTurmas:
+          type: integer
+        totalCursos:
+          type: integer
+        totalTurnos:
+          type: integer
+        comFoto:
+          type: integer
+        semFoto:
+          type: integer
+
+    ImportRow:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+
+    ImportCursosBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportTurmasBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportEstudantesBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportResult:
+      type: object
+      required: [imported, errors]
+      properties:
+        imported:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    TipoOcorrencia:
+      type: object
+      required: [id, descricao, status, criadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        descricao:
+          type: string
+        status:
+          type: string
+          enum: [ativo, inativo]
+        criadoEm:
+          type: string
+
+    TipoOcorrenciaInput:
+      type: object
+      required: [descricao]
+      properties:
+        descricao:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [ativo, inativo]
+
+    Ocorrencia:
+      type: object
+      required: [id, estudanteId, estudanteNome, tipoOcorrenciaId, tipoOcorrenciaDescricao, dataOcorrencia, criadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        estudanteId:
+          type: string
+          format: uuid
+        estudanteNome:
+          type: string
+        tipoOcorrenciaId:
+          type: string
+          format: uuid
+        tipoOcorrenciaDescricao:
+          type: string
+        disciplinaId:
+          type: string
+          format: uuid
+          nullable: true
+        disciplinaNome:
+          type: string
+          nullable: true
+        registradoPorId:
+          type: string
+          format: uuid
+          nullable: true
+        registradoPorNome:
+          type: string
+          nullable: true
+        dataOcorrencia:
+          type: string
+        observacao:
+          type: string
+          nullable: true
+        criadoEm:
+          type: string
+
+    OcorrenciaInput:
+      type: object
+      required: [estudanteId, tipoOcorrenciaId, dataOcorrencia]
+      properties:
+        estudanteId:
+          type: string
+          format: uuid
+        tipoOcorrenciaId:
+          type: string
+          format: uuid
+        disciplinaId:
+          type: string
+          format: uuid
+          nullable: true
+        registradoPorId:
+          type: string
+          format: uuid
+          nullable: true
+        dataOcorrencia:
+          type: string
+        observacao:
+          type: string
+          nullable: true
+        enviarEmail:
+          type: boolean
+          nullable: true
+
+    Role:
+      type: object
+      required: [id, nome, ativo, permissoes, criadoEm, atualizadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+        permissoes:
+          type: array
+          items:
+            type: string
+        criadoEm:
+          type: string
+        atualizadoEm:
+          type: string
+
+    RoleInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+        descricao:
+          type: string
+        ativo:
+          type: boolean
+
+    Permissao:
+      type: object
+      required: [id, recurso, acao, chave]
+      properties:
+        id:
+          type: string
+          format: uuid
+        recurso:
+          type: string
+        acao:
+          type: string
+        chave:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+
+    SetPermissoesInput:
+      type: object
+      required: [permissoes]
+      properties:
+        permissoes:
+          type: array
+          items:
+            type: string
+
+    SetRolesInput:
+      type: object
+      required: [roleIds]
+      properties:
+        roleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UploadFotoUsuarioBody:
+      type: object
+      required: [fotoBase64]
+      properties:
+        fotoBase64:
+          type: string
+          description: Base64-encoded JPEG image (data URL)
+
+    Usuario:
+      type: object
+      required: [id, email, codigoAcesso, primeiroAcesso, fotoUrl, roles, disciplinas, criadoEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+          nullable: true
+        email:
+          type: string
+        codigoAcesso:
+          type: string
+        primeiroAcesso:
+          type: boolean
+        fotoUrl:
+          type: string
+          nullable: true
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleSummary"
+        disciplinas:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsuarioDisciplina"
+        criadoEm:
+          type: string
+
+    RoleSummary:
+      type: object
+      required: [id, nome]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+
+    UsuarioCreated:
+      type: object
+      required: [usuario, senhaGerada]
+      properties:
+        usuario:
+          $ref: "#/components/schemas/Usuario"
+        senhaGerada:
+          type: string
+          description: Plain text password shown only once
+
+    UsuarioInput:
+      type: object
+      required: [email]
+      properties:
+        nome:
+          type: string
+          nullable: true
+        email:
+          type: string
+        roleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        disciplinaOfertaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UsuarioUpdate:
+      type: object
+      properties:
+        nome:
+          type: string
+          nullable: true
+        email:
+          type: string
+        primeiroAcesso:
+          type: boolean
+
+    ResetarSenhaResponse:
+      type: object
+      required: [senhaGerada]
+      properties:
+        senhaGerada:
+          type: string
+
+    Disciplina:
+      type: object
+      required: [id, nome, criadoEm, ofertas]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        criadoEm:
+          type: string
+        ofertas:
+          type: array
+          items:
+            $ref: "#/components/schemas/DisciplinaOferta"
+
+    DisciplinaOferta:
+      type: object
+      required: [id, disciplinaId, cursoId, cursoNome, turnoId, turnoNome]
+      properties:
+        id:
+          type: string
+          format: uuid
+        disciplinaId:
+          type: string
+          format: uuid
+        cursoId:
+          type: string
+          format: uuid
+        cursoNome:
+          type: string
+        turnoId:
+          type: string
+          format: uuid
+        turnoNome:
+          type: string
+
+    DisciplinaInput:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+
+    SetDisciplinaOfertasInput:
+      type: object
+      required: [ofertas]
+      properties:
+        ofertas:
+          type: array
+          items:
+            type: object
+            required: [cursoId, turnoId]
+            properties:
+              cursoId:
+                type: string
+                format: uuid
+              turnoId:
+                type: string
+                format: uuid
+
+    SetDisciplinasInput:
+      type: object
+      required: [disciplinaOfertaIds]
+      properties:
+        disciplinaOfertaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
