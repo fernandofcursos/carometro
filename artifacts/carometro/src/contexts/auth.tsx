@@ -44,33 +44,6 @@ const AuthContext = createContext<AuthCtx>({
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const MOCK_USER: AuthUser = {
-  id: "dev-user",
-  nome: "Administrador",
-  email: "admin@escola.edu.br",
-  codigoAcesso: "ADMIN001",
-  primeiroAcesso: false,
-  roles: ["administrador"],
-  allRoles: [{ id: "admin", nome: "administrador" }],
-  activeRoleId: "admin",
-  permissions: [
-    "carometro:view",
-    "estudantes:view",
-    "estudantes:manage",
-    "ocorrencias:view",
-    "ocorrencias:create",
-    "tipos-ocorrencias:manage",
-    "usuarios:manage",
-    "roles:manage",
-    "turmas:manage",
-    "cursos:manage",
-    "turnos:manage",
-    "disciplinas:manage",
-    "import:execute",
-  ],
-  disciplinas: [],
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,10 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         setUser(await res.json());
       } else {
-        setUser(MOCK_USER);
+        setUser(null);
       }
     } catch {
-      setUser(MOCK_USER);
+      setUser(null);
     }
   }, []);
 
