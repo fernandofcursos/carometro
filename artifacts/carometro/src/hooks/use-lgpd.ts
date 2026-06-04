@@ -221,6 +221,9 @@ export function useLGPD(userId: string | null = null) {
   };
 }
 
+// Fase 3: Sincronizar consentimento com a API
+// Envia dados de consentimento para o backend gravar no banco
+// Se falhar, o localStorage já tem a cópia local
 async function syncConsentToAPI({
   purposeId,
   granted,
@@ -230,9 +233,57 @@ async function syncConsentToAPI({
   granted: boolean;
   userId: string | null;
 }) {
+  // Fase 3: Não sincronizar se usuário não está autenticado
+  // Consentimentos não autenticados ficarão em localStorage até o login
+  if (!userId) {
+    console.log("[LGPD API] Usuário não autenticado. Consentimento salvo localmente.");
+    return;
+  }
+
+  // Fase 3: Montar payload para POST /api/consentimentos
+  const payload = {
+    // Finalidade do consentimento (ex: "profile_photo", "biometric")
+    finalidade: purposeId,
+    // Se foi concedido (true) ou revogado (false)
+    consentido: granted,
+    // Versão da política de privacidade
+    versaoPolitica: "1.0",
+    // Base legal para o tratamento (Art. 7 LGPD)
+    baseLegal: granted ? "consentimento" : "interesse_legitimo",
+  };
+
   try {
-    console.log(`[LGPD API] Sincronizando: ${purposeId} = ${granted} para userId=${userId}`);
+    // Fase 3: Fazer requisição POST para sincronizar
+    // API endpoint definido na Fase 3 (routes/lgpd.ts)
+    const response = await fetch("/api/consentimentos", {
+      method: "POST",
+      // Incluir cookies de autenticação (httpOnly)
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    // Verificar se resposta foi bem-sucedida (201 Created)
+    if (!response.ok) {
+      console.error(
+        `[LGPD API] Erro ao sincronizar: ${response.status} ${response.statusText}`
+      );
+      // Falha silenciosa — consentimento já foi salvo em localStorage
+      // Será sincronizado automaticamente quando conexão for restaurada
+      return;
+    }
+
+    // Fase 3: Consentimento sincronizado com sucesso
+    const data = await response.json();
+    console.log("[LGPD API] ✓ Consentimento sincronizado com sucesso", data);
   } catch (err) {
-    console.error("[LGPD API] Falha ao sincronizar consentimento:", err);
+    // Falha silenciosa — consentimento já foi salvo em localStorage
+    // Será sincronizado quando a conexão for restaurada (Fase 4 — Offline)
+    console.warn(
+      "[LGPD API] Falha ao sincronizar consentimento (offline?)",
+      err instanceof Error ? err.message : err
+    );
   }
 }

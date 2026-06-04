@@ -1,0 +1,160 @@
+# =============================================================================
+# Carômetro — docker-compose de desenvolvimento
+#
+# Simula o ambiente Replit localmente.
+# O banco de dados roda dentro do container dev (como no Replit com Neon),
+# mas pode ser substituído por um serviço db separado (ver perfil "split").
+#
+# Uso:
+#   docker compose up            # sobe tudo (frontend + PG interno)
+#   docker compose up --build    # rebuild ao mudar o Dockerfile
+#   docker compose run --rm dev shell   # abre shell interativo
+#   docker compose run --rm dev codegen # roda orval codegen
+#   docker compose run --rm dev db:push # aplica schema
+# =============================================================================
+
+name: carometro-dev
+
+services:
+  # ---------------------------------------------------------------------------
+  # dev — container principal que simula o Replit
+  # ---------------------------------------------------------------------------
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Cache de build entre rebuilds
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache
+    image: carometro-dev:local
+
+    container_name: carometro-dev
+
+    # Montar o repositório como volume (alterações em tempo real)
+    volumes:
+      - ./:/workspace:cached # repositório — edições refletem na hora
+      - pnpm_store:/home/replit/.pnpm-store # cache do pnpm entre restarts
+      - pg_data_dev:/var/lib/postgresql/16/main # dados do PG persistidos
+
+    working_dir: /workspace
+
+    ports:
+      - "5000:5000" # Vite dev server (= Replit porta externa 80)
+      - "8080:8080" # api-server Express
+
+    environment:
+      # Banco de dados — aponta para o PostgreSQL INTERNO ao container
+      DATABASE_URL: postgresql://carometro:carometro@localhost:5432/carometro
+      PGUSER: carometro
+      PGPASSWORD: carometro
+      PGDATABASE: carometro
+
+      # Segurança — TROQUE em produção
+      SESSION_SECRET: dev-secret-troque-em-producao-minimo-64-chars-xxxxxxxxxxxxxxxxx
+      ANTHROPIC_API_KEY: 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
+
+      # Aplicação
+      NODE_ENV: development
+      PORT: 5000
+      BASE_PATH: /
+      LOG_LEVEL: debug
+      FRONTEND_URL: http://localhost:5000
+
+      # E-mail do admin inicial (criado automaticamente se o banco estiver vazio)
+      ADMIN_EMAIL: admin@escola.edu.br
+
+      # REPL_ID vazio = NÃO ativa plugins Replit (cartographer, dev-banner)
+      # que dependem de infra exclusiva do Replit
+      REPL_ID: ""
+
+    # O container precisa de capacidades extras para rodar PostgreSQL internamente
+    # (pg_ctlcluster usa su/sudo internamente)
+    cap_add:
+      - SETUID
+      - SETGID
+
+    # Reiniciar automaticamente em caso de crash durante o desenvolvimento
+    restart: unless-stopped
+
+    # Health check — verifica se o Vite subiu
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s # dá tempo para pnpm install + pg init
+
+    # Comando padrão: iniciar apenas o frontend (idêntico ao Replit)
+    command: ["dev"]
+
+    # stdin_open e tty para poder usar docker attach
+    stdin_open: true
+    tty: true
+
+  # ---------------------------------------------------------------------------
+  # Perfil "split" — PG como serviço separado (mais próximo de produção)
+  # Uso: docker compose --profile split up
+  # ---------------------------------------------------------------------------
+  db:
+    profiles: ["split"]
+    image: postgres:16-alpine
+    container_name: carometro-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: carometro
+      POSTGRES_PASSWORD: carometro
+      POSTGRES_DB: carometro
+      POSTGRES_INITDB_ARGS: "--locale=pt_BR.UTF-8 --encoding=UTF8"
+    volumes:
+      - pg_data_split:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "5433:5432" # porta diferente para não conflitar com o PG interno
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carometro -d carometro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin — interface visual para o banco (opcional)
+  # Uso: docker compose --profile tools up
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    profiles: ["tools"]
+    image: dpage/pgadmin4:latest
+    container_name: carometro-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@carometro.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+# ---------------------------------------------------------------------------
+# Volumes persistentes
+# ---------------------------------------------------------------------------
+volumes:
+  pnpm_store:
+    driver: local
+    name: carometro-pnpm-store # compartilhado entre rebuilds
+
+  pg_data_dev:
+    driver: local
+    name: carometro-pg-dev # dados do PG interno ao container dev
+
+  pg_data_split:
+    driver: local
+    name: carometro-pg-split # dados do PG no perfil split
+
+  pgadmin_data:
+    driver: local
+    name: carometro-pgadmin

@@ -1,0 +1,89 @@
+{
+  // ==========================================================================
+  // .vscode/launch.json
+  //
+  // Configurações de DEBUG que rodam dentro do container.
+  // F5 = iniciar debug da configuração selecionada
+  // ==========================================================================
+  "version": "0.2.0",
+  "configurations": [
+
+    // ------------------------------------------------------------------------
+    // Debug do api-server (Node.js com source maps)
+    // Coloque breakpoints nos arquivos .ts — o VSCode para exatamente neles
+    // ------------------------------------------------------------------------
+    {
+      "name": "🐛 Debug: api-server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@workspace/api-server",
+        "run",
+        "dev"
+      ],
+      "cwd": "/workspace",
+      "env": {
+        "NODE_ENV": "development",
+        "DATABASE_URL": "${env:DATABASE_URL}",
+        "SESSION_SECRET": "${env:SESSION_SECRET}"
+      },
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+      ],
+      "sourceMaps": true,
+      "outFiles": [
+        "/workspace/artifacts/api-server/dist/**/*.js"
+      ],
+      "resolveSourceMapLocations": [
+        "/workspace/**",
+        "!**/node_modules/**"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+
+    // ------------------------------------------------------------------------
+    // Debug de script tsx (seed-admin, reset-password etc.)
+    // ------------------------------------------------------------------------
+    {
+      "name": "🌱 Debug: seed-admin",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@workspace/scripts",
+        "tsx",
+        "src/seed-admin.ts",
+        "admin@escola.edu.br"
+      ],
+      "cwd": "/workspace",
+      "env": {
+        "DATABASE_URL": "${env:DATABASE_URL}"
+      },
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "console": "integratedTerminal"
+    },
+
+    // ------------------------------------------------------------------------
+    // Attach — conectar a um processo Node já em execução (porta 9229)
+    // Útil quando você inicia o servidor no terminal e quer adicionar debug
+    // ------------------------------------------------------------------------
+    {
+      "name": "🔗 Attach: Node process (porta 9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "localRoot": "/workspace",
+      "remoteRoot": "/workspace",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "restart": true
+    }
+  ]
+}

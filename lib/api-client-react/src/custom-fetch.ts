@@ -355,6 +355,39 @@ export async function customFetch<T = unknown>(
     throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
   }
 
+  // Fase 4: Detectar se navegador está offline
+  // Se offline, enfileirar mutação em vez de fazer requisição de rede
+  if (!navigator.onLine) {
+    // Fase 4: Resolver URL final para enfileirar
+    const url = resolveUrl(input);
+
+    // Fase 4: Apenas enfileirar mutações (PUT, POST, DELETE)
+    // GETs offline devem ser servidos pelo Service Worker do cache
+    if (method !== "GET" && method !== "HEAD") {
+      // Fase 4: Importar dinâmico para evitar dependência circular
+      const { enqueueOfflineMutation, OfflineQueuedError } = await import("./offline-queue.js");
+
+      // Fase 4: Enfileirar mutação com body e headers
+      const contentType = headersInit instanceof Headers
+        ? headersInit.get("content-type") ?? "application/json"
+        : (typeof headersInit === "object" && "content-type" in headersInit)
+        ? (headersInit["content-type"] as string)
+        : "application/json";
+
+      // Fase 4: Converter body para tipo genérico para enfileirar
+      const body = typeof init.body === "string" ? JSON.parse(init.body) : init.body;
+
+      enqueueOfflineMutation(url, method, body, contentType);
+
+      // Fase 4: Lançar erro para que caller saiba que foi enfileirado
+      // Mensagem inclui tipo de operação para UI mostrar feedback correto
+      throw new OfflineQueuedError(
+        `[OFFLINE] ${method} ${url} enfileirado para sincronização posterior`
+      );
+    }
+    // Fase 4: GET/HEAD offline — deixar Service Worker responder do cache
+  }
+
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
 
   if (

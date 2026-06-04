@@ -1,0 +1,45 @@
+{
+  // ==========================================================================
+  // .vscode/extensions.json
+  //
+  // Extensões recomendadas para o projeto.
+  // O VSCode sugere instalar estas ao abrir o workspace.
+  //
+  // Nota: quando conectado ao Dev Container, as extensões listadas em
+  // .devcontainer/devcontainer.json são instaladas DENTRO do container.
+  // As extensões aqui são instaladas no VSCode do Mac (UI extensions).
+  // ==========================================================================
+  "recommendations": [
+    // Dev Containers — OBRIGATÓRIA para usar este projeto
+    "ms-vscode-remote.remote-containers",
+
+    // TypeScript
+    "ms-vscode.vscode-typescript-next",
+    "yoavbls.pretty-ts-errors",
+
+    // Qualidade de código
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // Tailwind CSS
+    "bradlc.vscode-tailwindcss",
+
+    // Banco de dados
+    "cweijan.vscode-database-client2",
+
+    // DX
+    "christian-kohler.path-intellisense",
+    "mikestead.dotenv",
+    "formulahendry.auto-rename-tag",
+    "usernamehw.errorlens",
+
+    // Git
+    "eamodio.gitlens",
+    "mhutchie.git-graph"
+  ],
+
+  "unwantedRecommendations": [
+    // Evitar extensões que conflitam com o setup do projeto
+    "hookyqr.beautify"
+  ]
+}

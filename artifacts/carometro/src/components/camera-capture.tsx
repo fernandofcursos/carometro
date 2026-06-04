@@ -4,6 +4,51 @@ import { Camera, Image as ImageIcon, RotateCcw, Check, FlipHorizontal } from "lu
 
 type FacingMode = "environment" | "user";
 
+// Fase 2: Função para comprimir imagem para upload
+// Redimensiona e reduz qualidade para manter tamanho < 150KB
+// Necessário para reduzir uso de armazenamento no banco (LGPD: minimização de dados)
+async function comprimirImagem(base64: string, maxKB = 150): Promise<string> {
+  // Retornar Promise que resolve com imagem comprimida
+  return new Promise((resolve) => {
+    // Criar elemento Image para carregar a foto
+    const img = new Image();
+
+    img.onload = () => {
+      // Criar canvas para desenhar imagem redimensionada
+      const canvas = document.createElement("canvas");
+
+      // Limitar largura máxima a 600px para reduzir resolução
+      // Mantém proporção original da foto
+      const maxW = 600;
+      const ratio = Math.min(1, maxW / img.width);
+      canvas.width = img.width * ratio;
+      canvas.height = img.height * ratio;
+
+      // Desenhar imagem redimensionada no canvas
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Tentar qualidades decrescentes até atingir o limite de tamanho
+      // Começa em 80% de qualidade, reduz em 10% a cada iteração
+      let quality = 0.8;
+      let result = canvas.toDataURL("image/jpeg", quality);
+
+      // Enquanto tamanho > maxKB e qualidade > 30%, reduzir qualidade
+      // Fator 1.37 aproxima o tamanho em base64 do tamanho binário
+      while (result.length > maxKB * 1024 * 1.37 && quality > 0.3) {
+        quality -= 0.1;
+        result = canvas.toDataURL("image/jpeg", quality);
+      }
+
+      // Retornar imagem comprimida em base64
+      resolve(result);
+    };
+
+    // Iniciar carregamento da imagem a partir do base64
+    img.src = base64;
+  });
+}
+
 interface CameraCaptureProps {
   onCapture: (base64Url: string) => void;
   onCancel?: () => void;
@@ -104,29 +149,50 @@ export function CameraCapture({ onCapture, onCancel, initialImage, aspectRatio =
     return canvas.toDataURL("image/jpeg", 0.88);
   };
 
-  const capturePhoto = () => {
+  // Fase 2: Capturar foto e comprimir antes de mostrar preview
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
+    // Crop para manter proporção (3:4 ou 1:1)
     const dataUrl = cropToRatio(video, video.videoWidth, video.videoHeight);
     if (!dataUrl) return;
-    setPreviewUrl(dataUrl);
+
+    // Comprimir imagem para < 150KB (LGPD: minimização de dados)
+    const comprimida = await comprimirImagem(dataUrl);
+
+    // Mostrar preview da imagem comprimida
+    setPreviewUrl(comprimida);
+    // Desligar câmera após capturar
     stopCamera();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fase 2: Upload de arquivo com compressão automática
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Ler arquivo como data URL
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       const img = new Image();
-      img.onload = () => {
+
+      img.onload = async () => {
+        // Crop para manter proporção (3:4 ou 1:1)
         const cropped = cropToRatio(img, img.naturalWidth, img.naturalHeight);
-        setPreviewUrl(cropped || dataUrl);
+
+        // Comprimir imagem cropped (ou original se crop falhou)
+        const comprimida = await comprimirImagem(cropped || dataUrl);
+        setPreviewUrl(comprimida);
       };
+
+      // Iniciar carregamento da imagem
       img.src = dataUrl;
     };
+
+    // Ler arquivo como data URL
     reader.readAsDataURL(file);
+    // Limpar input para permitir selecionar mesmo arquivo novamente
     e.target.value = "";
   };
 

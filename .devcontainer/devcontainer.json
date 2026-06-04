@@ -1,0 +1,153 @@
+{
+  // ==========================================================================
+  // .devcontainer/devcontainer.json
+  //
+  // Configura o VSCode para abrir o projeto DENTRO do container Docker,
+  // exatamente como o Replit roda o ambiente.
+  //
+  // Documentação: https://containers.dev/implementors/json_reference/
+  // ==========================================================================
+  "name": "Carômetro Dev (Replit)",
+
+  // Usar o docker-compose.yml que já existe no projeto
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+
+  "mounts": [
+    "source=claude-code-config-${devcontainerId},target=/home/replit/.claude,type=volume"
+  ],
+
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/replit/.claude",
+    "DISABLE_AUTOUPDATER": "0"
+  },
+
+  // --------------------------------------------------------------------------
+  // Extensões instaladas DENTRO do container
+  // Estas extensões rodam no servidor remoto (dentro do Linux do container),
+  // não na UI do VSCode no Mac. Isso é importante para TypeScript, ESLint etc.
+  // funcionarem corretamente com os paths do Linux.
+  // --------------------------------------------------------------------------
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // TypeScript — usa o TS do projeto (5.9), não o bundled do VSCode
+        "ms-vscode.vscode-typescript-next",
+        "yoavbls.pretty-ts-errors",
+
+        // Qualidade de código
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+
+        // Tailwind CSS 4
+        "bradlc.vscode-tailwindcss",
+
+        // Banco de dados — conecta no PostgreSQL interno
+        "cweijan.vscode-database-client2",
+
+        // DX geral
+        "christian-kohler.path-intellisense",
+        "mikestead.dotenv",
+        "formulahendry.auto-rename-tag",
+        "usernamehw.errorlens",
+
+        // Git
+        "eamodio.gitlens",
+        "mhutchie.git-graph"
+      ],
+
+      "settings": {
+        // TypeScript: usar a versão instalada no projeto, não a do VSCode
+        "typescript.tsdk": "/workspace/node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+
+        // Formatar ao salvar
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+
+        // Tailwind CSS 4 — suporte a cva() e cx()
+        "tailwindCSS.experimental.classRegex": [
+          ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+          ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+        ],
+
+        // ESLint ciente dos workspaces pnpm
+        "eslint.workingDirectories": [
+          { "pattern": "artifacts/*" },
+          { "pattern": "lib/*" }
+        ],
+
+        // Terminal padrão dentro do container = bash
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.shell.linux": "/bin/bash",
+
+        // Conexão automática com o PostgreSQL interno
+        "database-client.autoConnect": true,
+
+        // Formatar por tipo de arquivo
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "[yaml]": { "editor.defaultFormatter": "esbenp.prettier-vscode" }
+      }
+    }
+  },
+
+  // --------------------------------------------------------------------------
+  // Variáveis de ambiente disponíveis dentro do container
+  // Complementam (não substituem) o .env do docker-compose
+  // --------------------------------------------------------------------------
+  "remoteEnv": {
+    "NODE_ENV": "development",
+    "PORT": "5000",
+    "BASE_PATH": "/"
+  },
+
+  // --------------------------------------------------------------------------
+  // Usuário remoto — mesmo usuário definido no Dockerfile
+  // --------------------------------------------------------------------------
+  "remoteUser": "replit",
+
+  // --------------------------------------------------------------------------
+  // Portas encaminhadas automaticamente para o Mac
+  // O VSCode abre estas portas no browser quando o container as anuncia
+  // --------------------------------------------------------------------------
+  "forwardPorts": [5000, 8080, 5432],
+  "portsAttributes": {
+    "5000": {
+      "label": "Frontend (Vite)",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    },
+    "8080": {
+      "label": "API Server",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "silent"
+    }
+  },
+
+  // --------------------------------------------------------------------------
+  // Comando executado UMA VEZ ao criar o container (post-create)
+  // --------------------------------------------------------------------------
+  "postCreateCommand": "echo '✅ Container pronto! Use Ctrl+Shift+B para subir o Vite.'",
+
+  // --------------------------------------------------------------------------
+  // Comando executado ao ABRIR o VSCode no container (post-start)
+  // Útil para garantir que o banco e os schemas estejam sempre atualizados
+  // --------------------------------------------------------------------------
+  "postStartCommand": "pnpm install --prefer-frozen-lockfile --silent 2>/dev/null || true"
+}
