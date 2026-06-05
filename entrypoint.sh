@@ -196,9 +196,9 @@ case "$CMD_ARG" in
     # Aguardar frontend iniciar
     sleep 3
 
-    # api-server (se existir)
+    # api-server (se existir) — sempre na porta 8080 independente de PORT
     if [ -f "artifacts/api-server/package.json" ]; then
-      pnpm --filter @workspace/api-server run dev &
+      PORT=8080 pnpm --filter @workspace/api-server run dev &
       API_PID=$!
       info "api-server PID: $API_PID"
     else
