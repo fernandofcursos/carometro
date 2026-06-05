@@ -1,65 +1,141 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import { createHash } from "crypto";
+import bcrypt from "bcryptjs";
+import { eq, and, isNull } from "drizzle-orm";
+import { db, usuariosTable, rolesTable, usuariosRolesTable } from "@workspace/db";
+import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
 
-// Criar router para rota /api/auth
 const router = Router();
 
-// Schema de validação para login (usando Zod)
-// Garante que os campos obrigatórios estão presentes e têm tipos corretos
+// Aceita e-mail ou código de acesso como identificador
 const loginSchema = z.object({
-  // Código de acesso do usuário (CPF ou matrícula)
-  codigoAcesso: z.string().min(1, "Código de acesso obrigatório"),
-  // Senha do usuário
+  identificador: z.string().min(1, "Identificador obrigatório"),
   senha: z.string().min(1, "Senha obrigatória"),
 });
 
-// POST /api/auth/login — autenticar usuário
-// Retorna JWT em cookie httpOnly
+// Máximo de tentativas antes de bloquear a conta (ISO 27001 A.8.5)
+const MAX_TENTATIVAS = 5;
+// Duração do bloqueio em minutos
+const BLOQUEIO_MINUTOS = 15;
+
+function emailHash(email: string): string {
+  return createHash("sha256").update(email.toLowerCase()).digest("hex");
+}
+
+// POST /api/auth/login
 router.post("/login", async (req: Request, res: Response) => {
   try {
-    // Validar payload com Zod
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-      // Dados inválidos — retornar 400 com detalhes do erro
-      return res.status(400).json({
-        error: "Dados inválidos",
-        issues: parsed.error.issues,
-      });
+      return res.status(400).json({ error: "Dados inválidos", issues: parsed.error.issues });
     }
 
-    const { codigoAcesso, senha } = parsed.data;
+    const { identificador, senha } = parsed.data;
+    const isEmail = identificador.includes("@");
 
-    // TODO: Implementar lógica de login
-    // 1. Buscar usuário no banco por codigoAcesso
-    // 2. Verificar bloqueio por tentativas falhas (ISO 27001 A.8.5)
-    // 3. Comparar senha com bcrypt
-    // 4. Gerar JWT
-    // 5. Registrar auditoria
+    // Buscar usuário por e-mail (hash) ou código de acesso
+    const [usuario] = isEmail
+      ? await db
+          .select()
+          .from(usuariosTable)
+          .where(and(eq(usuariosTable.emailHash, emailHash(identificador)), isNull(usuariosTable.deletadoEm)))
+      : await db
+          .select()
+          .from(usuariosTable)
+          .where(and(eq(usuariosTable.codigoAcesso, identificador.toUpperCase()), isNull(usuariosTable.deletadoEm)));
 
-    // Resposta de exemplo (será implementado na Fase 1.4)
-    res.status(200).json({
-      error: "Login ainda não implementado",
+    if (!usuario) {
+      // Não revelar se o usuário existe ou não (enumeração de usuários)
+      return res.status(401).json({ error: "Identificador ou senha inválidos" });
+    }
+
+    // Verificar bloqueio por tentativas excessivas
+    if (usuario.bloqueadoAte && new Date() < new Date(usuario.bloqueadoAte)) {
+      return res.status(429).json({ error: "Conta temporariamente bloqueada. Tente novamente em alguns minutos." });
+    }
+
+    // Verificar senha com bcrypt
+    const senhaCorreta = await bcrypt.compare(senha, usuario.senhaHash);
+
+    if (!senhaCorreta) {
+      const novasTentativas = (usuario.tentativasLoginFalhas ?? 0) + 1;
+      const bloquear = novasTentativas >= MAX_TENTATIVAS;
+      const bloqueadoAte = bloquear ? new Date(Date.now() + BLOQUEIO_MINUTOS * 60 * 1000) : null;
+
+      await db
+        .update(usuariosTable)
+        .set({
+          tentativasLoginFalhas: novasTentativas,
+          ...(bloquear ? { bloqueadoAte } : {}),
+        })
+        .where(eq(usuariosTable.id, usuario.id));
+
+      return res.status(401).json({ error: "Identificador ou senha inválidos" });
+    }
+
+    // Login bem-sucedido — buscar roles do usuário
+    const rolesRows = await db
+      .select({ nome: rolesTable.nome })
+      .from(usuariosRolesTable)
+      .innerJoin(rolesTable, eq(usuariosRolesTable.roleId, rolesTable.id))
+      .where(eq(usuariosRolesTable.usuarioId, usuario.id));
+
+    const roles = rolesRows.map((r) => r.nome);
+
+    // Resetar tentativas e registrar último login
+    await db
+      .update(usuariosTable)
+      .set({
+        tentativasLoginFalhas: 0,
+        bloqueadoAte: null,
+        ultimoLoginEm: new Date(),
+      })
+      .where(eq(usuariosTable.id, usuario.id));
+
+    // Gerar JWT e definir cookie
+    const token = signToken(usuario.id, roles);
+    setAuthCookie(res, token);
+
+    return res.json({
+      id: usuario.id,
+      nome: usuario.nome,
+      roles,
+      primeiroAcesso: usuario.primeiroAcesso,
     });
   } catch (err) {
     res.status(500).json({ error: "Erro ao fazer login" });
   }
 });
 
-// POST /api/auth/logout — fazer logout
-// Limpar cookie de autenticação
-router.post("/logout", (req: Request, res: Response) => {
-  // Limpar cookie JWT
-  res.clearCookie("token", { path: "/" });
-  // Retornar sucesso
+// POST /api/auth/logout
+router.post("/logout", (_req: Request, res: Response) => {
+  clearAuthCookie(res);
   res.json({ message: "Logout realizado" });
 });
 
-// GET /api/auth/me — obter dados do usuário autenticado
-// Requer middleware requireAuth
-router.get("/me", (req: Request, res: Response) => {
-  // TODO: Implementar quando rotas de autenticação forem conclusas
-  res.status(401).json({ error: "Não autenticado" });
+// GET /api/auth/me — dados do usuário autenticado
+router.get("/me", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const [usuario] = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, primeiroAcesso: usuariosTable.primeiroAcesso })
+      .from(usuariosTable)
+      .where(and(eq(usuariosTable.id, req.usuarioId!), isNull(usuariosTable.deletadoEm)));
+
+    if (!usuario) {
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    const rolesRows = await db
+      .select({ nome: rolesTable.nome })
+      .from(usuariosRolesTable)
+      .innerJoin(rolesTable, eq(usuariosRolesTable.roleId, rolesTable.id))
+      .where(eq(usuariosRolesTable.usuarioId, usuario.id));
+
+    return res.json({ ...usuario, roles: rolesRows.map((r) => r.nome) });
+  } catch {
+    res.status(500).json({ error: "Erro ao buscar usuário" });
+  }
 });
 
-// Exportar router para ser registrado em index.ts
 export default router;

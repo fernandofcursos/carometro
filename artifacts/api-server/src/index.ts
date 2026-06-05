@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { Request, Response, NextFunction } from "express";
+import authRouter from "./routes/auth.js";
 // Fase 3: Importar rotas de LGPD e auditoria
 import lgpdRouter from "./routes/lgpd.js";
 import auditoriaRouter from "./routes/auditoria.js";
@@ -19,8 +20,8 @@ app.use("/api", lgpdRouter);
 // Fase 3: Registrar rotas de auditoria (logs de operações)
 app.use("/api/auditoria", auditoriaRouter);
 
-// TODO: Registrar rotas quando implementadas
-// app.use("/api/auth", authRouter);
+// Registrar rota de autenticação
+app.use("/api/auth", authRouter);
 // app.use("/api/turnos", turnosRouter);
 // app.use("/api/cursos", cursosRouter);
 // app.use("/api/turmas", turmasRouter);
