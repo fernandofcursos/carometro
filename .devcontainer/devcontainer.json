@@ -104,12 +104,11 @@
   },
 
   // --------------------------------------------------------------------------
-  // Variáveis de ambiente disponíveis dentro do container
-  // Complementam (não substituem) o .env do docker-compose
+  // Variáveis de ambiente adicionais dentro do container
+  // Complementam o env_file do docker-compose (.env + .env.local).
   // --------------------------------------------------------------------------
   "remoteEnv": {
     "NODE_ENV": "development",
-    "PORT": "5000",
     "BASE_PATH": "/"
   },
 

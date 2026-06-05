@@ -77,7 +77,12 @@
     {
       "label": "API: api-server dev",
       "type": "shell",
-      "command": "[ -f artifacts/api-server/package.json ] && PORT=8080 pnpm --filter @workspace/api-server run dev || echo '⚠️  api-server ainda não implementado (Fase 1 do roadmap)'",
+      "command": "[ -f artifacts/api-server/package.json ] && PORT=8080 pnpm --filter @workspace/api-server run dev || echo '⚠️  api-server não encontrado'",
+      "options": {
+        "env": {
+          "PORT": "8080"
+        }
+      },
       "group": "build",
       "isBackground": true,
       "presentation": {

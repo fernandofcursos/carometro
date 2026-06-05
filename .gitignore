@@ -1,1 +1,42 @@
+# Dependências
 node_modules
+.pnpm-store
+
+# Build
+dist
+dist-ssr
+
+# Variáveis de ambiente (NUNCA commitar credenciais)
+.env.local
+.env.*.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Editor
+*.suo
+*.sw?
+
+# Cobertura de testes
+coverage
+.nyc_output
+
+# Cache
+.cache
+.turbo
+.eslintcache
+*.tsbuildinfo
+
+# Drizzle
+drizzle/
+
+# Uploads temporários
+uploads/
+tmp/
