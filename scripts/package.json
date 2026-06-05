@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "seed-admin": "tsx ./src/seed-admin.ts",
     "reset-admin-password": "tsx ./src/reset-admin-password.ts",
+    "debug-login": "tsx ./src/debug-login.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
