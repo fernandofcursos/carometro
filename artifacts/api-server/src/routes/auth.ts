@@ -2,8 +2,7 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash } from "crypto";
 import bcrypt from "bcryptjs";
-import { eq, and, isNull } from "drizzle-orm";
-import { db, usuariosTable, rolesTable, usuariosRolesTable } from "@workspace/db";
+import { db, usuariosTable, rolesTable, usuariosRolesTable, eq, and, isNull } from "@workspace/db";
 import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
 
 const router = Router();
