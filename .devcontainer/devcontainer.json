@@ -149,5 +149,5 @@
   // Comando executado ao ABRIR o VSCode no container (post-start)
   // Útil para garantir que o banco e os schemas estejam sempre atualizados
   // --------------------------------------------------------------------------
-  "postStartCommand": "pnpm install --prefer-frozen-lockfile --silent 2>/dev/null || true"
+  "postStartCommand": "[ -d node_modules ] && echo '✅ node_modules já existe, pulando install' || pnpm install --prefer-frozen-lockfile --silent 2>/dev/null || true"
 }
