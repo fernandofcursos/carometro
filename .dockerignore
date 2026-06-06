@@ -1,0 +1,53 @@
+# =============================================================================
+# .dockerignore — Fase 7
+#
+# Exclui do contexto de build do Docker para reduzir tamanho e tempo de build.
+# O contexto é enviado ao Docker daemon antes de executar o Dockerfile.
+# =============================================================================
+
+# Dependências — reinstaladas dentro do container
+node_modules
+**/node_modules
+.pnpm-store
+
+# Builds anteriores — serão gerados dentro do container
+**/dist
+**/dist-ssr
+**/.tmp-introspect
+
+# Credenciais e segredos — NUNCA entrar no contexto de build
+.env
+.env.local
+.env.*.local
+.env.production
+nginx/ssl/*.pem   # Fase 7: certificados TLS ficam fora do contexto de build
+
+# Git — não necessário dentro do container
+.git
+.gitignore
+.gitattributes
+
+# Dev Container — só para VSCode, não para prod
+.devcontainer
+
+# Logs e temporários
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.cache
+.turbo
+*.tsbuildinfo
+uploads/
+tmp/
+
+# Documentação e scripts de dev
+*.md
+replit.md
+.replit
+.agents
+carometro-sequencia-estrategica.md
+
+# Ferramentas de CI/qualidade (não necessárias em prod)
+.eslintcache
+coverage
+.nyc_output

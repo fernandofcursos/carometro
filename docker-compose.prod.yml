@@ -1,0 +1,107 @@
+# =============================================================================
+# docker-compose.prod.yml — Fase 7: orquestração de produção
+#
+# Sobe três serviços: banco PostgreSQL local, api-server e nginx (TLS + frontend).
+# Para usar com Neon (sem serviço db local), comente o bloco "db" e ajuste
+# o DATABASE_URL no .env para apontar para o Neon.
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml logs -f
+#   docker compose -f docker-compose.prod.yml down
+#
+# Pré-requisito:
+#   1. cp .env.example .env && vi .env   (preencher valores reais)
+#   2. bash scripts/gerar-certificado-dev.sh   (ou montar certificado real)
+# =============================================================================
+
+name: carometro-prod  # Fase 7: nome separado do stack de dev (carometro-dev)
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # db — PostgreSQL local (Fase 7: opcional se usar Neon)
+  # Para usar Neon: comente este bloco e ajuste DATABASE_URL no .env
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: carometro-prod-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}      # Fase 7: via .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # Fase 7: via .env
+      POSTGRES_DB:       ${POSTGRES_DB}        # Fase 7: via .env
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data  # Fase 7: volume persistente
+    # Fase 7: porta NÃO exposta externamente em produção (segurança — ISO 27001 A.8.20)
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # api-server — Express + Drizzle ORM (Fase 7)
+  # ---------------------------------------------------------------------------
+  api-server:
+    build:
+      context: .
+      dockerfile: artifacts/api-server/Dockerfile  # Fase 6+7: Dockerfile multi-stage
+    image: carometro-api:latest
+    container_name: carometro-prod-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:   ${DATABASE_URL}            # Fase 7: via .env
+      SESSION_SECRET: ${SESSION_SECRET}          # Fase 7: via .env
+      NODE_ENV:       ${NODE_ENV:-production}
+      LOG_LEVEL:      ${LOG_LEVEL:-info}
+      FRONTEND_URL:   ${FRONTEND_URL}            # Fase 7: necessário para CORS
+      PORT:           8080
+    # Fase 7: porta NÃO exposta externamente — nginx faz o proxy
+    # ports:
+    #   - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy               # Fase 7: aguarda PG estar pronto
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # frontend — nginx: TLS termination + estáticos + proxy /api/* (Fase 6+7)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: artifacts/carometro/Dockerfile  # Fase 6+7: Dockerfile multi-stage
+    image: carometro-frontend:latest
+    container_name: carometro-prod-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"    # Fase 7: redireciona para HTTPS
+      - "443:443"  # Fase 7: HTTPS (câmera exige contexto seguro — Fase 6)
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro         # Fase 6: config com TLS
+      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro     # Fase 6: certificado
+      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro       # Fase 6: chave privada
+      # Fase 7: em produção com Let's Encrypt, substituir pelos caminhos do Certbot:
+      # - /etc/letsencrypt/live/SEU_DOMINIO/fullchain.pem:/etc/nginx/ssl/cert.pem:ro
+      # - /etc/letsencrypt/live/SEU_DOMINIO/privkey.pem:/etc/nginx/ssl/key.pem:ro
+    depends_on:
+      api-server:
+        condition: service_healthy               # Fase 7: só sobe após a API estar pronta
+
+# ---------------------------------------------------------------------------
+# Volumes persistentes (Fase 7)
+# ---------------------------------------------------------------------------
+volumes:
+  postgres_prod_data:
+    driver: local
+    name: carometro-prod-postgres  # Fase 7: nome distinto do volume de dev
