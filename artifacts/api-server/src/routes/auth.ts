@@ -113,6 +113,48 @@ router.post("/logout", (_req: Request, res: Response) => {
   res.json({ message: "Logout realizado" });
 });
 
+// POST /api/auth/change-password — alterar senha (obrigatório no primeiro acesso)
+router.post("/change-password", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      senhaAtual: z.string().min(1, "Senha atual obrigatória"),
+      senhaNova: z.string().min(6, "Nova senha deve ter mínimo 6 caracteres"),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+
+    const { senhaAtual, senhaNova } = parsed.data;
+
+    const [usuario] = await db
+      .select({ id: usuariosTable.id, senhaHash: usuariosTable.senhaHash })
+      .from(usuariosTable)
+      .where(and(eq(usuariosTable.id, req.usuarioId!), isNull(usuariosTable.deletadoEm)));
+
+    if (!usuario) {
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    const senhaCorreta = await bcrypt.compare(senhaAtual, usuario.senhaHash);
+    if (!senhaCorreta) {
+      return res.status(400).json({ error: "Senha atual incorreta" });
+    }
+
+    const novaSenhaHash = await bcrypt.hash(senhaNova, 12);
+
+    await db
+      .update(usuariosTable)
+      .set({ senhaHash: novaSenhaHash, primeiroAcesso: false, atualizadoEm: new Date() })
+      .where(eq(usuariosTable.id, usuario.id));
+
+    return res.status(204).send();
+  } catch {
+    res.status(500).json({ error: "Erro ao alterar senha" });
+  }
+});
+
 // GET /api/auth/me — dados do usuário autenticado
 router.get("/me", requireAuth, async (req: Request, res: Response) => {
   try {
