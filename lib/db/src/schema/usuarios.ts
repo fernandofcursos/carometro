@@ -6,6 +6,13 @@ const bytesAsString = customType<{ data: string; driverData: Buffer }>({
   fromDriver(value: Buffer): string { return value.toString("utf8"); },
 });
 
+// Fase 5: customType para armazenar bytes da foto criptografada como Buffer nativo
+const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() { return "bytea"; },
+  toDriver(value: Buffer): Buffer { return value; },
+  fromDriver(value: Buffer): Buffer { return value; },
+});
+
 export const usuariosTable = pgTable("usuarios", {
   id: uuid("id").primaryKey().defaultRandom(),
   nome: text("nome"),
@@ -23,6 +30,7 @@ export const usuariosTable = pgTable("usuarios", {
   fotoMimeType: varchar("foto_mime_type", { length: 20 }),
   fotoTamanhoBytes: integer("foto_tamanho_bytes"),
   fotoHashIntegridade: char("foto_hash_integridade", { length: 64 }),
+  fotoDados: bytesAsBuffer("foto_dados"), // Fase 5: bytes criptografados da foto (AES-256-CBC, sem foto_url legado)
   criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
   deletadoEm: timestamp("deletado_em", { withTimezone: true }),
