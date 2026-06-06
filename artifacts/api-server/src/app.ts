@@ -1,4 +1,4 @@
-import express, { Express } from "express";
+import express, { Express, Request, Response, NextFunction } from "express"; // Fase 9: adicionado Request/Response/NextFunction para middleware startTime
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -44,6 +44,13 @@ export function createApp(): Express {
   // Logging estruturado — ISO 27001 A.8.15 (logging de eventos de segurança)
   // Pino registra automaticamente todas as requisições/respostas
   app.use(pinoHttp({ level: process.env.LOG_LEVEL ?? "info" }));
+
+  // Fase 9: middleware para medir duração das requisições
+  // req.startTime é usado por registrarAuditoria para calcular duracaoMs
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    req.startTime = Date.now(); // Fase 9: timestamp de início da requisição
+    next();
+  });
 
   // Retornar aplicação configurada (middlewares prontos)
   return app;

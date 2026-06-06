@@ -2,10 +2,12 @@
 // ISO 27001 A.8.15 — logging de eventos de segurança
 // LGPD Art. 37 — registro de operações de tratamento de dados
 
-// Fase 3: Armazenamento em memória de logs (será banco na Fase 9)
-// Em produção, isso vai para auditoriaLogsTable no PostgreSQL
-const AUDIT_LOGS: any[] = [];
-const MAX_LOGS_MEMORY = 1000; // Manter últimos 1000 logs em memória
+// Fase 9: importar db e tabela de auditoria para gravar no banco
+import { db, auditoriaLogsTable } from "@workspace/db";
+
+// Fase 3: Armazenamento em memória de logs (substituído pelo banco na Fase 9)
+// const AUDIT_LOGS: any[] = [];                          // Fase 3 → removido na Fase 9
+// const MAX_LOGS_MEMORY = 1000;                          // Fase 3 → removido na Fase 9
 
 // Fase 3: Tipo para registrar auditoria — matches schema do banco
 export type RegistrarAuditoriaParams = {
@@ -35,59 +37,48 @@ export type RegistrarAuditoriaParams = {
   duracaoMs?: number;
 };
 
-// Fase 3: Registrar operação em logs de auditoria
+// Fase 9: Registrar operação no banco de dados (PostgreSQL via Drizzle)
+// Fase 3: era armazenamento em memória — agora grava em auditoria_logs
 // LGPD Art. 37 — obrigatório registrar operações de tratamento
 // ISO 27001 A.8.15 — logging de eventos de segurança
 export async function registrarAuditoria(params: RegistrarAuditoriaParams): Promise<void> {
   try {
-    // Criar registro de log com timestamp e ambiente
-    const log = {
-      // Auto-incrementado no banco (usar UUID em produção sem banco)
-      id: `log-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      ...params,
-      // Timestamp da operação
-      criadoEm: new Date(),
-      // Ambiente (development, production, test)
-      ambiente: process.env.NODE_ENV ?? "development",
-      // Versão da aplicação (para auditar quebras de comportamento)
-      versaoApp: process.env.npm_package_version ?? "0.0.0",
-    };
+    // Fase 9: inserir diretamente na tabela do banco
+    await db.insert(auditoriaLogsTable).values({      // Fase 9: era AUDIT_LOGS.push(log)
+      tabela:      params.tabela,
+      operacao:    params.operacao,
+      registroId:  params.registroId   ?? undefined,
+      usuarioId:   params.usuarioId    ?? undefined,
+      dadosAntes:  params.dadosAntes   ?? undefined,
+      dadosDepois: params.dadosDepois  ?? undefined,
+      ipOrigem:    params.ipOrigem     ?? undefined,
+      userAgent:   params.userAgent    ?? undefined,
+      endpoint:    params.endpoint     ?? undefined,
+      metodoHttp:  params.metodoHttp   ?? undefined,
+      statusHttp:  params.statusHttp   !== undefined ? params.statusHttp as unknown as number : undefined,
+      duracaoMs:   params.duracaoMs    ?? undefined,
+      ambiente:    process.env.NODE_ENV ?? "development",
+      versaoApp:   process.env.npm_package_version ?? "0.0.0",
+    });
 
-    // TODO: Inserir no banco de dados (Fase 9)
-    // await db.insert(auditoriaLogsTable).values(log);
-
-    // Fase 3: Armazenar em memória temporariamente
-    // Manter últimos MAX_LOGS_MEMORY logs (rotação de logs)
-    AUDIT_LOGS.push(log);
-    if (AUDIT_LOGS.length > MAX_LOGS_MEMORY) {
-      // Remover logs mais antigos
-      AUDIT_LOGS.shift();
-    }
-
-    // Log estruturado em modo desenvolvimento para debug
+    // Fase 3: log estruturado em modo desenvolvimento para debug (mantido na Fase 9)
     if (process.env.NODE_ENV === "development") {
       console.log("[AUDIT]", {
         operacao: params.operacao,
-        tabela: params.tabela,
-        usuario: params.usuarioId ?? "anonymous",
+        tabela:   params.tabela,
+        usuario:  params.usuarioId ?? "anonymous",
         endpoint: params.endpoint,
-        status: params.statusHttp,
-        ip: params.ipOrigem,
+        status:   params.statusHttp,
+        ip:       params.ipOrigem,
       });
     }
   } catch (err) {
     // Não lançar erro — auditoria falhou não deve derrubar a aplicação
-    // Mas registrar em stderr para alertar
+    // Mas registrar em stderr para alertar operações
     console.error("[AUDIT ERROR]", err instanceof Error ? err.message : err);
   }
 }
 
-// Fase 3: Obter logs em memória (para testes/debug)
-export function obterLogsEmMemoria(): any[] {
-  return [...AUDIT_LOGS];
-}
-
-// Fase 3: Limpar logs em memória (para testes)
-export function limparLogsEmMemoria(): void {
-  AUDIT_LOGS.length = 0;
-}
+// Fase 3: funções de memória — mantidas como comentário para referência
+// export function obterLogsEmMemoria(): any[] { return [...AUDIT_LOGS]; }
+// export function limparLogsEmMemoria(): void  { AUDIT_LOGS.length = 0;  }
