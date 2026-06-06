@@ -14,14 +14,15 @@ app.get("/api/healthz", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+// Registrar rota de autenticação — DEVE vir antes de qualquer router com requireAuth
+app.use("/api/auth", authRouter);
+
 // Fase 3: Registrar rotas de LGPD (consentimentos e solicitações de direitos)
-app.use("/api", lgpdRouter);
+// Path específico /api/lgpd evita que requireAuth intercepte /api/auth/*
+app.use("/api/lgpd", lgpdRouter);
 
 // Fase 3: Registrar rotas de auditoria (logs de operações)
 app.use("/api/auditoria", auditoriaRouter);
-
-// Registrar rota de autenticação
-app.use("/api/auth", authRouter);
 // app.use("/api/turnos", turnosRouter);
 // app.use("/api/cursos", cursosRouter);
 // app.use("/api/turmas", turmasRouter);
