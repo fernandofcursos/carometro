@@ -142,11 +142,8 @@
   // --------------------------------------------------------------------------
   // Comando executado UMA VEZ ao criar o container (post-create)
   // --------------------------------------------------------------------------
-  "postCreateCommand": "echo '✅ Container pronto! Use Ctrl+Shift+B para subir o Vite.'",
+  "postCreateCommand": "echo '✅ Container pronto! Use Ctrl+Shift+B para subir os servidores.'",
 
-  // --------------------------------------------------------------------------
-  // Comando executado ao ABRIR o VSCode no container (post-start)
-  // Útil para garantir que o banco e os schemas estejam sempre atualizados
-  // --------------------------------------------------------------------------
-  "postStartCommand": "[ -d node_modules ] && echo '✅ node_modules já existe, pulando install' || pnpm install --prefer-frozen-lockfile --silent 2>/dev/null || true"
+  // Executado a cada reconexão: sincroniza o repo e garante dependências
+  "postStartCommand": "git pull --ff-only origin $(git branch --show-current) 2>/dev/null || true && ([ -d node_modules ] && echo '✅ deps ok' || pnpm install --prefer-frozen-lockfile --silent 2>/dev/null || true)"
 }
