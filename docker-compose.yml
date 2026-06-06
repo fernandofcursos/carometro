@@ -70,6 +70,35 @@ services:
     tty: true
 
   # ---------------------------------------------------------------------------
+  # Fase 6: nginx — TLS termination + proxy reverso (perfil "https")
+  # Uso: docker compose --profile https up -d
+  #
+  # Pré-requisito: gerar certificado com `bash scripts/gerar-certificado-dev.sh`
+  # ---------------------------------------------------------------------------
+  nginx:
+    profiles: ["https"]                                # Fase 6: não sobe no dev padrão
+    image: nginx:alpine
+    container_name: carometro-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"                                        # Fase 6: redireciona para HTTPS
+      - "443:443"                                      # Fase 6: HTTPS (câmera exige)
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro    # Fase 6: config com TLS
+      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro  # Fase 6: certificado
+      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro    # Fase 6: chave privada
+      # Em produção: montar html do build do frontend
+      # - ./artifacts/carometro/dist/public:/usr/share/nginx/html:ro
+    depends_on:
+      dev:
+        condition: service_healthy                     # Fase 6: só sobe após o dev estar pronto
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://localhost/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
   # Perfil "split" — PG como serviço separado (mais próximo de produção)
   # Uso: docker compose --profile split up
   # ---------------------------------------------------------------------------

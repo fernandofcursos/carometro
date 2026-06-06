@@ -40,3 +40,6 @@ drizzle/
 # Uploads temporários
 uploads/
 tmp/
+
+# Fase 6: certificados TLS — chaves privadas nunca vão para o git
+nginx/ssl/*.pem
