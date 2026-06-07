@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Grid, Eye, EyeOff, AtSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AcessibilidadeWidget } from "@/components/acessibilidade-widget"; // widget flutuante no login
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -47,6 +48,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/40 p-4">
+      {/* Widget de acessibilidade disponível no login — fixo no canto inferior esquerdo */}
+      <AcessibilidadeWidget />
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
