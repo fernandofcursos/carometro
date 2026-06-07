@@ -344,13 +344,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { hasPendingConsents } = useLGPD(user?.id ?? null);
   const [lgpdModalOpen, setLgpdModalOpen] = useState(false);
+  const { state, toggleSidebar } = useSidebar(); // Correção toggle: detectar estado collapsed no header
 
   return (
     <div className="min-h-screen flex w-full bg-background/50">
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 flex items-center gap-3 px-4 md:px-8 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+          {/* Mobile: sempre visível para abrir o drawer */}
           <SidebarTrigger className="md:hidden" />
+          {/* Desktop: só aparece quando o sidebar está collapsed (offcanvas) para trazer de volta */}
+          {state === "collapsed" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:flex h-7 w-7"
+              onClick={toggleSidebar}
+              title="Expandir menu"
+            >
+              <PanelLeft className="h-4 w-4 rotate-180" />
+            </Button>
+          )}
           <div className="flex-1" />
           {hasPendingConsents && (
             <button
