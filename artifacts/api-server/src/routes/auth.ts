@@ -2,8 +2,13 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash } from "crypto";
 import bcrypt from "bcryptjs";
-import { db, usuariosTable, rolesTable, usuariosRolesTable, eq, and, isNull } from "@workspace/db";
+import {
+  db, usuariosTable, rolesTable, usuariosRolesTable,
+  rolesPermissoesTable, permissoesTable,
+  eq, and, isNull,
+} from "@workspace/db";
 import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
+import { descriptografarEmail } from "../lib/crypto.js"; // Fase 9: descriptografar e-mail para retornar no /me
 
 const router = Router();
 
@@ -20,6 +25,37 @@ const BLOQUEIO_MINUTOS = 15;
 
 function emailHash(email: string): string {
   return createHash("sha256").update(email.toLowerCase()).digest("hex");
+}
+
+// Helper: buscar roles + permissões de um usuário
+// Retorna shape completo esperado pelo AuthContext do frontend
+async function buscarRolesEPermissoes(usuarioId: string) {
+  // Roles com id e nome (para allRoles + activeRoleId)
+  const rolesRows = await db
+    .select({ id: rolesTable.id, nome: rolesTable.nome })
+    .from(usuariosRolesTable)
+    .innerJoin(rolesTable, eq(usuariosRolesTable.roleId, rolesTable.id))
+    .where(eq(usuariosRolesTable.usuarioId, usuarioId));
+
+  // Permissões de todas as roles do usuário (join roles_permissoes → permissoes)
+  const permsRows = rolesRows.length > 0
+    ? await db
+        .select({ recurso: permissoesTable.recurso, acao: permissoesTable.acao })
+        .from(usuariosRolesTable)
+        .innerJoin(rolesPermissoesTable, eq(rolesPermissoesTable.roleId, usuariosRolesTable.roleId))
+        .innerJoin(permissoesTable, eq(permissoesTable.id, rolesPermissoesTable.permissaoId))
+        .where(eq(usuariosRolesTable.usuarioId, usuarioId))
+    : [];
+
+  // Deduplicar permissões (usuário pode ter mesma permissão via múltiplas roles)
+  const permissionsSet = new Set(permsRows.map((p) => `${p.recurso}:${p.acao}`));
+
+  return {
+    roles:        rolesRows.map((r) => r.nome),           // string[] para JWT e hasRole()
+    allRoles:     rolesRows,                               // Role[] para switcher de perfil
+    activeRoleId: rolesRows[0]?.id ?? null,               // primeira role como ativa (default)
+    permissions:  Array.from(permissionsSet),              // "recurso:acao"[] para hasPermission()
+  };
 }
 
 // POST /api/auth/login
@@ -73,34 +109,34 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Identificador ou senha inválidos" });
     }
 
-    // Login bem-sucedido — buscar roles do usuário
-    const rolesRows = await db
-      .select({ nome: rolesTable.nome })
-      .from(usuariosRolesTable)
-      .innerJoin(rolesTable, eq(usuariosRolesTable.roleId, rolesTable.id))
-      .where(eq(usuariosRolesTable.usuarioId, usuario.id));
-
-    const roles = rolesRows.map((r) => r.nome);
+    // Login bem-sucedido — buscar roles + permissões
+    const { roles, allRoles, activeRoleId, permissions } = await buscarRolesEPermissoes(usuario.id);
 
     // Resetar tentativas e registrar último login
     await db
       .update(usuariosTable)
-      .set({
-        tentativasLoginFalhas: 0,
-        bloqueadoAte: null,
-        ultimoLoginEm: new Date(),
-      })
+      .set({ tentativasLoginFalhas: 0, bloqueadoAte: null, ultimoLoginEm: new Date() })
       .where(eq(usuariosTable.id, usuario.id));
 
     // Gerar JWT e definir cookie
     const token = signToken(usuario.id, roles);
     setAuthCookie(res, token);
 
+    // Descriptografar e-mail para retornar na resposta (dados pessoais — LGPD)
+    let email = "";
+    try { email = descriptografarEmail(usuario.emailEncrypted); } catch { /* mantém vazio */ }
+
     return res.json({
-      id: usuario.id,
-      nome: usuario.nome,
+      id:            usuario.id,
+      nome:          usuario.nome,
+      email,                                               // adicionado: frontend usa para exibir no sidebar
+      codigoAcesso:  usuario.codigoAcesso,                 // adicionado: AuthUser shape
       roles,
+      allRoles,                                            // adicionado: Role[] para switcher de perfil
+      activeRoleId,                                        // adicionado: perfil ativo default
+      permissions,                                         // adicionado: permissões para guards de menu
       primeiroAcesso: usuario.primeiroAcesso,
+      disciplinas:   [],                                   // adicionado: placeholder (implementar na Fase 1e)
     });
   } catch (err) {
     res.status(500).json({ error: "Erro ao fazer login" });
@@ -155,11 +191,18 @@ router.post("/change-password", requireAuth, async (req: Request, res: Response)
   }
 });
 
-// GET /api/auth/me — dados do usuário autenticado
+// GET /api/auth/me — dados completos do usuário autenticado
+// Retorna shape AuthUser completo (roles, allRoles, activeRoleId, permissions, email, disciplinas)
 router.get("/me", requireAuth, async (req: Request, res: Response) => {
   try {
     const [usuario] = await db
-      .select({ id: usuariosTable.id, nome: usuariosTable.nome, primeiroAcesso: usuariosTable.primeiroAcesso })
+      .select({
+        id:             usuariosTable.id,
+        nome:           usuariosTable.nome,
+        emailEncrypted: usuariosTable.emailEncrypted, // necessário para descriptografar
+        codigoAcesso:   usuariosTable.codigoAcesso,
+        primeiroAcesso: usuariosTable.primeiroAcesso,
+      })
       .from(usuariosTable)
       .where(and(eq(usuariosTable.id, req.usuarioId!), isNull(usuariosTable.deletadoEm)));
 
@@ -167,15 +210,66 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Usuário não encontrado" });
     }
 
-    const rolesRows = await db
-      .select({ nome: rolesTable.nome })
-      .from(usuariosRolesTable)
-      .innerJoin(rolesTable, eq(usuariosRolesTable.roleId, rolesTable.id))
-      .where(eq(usuariosRolesTable.usuarioId, usuario.id));
+    const { roles, allRoles, activeRoleId, permissions } = await buscarRolesEPermissoes(usuario.id);
 
-    return res.json({ ...usuario, roles: rolesRows.map((r) => r.nome) });
+    // Descriptografar e-mail (LGPD: dado pessoal armazenado criptografado)
+    let email = "";
+    try { email = descriptografarEmail(usuario.emailEncrypted); } catch { /* mantém vazio */ }
+
+    return res.json({
+      id:            usuario.id,
+      nome:          usuario.nome,
+      email,
+      codigoAcesso:  usuario.codigoAcesso,
+      roles,
+      allRoles,
+      activeRoleId,
+      permissions,
+      primeiroAcesso: usuario.primeiroAcesso,
+      disciplinas:   [],
+    });
   } catch {
     res.status(500).json({ error: "Erro ao buscar usuário" });
+  }
+});
+
+// POST /api/auth/switch-role — trocar perfil ativo (multi-role)
+router.post("/switch-role", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { roleId } = req.body as { roleId?: string };
+    if (!roleId) return res.status(400).json({ error: "roleId obrigatório" });
+
+    // Verificar que o usuário realmente possui a role solicitada
+    const [vinculo] = await db
+      .select({ roleId: usuariosRolesTable.roleId })
+      .from(usuariosRolesTable)
+      .where(and(
+        eq(usuariosRolesTable.usuarioId, req.usuarioId!),
+        eq(usuariosRolesTable.roleId, roleId),
+      ));
+
+    if (!vinculo) return res.status(403).json({ error: "Perfil não autorizado para este usuário" });
+
+    // Retornar dados atualizados com nova role ativa
+    const [usuario] = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, emailEncrypted: usuariosTable.emailEncrypted, codigoAcesso: usuariosTable.codigoAcesso, primeiroAcesso: usuariosTable.primeiroAcesso })
+      .from(usuariosTable)
+      .where(eq(usuariosTable.id, req.usuarioId!));
+
+    const { roles, allRoles, permissions } = await buscarRolesEPermissoes(usuario.id);
+
+    let email = "";
+    try { email = descriptografarEmail(usuario.emailEncrypted); } catch { /* */ }
+
+    return res.json({
+      id: usuario.id, nome: usuario.nome, email,
+      codigoAcesso: usuario.codigoAcesso,
+      roles, allRoles,
+      activeRoleId: roleId,       // role explicitamente trocada
+      permissions, primeiroAcesso: usuario.primeiroAcesso, disciplinas: [],
+    });
+  } catch {
+    res.status(500).json({ error: "Erro ao trocar perfil" });
   }
 });
 

@@ -95,6 +95,17 @@ export function descriptografarFoto(
   return dadosBrutos;
 }
 
+// Descriptografar e-mail armazenado como "ivHex:encryptedHex" em bytea
+// Formato gerado pelo seed-admin.ts: iv.toString("hex") + ":" + encrypted.toString("hex")
+export function descriptografarEmail(encrypted: string): string {
+  const [ivHex, encHex] = encrypted.split(":");
+  if (!ivHex || !encHex) return "";
+  const iv = Buffer.from(ivHex, "hex");
+  const encBuf = Buffer.from(encHex, "hex");
+  const decipher = createDecipheriv("aes-256-cbc", getChaveEncriptacao(), iv);
+  return Buffer.concat([decipher.update(encBuf), decipher.final()]).toString("utf8");
+}
+
 // Verificar integridade de foto descriptografada
 // Recomputa hash SHA-256 dos dados descriptografados e compara com hash armazenado
 export function verificarIntegridade(
