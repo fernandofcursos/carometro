@@ -16,7 +16,7 @@ router.get("/", requirePermissao("cursos:manage"), async (req: Request, res: Res
       .from(cursosTable)
       .where(isNull(cursosTable.deletadoEm))
       .orderBy(cursosTable.nome);
-    res.json({ cursos });
+    res.json(cursos);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar cursos" });
   }

@@ -12,7 +12,7 @@ router.use(requireAuth);
 router.get("/", requirePermissao("disciplinas:manage"), async (req: Request, res: Response) => {
   try {
     const disciplinas = await db.select().from(disciplinasTable).orderBy(disciplinasTable.nome);
-    res.json({ disciplinas });
+    res.json(disciplinas);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar disciplinas" });
   }

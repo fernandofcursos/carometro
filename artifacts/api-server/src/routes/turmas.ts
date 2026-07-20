@@ -29,7 +29,7 @@ router.get("/", requirePermissao("turmas:manage"), async (req: Request, res: Res
       .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
       .where(isNull(turmasTable.deletadoEm))
       .orderBy(turmasTable.sigla);
-    res.json({ turmas });
+    res.json(turmas);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar turmas" });
   }

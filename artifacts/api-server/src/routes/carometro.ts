@@ -7,27 +7,27 @@ import { requirePermissao } from "../lib/permissions.js";
 const router = Router();
 router.use(requireAuth);
 
-// GET /api/carometro — grid de fotos com filtros
-// Filtros: ?turmaId=uuid&cursoId=uuid&busca=texto&comFoto=true
-// Retorna lista com foto em base64 para exibição no grid
+// GET /api/carometro — retorna CarometroGroup[] agrupado por turma
+// Filtros: ?turmaId=uuid&cursoId=uuid&turnoId=uuid&busca=texto
 router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Response) => {
   try {
-    const { turmaId, cursoId, busca, comFoto } = req.query;
+    const { turmaId, cursoId, turnoId, busca } = req.query;
 
     const condicoes = [isNull(estudantesTable.deletadoEm)];
     if (turmaId) condicoes.push(eq(estudantesTable.turmaId, turmaId as string));
     if (cursoId) condicoes.push(eq(turmasTable.cursoId, cursoId as string));
+    if (turnoId) condicoes.push(eq(turmasTable.turnoId, turnoId as string));
 
     const rows = await db
       .select({
-        id:          estudantesTable.id,
-        nome:        estudantesTable.nome,
-        registro:    estudantesTable.registro,
-        turmaId:     estudantesTable.turmaId,
-        turmaSigla:  turmasTable.sigla,
-        cursoNome:   cursosTable.nome,
-        turnoNome:   turnosTable.nome,
-        // foto — descriptografada no loop abaixo
+        id:            estudantesTable.id,
+        nome:          estudantesTable.nome,
+        registro:      estudantesTable.registro,
+        turmaId:       estudantesTable.turmaId,
+        turmaSigla:    turmasTable.sigla,
+        turmaDescricao: turmasTable.descricao,
+        cursoNome:     cursosTable.nome,
+        turnoNome:     turnosTable.nome,
         fotoDados:           estudantesTable.fotoDados,
         fotoIv:              estudantesTable.fotoIv,
         fotoMimeType:        estudantesTable.fotoMimeType,
@@ -39,43 +39,54 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
       .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
       .where(and(...condicoes))
-      .orderBy(estudantesTable.nome);
+      .orderBy(turmasTable.sigla, estudantesTable.nome);
 
-    // Filtros em memória para busca e comFoto
-    const filtrados = rows.filter((r) => {
-      if (busca && !r.nome.toLowerCase().includes((busca as string).toLowerCase()) && !r.registro.includes(busca as string)) return false;
-      if (comFoto === "true" && !r.fotoStorageKey) return false;
-      return true;
-    });
+    // Filtro de busca em memória
+    const filtrados = busca
+      ? rows.filter((r) =>
+          r.nome.toLowerCase().includes((busca as string).toLowerCase()) ||
+          r.registro.includes(busca as string)
+        )
+      : rows;
 
-    // Descriptografar fotos e converter para base64 data URL
-    const estudantes = filtrados.map((r) => {
-      let fotoDataUrl: string | null = null;
+    // Descriptografar fotos e agrupar por turma
+    const turmaMap = new Map<string, {
+      turmaId: string; turmaSigla: string; turmaDescricao: string;
+      turnoNome: string; cursoNome: string;
+      estudantes: { id: string; nome: string; registro: string; fotoUrl: string | null }[];
+    }>();
 
+    for (const r of filtrados) {
+      const tid = r.turmaId;
+      if (!turmaMap.has(tid)) {
+        turmaMap.set(tid, {
+          turmaId:        tid,
+          turmaSigla:     r.turmaSigla ?? "",
+          turmaDescricao: r.turmaDescricao ?? "",
+          turnoNome:      r.turnoNome ?? "",
+          cursoNome:      r.cursoNome ?? "",
+          estudantes:     [],
+        });
+      }
+
+      let fotoUrl: string | null = null;
       if (r.fotoDados && r.fotoIv) {
         try {
           const dadosBrutos = descriptografarFoto(r.fotoDados, r.fotoIv);
           if (!r.fotoHashIntegridade || verificarIntegridade(dadosBrutos, r.fotoHashIntegridade)) {
-            fotoDataUrl = `data:${r.fotoMimeType ?? "image/jpeg"};base64,${dadosBrutos.toString("base64")}`;
+            fotoUrl = `data:${r.fotoMimeType ?? "image/jpeg"};base64,${dadosBrutos.toString("base64")}`;
           }
         } catch {
-          // foto corrompida — retornar sem foto em vez de falhar
+          // foto corrompida — incluir estudante sem foto
         }
       }
 
-      return {
-        id:         r.id,
-        nome:       r.nome,
-        registro:   r.registro,
-        turmaId:    r.turmaId,
-        turmaSigla: r.turmaSigla,
-        cursoNome:  r.cursoNome,
-        turnoNome:  r.turnoNome,
-        foto:       fotoDataUrl,
-      };
-    });
+      turmaMap.get(tid)!.estudantes.push({ id: r.id, nome: r.nome, registro: r.registro, fotoUrl });
+    }
 
-    res.json({ estudantes, total: estudantes.length });
+    // Retorna CarometroGroup[] ordenado pela sigla da turma
+    const groups = [...turmaMap.values()].sort((a, b) => a.turmaSigla.localeCompare(b.turmaSigla));
+    res.json(groups);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao carregar carômetro" });
   }

@@ -37,7 +37,7 @@ router.get("/", requirePermissao("ocorrencias:view"), async (req: Request, res: 
           : isNull(ocorrenciasTable.deletadoEm)
       )
       .orderBy(ocorrenciasTable.dataOcorrencia);
-    res.json({ ocorrencias });
+    res.json(ocorrencias);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar ocorrências" });
   }

@@ -12,7 +12,7 @@ router.use(requireAuth);
 router.get("/", requirePermissao("tipos-ocorrencias:manage"), async (req: Request, res: Response) => {
   try {
     const tipos = await db.select().from(tiposOcorrenciasTable).orderBy(tiposOcorrenciasTable.descricao);
-    res.json({ tipos });
+    res.json(tipos);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar tipos de ocorrência" });
   }

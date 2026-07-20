@@ -12,7 +12,7 @@ router.use(requireAuth);
 router.get("/", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
     const turnos = await db.select().from(turnosTable).orderBy(turnosTable.nome);
-    res.json({ turnos });
+    res.json(turnos);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar turnos" });
   }

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { createHash, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAuth } from "../lib/auth.js";
@@ -70,7 +70,7 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
       })
     );
 
-    res.json({ usuarios: usuariosComRoles });
+    res.json(usuariosComRoles);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar usuários" });
   }

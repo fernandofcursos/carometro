@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import * as XLSX from "xlsx";
-import { db, estudantesTable, turmasTable, eq, isNull, and } from "@workspace/db";
+import { db, estudantesTable, turmasTable, cursosTable, eq, isNull } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
@@ -9,104 +8,148 @@ import { registrarAuditoria } from "../lib/audit.js";
 const router = Router();
 router.use(requireAuth);
 
-// Colunas esperadas no XLSX (case-insensitive, trim)
-const COLUNAS_ESPERADAS = ["nome", "registro", "turma"] as const;
+// Shape dos dados vindos do frontend: { rows: [{ data: { nome, ..., } }] }
+const rowSchema = z.object({ data: z.record(z.unknown()) });
 
-const rowSchema = z.object({
-  nome:     z.string().min(2).max(200),
-  registro: z.string().min(1).max(50),
-  turma:    z.string().min(1),       // sigla da turma
-  observacao: z.string().optional(),
+function norm(val: unknown): string {
+  return String(val ?? "").trim();
+}
+
+// POST /api/import/cursos — importar cursos via rows[]
+router.post("/cursos", requirePermissao("import:execute"), async (req: Request, res: Response) => {
+  try {
+    const { rows } = z.object({ rows: z.array(rowSchema) }).parse(req.body);
+    let imported = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      const nome = norm(row.data["nome"] ?? row.data["Curso"] ?? row.data["curso"]);
+      if (!nome) { errors.push("Nome do curso é obrigatório"); continue; }
+      try {
+        await db.insert(cursosTable).values({ nome }).onConflictDoNothing();
+        imported++;
+      } catch (err) {
+        errors.push(`"${nome}": ${err instanceof Error ? err.message : "erro"}`);
+      }
+    }
+
+    await registrarAuditoria({
+      tabela: "cursos", operacao: "INSERT",
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "POST /api/import/cursos", metodoHttp: "POST", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ imported, errors });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
 });
 
-// POST /api/import — importar estudantes via XLSX (base64 no body)
-// Corpo: { arquivo: string } onde arquivo é base64 do .xlsx
-// Retorna: { inseridos, atualizados, erros }
-router.post("/", requirePermissao("import:execute"), async (req: Request, res: Response) => {
+// POST /api/import/turmas — importar turmas via rows[]
+router.post("/turmas", requirePermissao("import:execute"), async (req: Request, res: Response) => {
   try {
-    const { arquivo } = z.object({ arquivo: z.string().min(1) }).parse(req.body);
+    const { rows } = z.object({ rows: z.array(rowSchema) }).parse(req.body);
+    let imported = 0;
+    const errors: string[] = [];
 
-    // Decodificar base64 → buffer → parsear XLSX
-    const buffer = Buffer.from(
-      arquivo.includes(",") ? arquivo.split(",")[1] : arquivo,
-      "base64"
-    );
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    if (!sheet) return res.status(400).json({ error: "Planilha vazia ou inválida" });
+    // Carregar cursos e turnos para lookup por nome
+    const cursos = await db.select({ id: cursosTable.id, nome: cursosTable.nome }).from(cursosTable).where(isNull(cursosTable.deletadoEm));
+    const cursoMap = new Map(cursos.map((c) => [c.nome.toLowerCase(), c.id]));
 
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-    if (rows.length === 0) return res.status(400).json({ error: "Nenhuma linha encontrada na planilha" });
+    const { turmasTable: t2, turnosTable } = await import("@workspace/db");
+    const turnos = await db.select({ id: turnosTable.id, nome: turnosTable.nome }).from(turnosTable);
+    const turnoMap = new Map(turnos.map((t) => [t.nome.toLowerCase(), t.id]));
 
-    // Normalizar chaves (lowercase + trim)
-    const normalizar = (row: Record<string, unknown>) =>
-      Object.fromEntries(Object.entries(row).map(([k, v]) => [k.toLowerCase().trim(), String(v).trim()]));
+    for (const row of rows) {
+      const sigla  = norm(row.data["sigla"] ?? row.data["Sigla"] ?? row.data["Turma"]);
+      const desc   = norm(row.data["descricao"] ?? row.data["Descrição"] ?? row.data["Descricao"] ?? sigla);
+      const curso  = norm(row.data["curso"] ?? row.data["Curso"]);
+      const turno  = norm(row.data["turno"] ?? row.data["Turno"]);
 
-    // Carregar todas as turmas para lookup por sigla
+      if (!sigla) { errors.push("Sigla é obrigatória"); continue; }
+
+      const cursoId = cursoMap.get(curso.toLowerCase());
+      const turnoId = turnoMap.get(turno.toLowerCase());
+
+      if (!cursoId) { errors.push(`Sigla "${sigla}": curso "${curso}" não encontrado`); continue; }
+      if (!turnoId) { errors.push(`Sigla "${sigla}": turno "${turno}" não encontrado`); continue; }
+
+      try {
+        await db.insert(t2).values({ sigla, descricao: desc, cursoId, turnoId }).onConflictDoNothing();
+        imported++;
+      } catch (err) {
+        errors.push(`"${sigla}": ${err instanceof Error ? err.message : "erro"}`);
+      }
+    }
+
+    await registrarAuditoria({
+      tabela: "turmas", operacao: "INSERT",
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "POST /api/import/turmas", metodoHttp: "POST", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ imported, errors });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// POST /api/import/estudantes — importar estudantes via rows[]
+router.post("/estudantes", requirePermissao("import:execute"), async (req: Request, res: Response) => {
+  try {
+    const { rows } = z.object({ rows: z.array(rowSchema) }).parse(req.body);
+    let imported = 0;
+    const errors: string[] = [];
+
+    // Carregar turmas para lookup por sigla
     const turmas = await db
       .select({ id: turmasTable.id, sigla: turmasTable.sigla })
       .from(turmasTable)
       .where(isNull(turmasTable.deletadoEm));
     const turmaMap = new Map(turmas.map((t) => [t.sigla.toLowerCase(), t.id]));
 
-    const resultado = { inseridos: 0, atualizados: 0, erros: [] as { linha: number; erro: string }[] };
+    for (const row of rows) {
+      const nome     = norm(row.data["nome"] ?? row.data["Nome"]);
+      const registro = norm(row.data["registro"] ?? row.data["Registro"] ?? row.data["Matrícula"] ?? row.data["Matricula"]);
+      const turma    = norm(row.data["turma"] ?? row.data["Turma"]);
+      const observacao = norm(row.data["observacao"] ?? row.data["Observação"] ?? row.data["Observacao"]) || null;
 
-    for (let i = 0; i < rows.length; i++) {
-      const linha = i + 2; // linha 1 = cabeçalho
+      if (!nome || !registro) { errors.push(`Linha inválida: nome e registro são obrigatórios`); continue; }
+
+      const turmaId = turmaMap.get(turma.toLowerCase());
+      if (!turmaId) { errors.push(`Registro "${registro}": turma "${turma}" não encontrada`); continue; }
+
       try {
-        const norm = normalizar(rows[i]);
-        const parsed = rowSchema.parse(norm);
-
-        const turmaId = turmaMap.get(parsed.turma.toLowerCase());
-        if (!turmaId) {
-          resultado.erros.push({ linha, erro: `Turma "${parsed.turma}" não encontrada` });
-          continue;
-        }
-
-        // Verificar se estudante já existe pelo registro
         const [existente] = await db
           .select({ id: estudantesTable.id })
           .from(estudantesTable)
-          .where(eq(estudantesTable.registro, parsed.registro));
+          .where(eq(estudantesTable.registro, registro));
 
         if (existente) {
-          // Atualizar dados (mantendo foto se houver)
-          await db
-            .update(estudantesTable)
-            .set({ nome: parsed.nome, turmaId, observacao: parsed.observacao ?? null, atualizadoEm: new Date() })
+          await db.update(estudantesTable)
+            .set({ nome, turmaId, observacao, atualizadoEm: new Date() })
             .where(eq(estudantesTable.id, existente.id));
-          resultado.atualizados++;
         } else {
-          // Inserir novo estudante
-          await db.insert(estudantesTable).values({
-            nome: parsed.nome, registro: parsed.registro, turmaId, observacao: parsed.observacao ?? null,
-          });
-          resultado.inseridos++;
+          await db.insert(estudantesTable).values({ nome, registro, turmaId, observacao });
         }
+        imported++;
       } catch (err) {
-        resultado.erros.push({
-          linha,
-          erro: err instanceof z.ZodError
-            ? err.errors.map((e) => e.message).join("; ")
-            : err instanceof Error ? err.message : "Erro desconhecido",
-        });
+        errors.push(`Registro "${registro}": ${err instanceof Error ? err.message : "erro"}`);
       }
     }
 
     await registrarAuditoria({
       tabela: "estudantes", operacao: "INSERT",
       usuarioId: req.usuarioId, ipOrigem: req.ip,
-      endpoint: "POST /api/import", metodoHttp: "POST", statusHttp: 200,
+      endpoint: "POST /api/import/estudantes", metodoHttp: "POST", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
 
-    res.json({
-      ...resultado,
-      total: rows.length,
-      mensagem: `${resultado.inseridos} inseridos, ${resultado.atualizados} atualizados, ${resultado.erros.length} erros`,
-    });
+    res.json({ imported, errors });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Erro ao processar planilha" });
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
 });
 

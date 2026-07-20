@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { estudantesTable } from "./estudantes";
 import { tiposOcorrenciasTable } from "./tipos-ocorrencias";
 import { disciplinasTable } from "./disciplinas";

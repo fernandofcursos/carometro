@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, rolesTable, permissoesTable, rolesPermissoesTable, usuariosRolesTable, eq, and } from "@workspace/db";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
@@ -36,7 +36,7 @@ router.get("/", requirePermissao("roles:manage"), async (req: Request, res: Resp
       })
     );
 
-    res.json({ roles: rolesComPermissoes });
+    res.json(rolesComPermissoes);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar roles" });
   }
@@ -158,7 +158,7 @@ router.delete("/:id", requirePermissao("roles:manage"), async (req: Request, res
 router.get("/permissoes", requirePermissao("roles:manage"), async (req: Request, res: Response) => {
   try {
     const permissoes = await db.select().from(permissoesTable).orderBy(permissoesTable.recurso, permissoesTable.acao);
-    res.json({ permissoes });
+    res.json(permissoes);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar permissões" });
   }

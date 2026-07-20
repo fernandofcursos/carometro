@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const statusEnum = pgEnum("status_ocorrencia", ["ativo", "inativo"]);
 
