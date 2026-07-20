@@ -46,7 +46,7 @@ router.get("/", requirePermissao("ocorrencias:view"), async (req: Request, res: 
 // GET /api/ocorrencias/:id
 router.get("/:id", requirePermissao("ocorrencias:view"), async (req: Request, res: Response) => {
   try {
-    const [ocorrencia] = await db.select().from(ocorrenciasTable).where(eq(ocorrenciasTable.id, req.params.id));
+    const [ocorrencia] = await db.select().from(ocorrenciasTable).where(eq(ocorrenciasTable.id, String(req.params.id)));
     if (!ocorrencia || ocorrencia.deletadoEm) return res.status(404).json({ error: "Ocorrência não encontrada" });
     res.json(ocorrencia);
   } catch (err) {
@@ -81,7 +81,7 @@ router.put("/:id", requirePermissao("ocorrencias:create"), async (req: Request, 
     const [ocorrencia] = await db
       .update(ocorrenciasTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(ocorrenciasTable.id, req.params.id))
+      .where(eq(ocorrenciasTable.id, String(req.params.id)))
       .returning();
     if (!ocorrencia) return res.status(404).json({ error: "Ocorrência não encontrada" });
     await registrarAuditoria({
@@ -102,7 +102,7 @@ router.delete("/:id", requirePermissao("ocorrencias:create"), async (req: Reques
     const [ocorrencia] = await db
       .update(ocorrenciasTable)
       .set({ deletadoEm: new Date() })
-      .where(eq(ocorrenciasTable.id, req.params.id))
+      .where(eq(ocorrenciasTable.id, String(req.params.id)))
       .returning();
     if (!ocorrencia) return res.status(404).json({ error: "Ocorrência não encontrada" });
     await registrarAuditoria({

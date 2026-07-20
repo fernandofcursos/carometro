@@ -80,7 +80,7 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
 router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
     const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
-    const [u] = await db.select().from(usuariosTable).where(eq(usuariosTable.id, req.params.id));
+    const [u] = await db.select().from(usuariosTable).where(eq(usuariosTable.id, String(req.params.id)));
     if (!u || u.deletadoEm) return res.status(404).json({ error: "Usuário não encontrado" });
 
     const roles = await db
@@ -159,7 +159,7 @@ router.put("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
     const [u] = await db
       .update(usuariosTable)
       .set({ nome, atualizadoEm: new Date() })
-      .where(eq(usuariosTable.id, req.params.id))
+      .where(eq(usuariosTable.id, String(req.params.id)))
       .returning();
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
     await registrarAuditoria({
@@ -179,15 +179,15 @@ router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Reques
   try {
     const { roleIds } = z.object({ roleIds: z.array(z.string().uuid()) }).parse(req.body);
 
-    await db.delete(usuariosRolesTable).where(eq(usuariosRolesTable.usuarioId, req.params.id));
+    await db.delete(usuariosRolesTable).where(eq(usuariosRolesTable.usuarioId, String(req.params.id)));
     if (roleIds.length > 0) {
       await db.insert(usuariosRolesTable).values(
-        roleIds.map((roleId) => ({ usuarioId: req.params.id, roleId, concedidoPor: req.usuarioId }))
+        roleIds.map((roleId) => ({ usuarioId: String(req.params.id), roleId, concedidoPor: req.usuarioId }))
       );
     }
 
     await registrarAuditoria({
-      tabela: "usuarios_roles", operacao: "UPDATE", registroId: req.params.id,
+      tabela: "usuarios_roles", operacao: "UPDATE", registroId: String(req.params.id),
       usuarioId: req.usuarioId, ipOrigem: req.ip,
       endpoint: "PUT /api/usuarios/:id/roles", metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
@@ -203,13 +203,13 @@ router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Reques
 router.delete("/:id", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
     // Não permitir auto-exclusão
-    if (req.params.id === req.usuarioId) {
+    if (String(req.params.id) === req.usuarioId) {
       return res.status(400).json({ error: "Não é possível excluir o próprio usuário" });
     }
     const [u] = await db
       .update(usuariosTable)
       .set({ deletadoEm: new Date() })
-      .where(eq(usuariosTable.id, req.params.id))
+      .where(eq(usuariosTable.id, String(req.params.id)))
       .returning();
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
     await registrarAuditoria({

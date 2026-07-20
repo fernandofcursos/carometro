@@ -45,7 +45,7 @@ router.get("/", requirePermissao("roles:manage"), async (req: Request, res: Resp
 // GET /api/roles/:id
 router.get("/:id", requirePermissao("roles:manage"), async (req: Request, res: Response) => {
   try {
-    const [role] = await db.select().from(rolesTable).where(eq(rolesTable.id, req.params.id));
+    const [role] = await db.select().from(rolesTable).where(eq(rolesTable.id, String(req.params.id)));
     if (!role) return res.status(404).json({ error: "Role não encontrado" });
 
     const permissoes = await db
@@ -84,7 +84,7 @@ router.put("/:id", requirePermissao("roles:manage"), async (req: Request, res: R
     const [role] = await db
       .update(rolesTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(rolesTable.id, req.params.id))
+      .where(eq(rolesTable.id, String(req.params.id)))
       .returning();
     if (!role) return res.status(404).json({ error: "Role não encontrado" });
     await registrarAuditoria({
@@ -105,16 +105,16 @@ router.put("/:id/permissoes", requirePermissao("roles:manage"), async (req: Requ
     const { permissaoIds } = z.object({ permissaoIds: z.array(z.string().uuid()) }).parse(req.body);
 
     // Remover todas as permissões atuais e reinserir
-    await db.delete(rolesPermissoesTable).where(eq(rolesPermissoesTable.roleId, req.params.id));
+    await db.delete(rolesPermissoesTable).where(eq(rolesPermissoesTable.roleId, String(req.params.id)));
 
     if (permissaoIds.length > 0) {
       await db.insert(rolesPermissoesTable).values(
-        permissaoIds.map((permissaoId) => ({ roleId: req.params.id, permissaoId }))
+        permissaoIds.map((permissaoId) => ({ roleId: String(req.params.id), permissaoId }))
       );
     }
 
     await registrarAuditoria({
-      tabela: "roles_permissoes", operacao: "UPDATE", registroId: req.params.id,
+      tabela: "roles_permissoes", operacao: "UPDATE", registroId: String(req.params.id),
       usuarioId: req.usuarioId, ipOrigem: req.ip,
       endpoint: "PUT /api/roles/:id/permissoes", metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
@@ -132,14 +132,14 @@ router.delete("/:id", requirePermissao("roles:manage"), async (req: Request, res
     const usuariosVinculados = await db
       .select({ id: usuariosRolesTable.usuarioId })
       .from(usuariosRolesTable)
-      .where(eq(usuariosRolesTable.roleId, req.params.id))
+      .where(eq(usuariosRolesTable.roleId, String(req.params.id)))
       .limit(1);
 
     if (usuariosVinculados.length > 0) {
       return res.status(409).json({ error: "Não é possível excluir: role possui usuários vinculados" });
     }
 
-    const [role] = await db.delete(rolesTable).where(eq(rolesTable.id, req.params.id)).returning();
+    const [role] = await db.delete(rolesTable).where(eq(rolesTable.id, String(req.params.id))).returning();
     if (!role) return res.status(404).json({ error: "Role não encontrado" });
 
     await registrarAuditoria({

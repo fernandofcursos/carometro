@@ -21,7 +21,7 @@ router.get("/", requirePermissao("turnos:manage"), async (req: Request, res: Res
 // GET /api/turnos/:id — buscar turno por ID
 router.get("/:id", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
-    const [turno] = await db.select().from(turnosTable).where(eq(turnosTable.id, req.params.id));
+    const [turno] = await db.select().from(turnosTable).where(eq(turnosTable.id, String(req.params.id)));
     if (!turno) return res.status(404).json({ error: "Turno não encontrado" });
     res.json(turno);
   } catch (err) {
@@ -50,7 +50,7 @@ router.post("/", requirePermissao("turnos:manage"), async (req: Request, res: Re
 router.put("/:id", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
     const data = insertTurnoSchema.parse(req.body);
-    const [turno] = await db.update(turnosTable).set(data).where(eq(turnosTable.id, req.params.id)).returning();
+    const [turno] = await db.update(turnosTable).set(data).where(eq(turnosTable.id, String(req.params.id))).returning();
     if (!turno) return res.status(404).json({ error: "Turno não encontrado" });
     await registrarAuditoria({
       tabela: "turnos", operacao: "UPDATE", registroId: turno.id,
@@ -67,7 +67,7 @@ router.put("/:id", requirePermissao("turnos:manage"), async (req: Request, res: 
 // DELETE /api/turnos/:id — excluir turno (hard delete — sem soft delete nesta entidade)
 router.delete("/:id", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
-    const [turno] = await db.delete(turnosTable).where(eq(turnosTable.id, req.params.id)).returning();
+    const [turno] = await db.delete(turnosTable).where(eq(turnosTable.id, String(req.params.id))).returning();
     if (!turno) return res.status(404).json({ error: "Turno não encontrado" });
     await registrarAuditoria({
       tabela: "turnos", operacao: "DELETE", registroId: turno.id,

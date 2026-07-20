@@ -71,7 +71,7 @@ router.get("/:id", requirePermissao("auditoria:view"), async (req: Request, res:
     const [log] = await db
       .select()
       .from(auditoriaLogsTable)
-      .where(eq(auditoriaLogsTable.id, req.params.id));
+      .where(eq(auditoriaLogsTable.id, String(req.params.id)));
 
     if (!log) {
       return res.status(404).json({ error: "Log não encontrado" }); // Fase 9: era retorno mock

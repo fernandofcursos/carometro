@@ -21,7 +21,7 @@ router.get("/", requirePermissao("disciplinas:manage"), async (req: Request, res
 // GET /api/disciplinas/:id
 router.get("/:id", requirePermissao("disciplinas:manage"), async (req: Request, res: Response) => {
   try {
-    const [disciplina] = await db.select().from(disciplinasTable).where(eq(disciplinasTable.id, req.params.id));
+    const [disciplina] = await db.select().from(disciplinasTable).where(eq(disciplinasTable.id, String(req.params.id)));
     if (!disciplina) return res.status(404).json({ error: "Disciplina não encontrada" });
     res.json(disciplina);
   } catch (err) {
@@ -53,7 +53,7 @@ router.put("/:id", requirePermissao("disciplinas:manage"), async (req: Request, 
     const [disciplina] = await db
       .update(disciplinasTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(disciplinasTable.id, req.params.id))
+      .where(eq(disciplinasTable.id, String(req.params.id)))
       .returning();
     if (!disciplina) return res.status(404).json({ error: "Disciplina não encontrada" });
     await registrarAuditoria({
@@ -71,7 +71,7 @@ router.put("/:id", requirePermissao("disciplinas:manage"), async (req: Request, 
 // DELETE /api/disciplinas/:id — excluir disciplina (hard delete — sem soft delete nesta entidade)
 router.delete("/:id", requirePermissao("disciplinas:manage"), async (req: Request, res: Response) => {
   try {
-    const [disciplina] = await db.delete(disciplinasTable).where(eq(disciplinasTable.id, req.params.id)).returning();
+    const [disciplina] = await db.delete(disciplinasTable).where(eq(disciplinasTable.id, String(req.params.id))).returning();
     if (!disciplina) return res.status(404).json({ error: "Disciplina não encontrada" });
     await registrarAuditoria({
       tabela: "disciplinas", operacao: "DELETE", registroId: disciplina.id,

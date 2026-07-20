@@ -29,6 +29,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @workspace/db (generate .d.ts)
+        run: pnpm --filter @workspace/db exec tsc --build
+        env:
+          DATABASE_URL: postgresql://test:test@localhost/test
+
       - name: TypeScript check (api-server)
         run: pnpm --filter @workspace/api-server exec tsc --noEmit
         env:

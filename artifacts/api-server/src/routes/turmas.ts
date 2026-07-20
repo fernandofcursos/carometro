@@ -38,7 +38,7 @@ router.get("/", requirePermissao("turmas:manage"), async (req: Request, res: Res
 // GET /api/turmas/:id
 router.get("/:id", requirePermissao("turmas:manage"), async (req: Request, res: Response) => {
   try {
-    const [turma] = await db.select().from(turmasTable).where(eq(turmasTable.id, req.params.id));
+    const [turma] = await db.select().from(turmasTable).where(eq(turmasTable.id, String(req.params.id)));
     if (!turma || turma.deletadoEm) return res.status(404).json({ error: "Turma não encontrada" });
     res.json(turma);
   } catch (err) {
@@ -70,7 +70,7 @@ router.put("/:id", requirePermissao("turmas:manage"), async (req: Request, res: 
     const [turma] = await db
       .update(turmasTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(turmasTable.id, req.params.id))
+      .where(eq(turmasTable.id, String(req.params.id)))
       .returning();
     if (!turma) return res.status(404).json({ error: "Turma não encontrada" });
     await registrarAuditoria({
@@ -91,7 +91,7 @@ router.delete("/:id", requirePermissao("turmas:manage"), async (req: Request, re
     const [turma] = await db
       .update(turmasTable)
       .set({ deletadoEm: new Date(), ativo: false })
-      .where(eq(turmasTable.id, req.params.id))
+      .where(eq(turmasTable.id, String(req.params.id)))
       .returning();
     if (!turma) return res.status(404).json({ error: "Turma não encontrada" });
     await registrarAuditoria({

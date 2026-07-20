@@ -21,7 +21,7 @@ router.get("/", requirePermissao("tipos-ocorrencias:manage"), async (req: Reques
 // GET /api/tipos-ocorrencias/:id
 router.get("/:id", requirePermissao("tipos-ocorrencias:manage"), async (req: Request, res: Response) => {
   try {
-    const [tipo] = await db.select().from(tiposOcorrenciasTable).where(eq(tiposOcorrenciasTable.id, req.params.id));
+    const [tipo] = await db.select().from(tiposOcorrenciasTable).where(eq(tiposOcorrenciasTable.id, String(req.params.id)));
     if (!tipo) return res.status(404).json({ error: "Tipo de ocorrência não encontrado" });
     res.json(tipo);
   } catch (err) {
@@ -53,7 +53,7 @@ router.put("/:id", requirePermissao("tipos-ocorrencias:manage"), async (req: Req
     const [tipo] = await db
       .update(tiposOcorrenciasTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(tiposOcorrenciasTable.id, req.params.id))
+      .where(eq(tiposOcorrenciasTable.id, String(req.params.id)))
       .returning();
     if (!tipo) return res.status(404).json({ error: "Tipo de ocorrência não encontrado" });
     await registrarAuditoria({
@@ -71,7 +71,7 @@ router.put("/:id", requirePermissao("tipos-ocorrencias:manage"), async (req: Req
 // DELETE /api/tipos-ocorrencias/:id — excluir tipo (hard delete — sem soft delete nesta entidade)
 router.delete("/:id", requirePermissao("tipos-ocorrencias:manage"), async (req: Request, res: Response) => {
   try {
-    const [tipo] = await db.delete(tiposOcorrenciasTable).where(eq(tiposOcorrenciasTable.id, req.params.id)).returning();
+    const [tipo] = await db.delete(tiposOcorrenciasTable).where(eq(tiposOcorrenciasTable.id, String(req.params.id))).returning();
     if (!tipo) return res.status(404).json({ error: "Tipo de ocorrência não encontrado" });
     await registrarAuditoria({
       tabela: "tipos_ocorrencias", operacao: "DELETE", registroId: tipo.id,

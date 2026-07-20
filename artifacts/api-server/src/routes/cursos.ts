@@ -25,7 +25,7 @@ router.get("/", requirePermissao("cursos:manage"), async (req: Request, res: Res
 // GET /api/cursos/:id
 router.get("/:id", requirePermissao("cursos:manage"), async (req: Request, res: Response) => {
   try {
-    const [curso] = await db.select().from(cursosTable).where(eq(cursosTable.id, req.params.id));
+    const [curso] = await db.select().from(cursosTable).where(eq(cursosTable.id, String(req.params.id)));
     if (!curso || curso.deletadoEm) return res.status(404).json({ error: "Curso não encontrado" });
     res.json(curso);
   } catch (err) {
@@ -57,7 +57,7 @@ router.put("/:id", requirePermissao("cursos:manage"), async (req: Request, res: 
     const [curso] = await db
       .update(cursosTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(cursosTable.id, req.params.id))
+      .where(eq(cursosTable.id, String(req.params.id)))
       .returning();
     if (!curso) return res.status(404).json({ error: "Curso não encontrado" });
     await registrarAuditoria({
@@ -78,7 +78,7 @@ router.delete("/:id", requirePermissao("cursos:manage"), async (req: Request, re
     const [curso] = await db
       .update(cursosTable)
       .set({ deletadoEm: new Date(), ativo: false })
-      .where(eq(cursosTable.id, req.params.id))
+      .where(eq(cursosTable.id, String(req.params.id)))
       .returning();
     if (!curso) return res.status(404).json({ error: "Curso não encontrado" });
     await registrarAuditoria({

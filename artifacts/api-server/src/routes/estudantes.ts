@@ -120,7 +120,7 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
       .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
-      .where(eq(estudantesTable.id, req.params.id));
+      .where(eq(estudantesTable.id, String(req.params.id)));
 
     if (!e || e.deletadoEm) return res.status(404).json({ error: "Estudante não encontrado" });
 
@@ -149,7 +149,7 @@ router.get("/:id/foto", async (req: Request, res: Response) => {
         fotoMimeType: estudantesTable.fotoMimeType, fotoHashIntegridade: estudantesTable.fotoHashIntegridade,
       })
       .from(estudantesTable)
-      .where(eq(estudantesTable.id, req.params.id));
+      .where(eq(estudantesTable.id, String(req.params.id)));
 
     if (!e?.fotoDados || !e.fotoIv) return res.status(404).end();
 
@@ -226,7 +226,7 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
         fotoTamanhoBytes: foto.tamanhoBytes, fotoHashIntegridade: foto.hash,
         atualizadoEm: new Date(),
       })
-      .where(eq(estudantesTable.id, req.params.id))
+      .where(eq(estudantesTable.id, String(req.params.id)))
       .returning({ id: estudantesTable.id });
 
     if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
@@ -234,7 +234,7 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
     await registrarAuditoria({
       tabela: "estudantes", operacao: "UPDATE", registroId: estudante.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
-      endpoint: `POST /api/estudantes/${req.params.id}/foto`, metodoHttp: "POST", statusHttp: 200,
+      endpoint: `POST /api/estudantes/${String(req.params.id)}/foto`, metodoHttp: "POST", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
 
@@ -251,7 +251,7 @@ router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, r
     const [estudante] = await db
       .update(estudantesTable)
       .set({ ...data, atualizadoEm: new Date() })
-      .where(eq(estudantesTable.id, req.params.id))
+      .where(eq(estudantesTable.id, String(req.params.id)))
       .returning();
     if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
 
@@ -289,7 +289,7 @@ router.delete("/:id", requirePermissao("estudantes:manage"), async (req: Request
     const [estudante] = await db
       .update(estudantesTable)
       .set({ deletadoEm: new Date() })
-      .where(eq(estudantesTable.id, req.params.id))
+      .where(eq(estudantesTable.id, String(req.params.id)))
       .returning({ id: estudantesTable.id });
     if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
     await registrarAuditoria({
