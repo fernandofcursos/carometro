@@ -1,28 +1,35 @@
 import { Request, Response, NextFunction } from "express";
+import {
+  db, usuariosRolesTable, rolesPermissoesTable, permissoesTable,
+  eq,
+} from "@workspace/db";
 
-// Middleware para verificar permissões específicas do usuário
-// Usado em rotas que modificam dados (POST, PUT, DELETE)
 export function requirePermissao(permissao: string) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    // Usuário deve estar autenticado (middleware requireAuth já rodou)
     if (!req.usuarioId) {
       res.status(401).json({ error: "Não autenticado" });
       return;
     }
 
     try {
-      // TODO: Buscar permissões do usuário no banco de dados
-      // Por enquanto, permitir tudo (será implementado na Fase 1)
-      // const permissoes = await buscarPermissoesDoUsuario(req.usuarioId);
-      // if (!permissoes.includes(permissao)) {
-      //   res.status(403).json({ error: "Permissão negada" });
-      //   return;
-      // }
+      const [recurso, acao] = permissao.split(":");
 
-      // Permissão concedida — chamar próximo middleware/rota
+      const perms = await db
+        .select({ recurso: permissoesTable.recurso, acao: permissoesTable.acao })
+        .from(usuariosRolesTable)
+        .innerJoin(rolesPermissoesTable, eq(rolesPermissoesTable.roleId, usuariosRolesTable.roleId))
+        .innerJoin(permissoesTable, eq(permissoesTable.id, rolesPermissoesTable.permissaoId))
+        .where(eq(usuariosRolesTable.usuarioId, req.usuarioId));
+
+      const hasPermission = perms.some((p) => p.recurso === recurso && p.acao === acao);
+
+      if (!hasPermission) {
+        res.status(403).json({ error: "Permissão negada" });
+        return;
+      }
+
       next();
-    } catch (err) {
-      // Erro ao verificar permissões — retornar 500
+    } catch {
       res.status(500).json({ error: "Erro ao verificar permissões" });
     }
   };

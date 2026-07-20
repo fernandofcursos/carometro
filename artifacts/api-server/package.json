@@ -7,7 +7,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:pg-native",
     "start": "node dist/server.cjs",
-    "seed-admin": "tsx src/scripts/seed-admin.ts"
+    "seed-admin": "tsx src/scripts/seed-admin.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
@@ -29,7 +31,10 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.8",
     "@types/node": "catalog:",
+    "@types/supertest": "^6.0.3",
     "esbuild": "0.27.3",
-    "tsx": "catalog:"
+    "supertest": "^7.0.0",
+    "tsx": "catalog:",
+    "vitest": "^3.2.7"
   }
 }

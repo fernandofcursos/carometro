@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check (api-server)
+        run: pnpm --filter @workspace/api-server exec tsc --noEmit
+        env:
+          DATABASE_URL: postgresql://test:test@localhost/test
+
+      - name: Run tests (api-server)
+        run: pnpm --filter @workspace/api-server run test
+        env:
+          DATABASE_URL: postgresql://test:test@localhost/test
+          SESSION_SECRET: ci-test-secret-must-be-at-least-32-chars-long!!
+          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+          NODE_ENV: test
