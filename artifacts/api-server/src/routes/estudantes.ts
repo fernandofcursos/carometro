@@ -1,205 +1,221 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { requireAuth } from "../lib/auth.js";
-import { requirePermissao } from "../lib/permissions.js";
-// Fase 2: importar funções de criptografia para fotos
+import { db, estudantesTable, turmasTable, cursosTable, turnosTable, eq, isNull, and, ilike } from "@workspace/db";
 import {
   criptografarFoto,
   descriptografarFoto,
   verificarIntegridade,
 } from "../lib/crypto.js";
-import { v4 as randomUUID } from "crypto";
+import { requireAuth } from "../lib/auth.js";
+import { requirePermissao } from "../lib/permissions.js";
+import { registrarAuditoria } from "../lib/audit.js";
 
-// Placeholder para rota /api/estudantes
 const router = Router();
-// Todos os endpoints exigem autenticação
 router.use(requireAuth);
 
-// Fase 2: Schema de validação para upload de foto
-// Aceita data URL em base64 (ex: "data:image/jpeg;base64,...")
-const uploadFotoSchema = z.object({
-  // Base64 data URL da foto capturada
-  fotoBase64: z.string().min(1, "Foto é obrigatória"),
+const insertEstudanteSchema = z.object({
+  nome:      z.string().min(2).max(200),
+  registro:  z.string().min(1).max(50),
+  turmaId:   z.string().uuid(),
+  observacao: z.string().optional(),
 });
 
-// Fase 2: POST /api/estudantes/:id/foto — fazer upload de foto com criptografia AES-256
-// Requer permissão estudantes:manage
-router.post(
-  "/:id/foto",
-  requirePermissao("estudantes:manage"),
-  async (req: Request, res: Response) => {
-    try {
-      // Validar payload com Zod
-      const parsed = uploadFotoSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          error: "Dados inválidos",
-          issues: parsed.error.issues,
-        });
-      }
+// GET /api/estudantes — listar estudantes ativos com dados de turma
+// Filtros opcionais: ?turmaId=uuid&busca=texto
+router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: Response) => {
+  try {
+    const { turmaId, busca } = req.query;
 
-      const { fotoBase64 } = parsed.data;
+    const condicoes = [isNull(estudantesTable.deletadoEm)];
+    if (turmaId) condicoes.push(eq(estudantesTable.turmaId, turmaId as string));
 
-      // Validar tamanho da foto (LGPD: minimização de dados)
-      // Máximo 5MB em base64 (~3.7MB em binário)
-      const tamanhoBase64 = fotoBase64.length;
-      if (tamanhoBase64 > 5_000_000) {
-        return res.status(413).json({
-          error: "Foto muito grande. Máximo: 3MB",
-        });
-      }
+    const rows = await db
+      .select({
+        id:          estudantesTable.id,
+        nome:        estudantesTable.nome,
+        registro:    estudantesTable.registro,
+        observacao:  estudantesTable.observacao,
+        turmaId:     estudantesTable.turmaId,
+        temFoto:     estudantesTable.fotoStorageKey,
+        criadoEm:    estudantesTable.criadoEm,
+        atualizadoEm: estudantesTable.atualizadoEm,
+        turmaSigla:  turmasTable.sigla,
+        turmaDesc:   turmasTable.descricao,
+        cursoNome:   cursosTable.nome,
+        turnoNome:   turnosTable.nome,
+      })
+      .from(estudantesTable)
+      .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
+      .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+      .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
+      .where(and(...condicoes))
+      .orderBy(estudantesTable.nome);
 
-      // Criptografar foto com AES-256-CBC
-      // Retorna: dados criptografados + IV + hash para integridade
-      const foto = criptografarFoto(fotoBase64);
+    const estudantes = (busca
+      ? rows.filter((r) => r.nome.toLowerCase().includes((busca as string).toLowerCase()) || r.registro.includes(busca as string))
+      : rows
+    ).map((r) => ({ ...r, temFoto: !!r.temFoto }));
 
-      // Gerar UUID para storage key (referência interna da foto)
-      const storageKey = randomUUID();
+    res.json({ estudantes });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar estudantes" });
+  }
+});
 
-      // TODO: Atualizar estudante no banco com dados da foto
-      // await db.update(estudantesTable)
-      //   .set({
-      //     fotoStorageKey: storageKey,
-      //     fotoDados: foto.dadosCriptografados,
-      //     fotoIv: foto.iv,
-      //     fotoMimeType: foto.mimeType,
-      //     fotoTamanhoBytes: foto.tamanhoBytes,
-      //     fotoHashIntegridade: foto.hash,
-      //     atualizadoEm: new Date(),
-      //   })
-      //   .where(eq(estudantesTable.id, req.params.id));
+// GET /api/estudantes/:id
+router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res: Response) => {
+  try {
+    const [e] = await db.select().from(estudantesTable).where(eq(estudantesTable.id, req.params.id));
+    if (!e || e.deletadoEm) return res.status(404).json({ error: "Estudante não encontrado" });
+    res.json({ ...e, temFoto: !!e.fotoStorageKey, fotoDados: undefined });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar estudante" });
+  }
+});
 
-      // TODO: Registrar auditoria de foto (LGPD Art. 11 — dado biométrico)
-      // await registrarAuditoria({
-      //   tabela: "estudantes",
-      //   operacao: "UPDATE",
-      //   registroId: req.params.id,
-      //   usuarioId: req.usuarioId,
-      //   ipOrigem: req.ip,
-      //   endpoint: `POST /api/estudantes/${req.params.id}/foto`,
-      //   statusHttp: 200,
-      // });
+// GET /api/estudantes/:id/foto — servir foto descriptografada
+router.get("/:id/foto", requirePermissao("estudantes:view"), async (req: Request, res: Response) => {
+  try {
+    const [e] = await db
+      .select({
+        fotoDados:           estudantesTable.fotoDados,
+        fotoIv:              estudantesTable.fotoIv,
+        fotoMimeType:        estudantesTable.fotoMimeType,
+        fotoHashIntegridade: estudantesTable.fotoHashIntegridade,
+      })
+      .from(estudantesTable)
+      .where(eq(estudantesTable.id, req.params.id));
 
-      // Retornar estudante com dados da foto
-      res.json({
-        message: "Foto uploadada com sucesso (ainda não persistida no banco)",
-        storageKey,
-        mimeType: foto.mimeType,
-        tamanhoBytes: foto.tamanhoBytes,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Erro desconhecido";
-      res.status(400).json({ error: message });
+    if (!e?.fotoDados || !e.fotoIv) return res.status(404).end();
+
+    const dadosBrutos = descriptografarFoto(e.fotoDados, e.fotoIv);
+
+    if (e.fotoHashIntegridade && !verificarIntegridade(dadosBrutos, e.fotoHashIntegridade)) {
+      return res.status(500).json({ error: "Erro de integridade da foto" });
     }
-  }
-);
 
-// Fase 2: GET /api/estudantes/:id/foto — servir foto descriptografada
-// Retorna imagem binária com headers corretos
-router.get("/:id/foto", async (req: Request, res: Response) => {
-  try {
-    // TODO: Buscar estudante no banco
-    // const [estudante] = await db
-    //   .select({
-    //     fotoDados: estudantesTable.fotoDados,
-    //     fotoIv: estudantesTable.fotoIv,
-    //     fotoMimeType: estudantesTable.fotoMimeType,
-    //     fotoHashIntegridade: estudantesTable.fotoHashIntegridade,
-    //   })
-    //   .from(estudantesTable)
-    //   .where(eq(estudantesTable.id, req.params.id));
-
-    // if (!estudante?.fotoDados) {
-    //   // Estudante não tem foto — retornar 404
-    //   return res.status(404).end();
-    // }
-
-    // TODO: Descriptografar foto usando IV armazenado
-    // const dadosBrutos = descriptografarFoto(
-    //   estudante.fotoDados!,
-    //   estudante.fotoIv!
-    // );
-
-    // TODO: Verificar integridade — ISO 27001 A.8.20 (integridade de dados)
-    // const integridadeOk = verificarIntegridade(
-    //   dadosBrutos,
-    //   estudante.fotoHashIntegridade!
-    // );
-
-    // if (!integridadeOk) {
-    //   // Foto foi corrompida — alerta de segurança
-    //   req.log?.error({ estudanteId: req.params.id }, "ALERTA: integridade da foto comprometida");
-    //   return res.status(500).json({ error: "Erro de integridade" });
-    // }
-
-    // TODO: Cache agressivo — foto só muda com novo upload
-    // res.set("Cache-Control", "private, max-age=604800");  // 7 dias
-    // res.set("Content-Type", estudante.fotoMimeType ?? "image/jpeg");
-    // res.send(dadosBrutos);
-
-    // Resposta temporária enquanto banco não conecta
-    res.status(501).json({ error: "Não implementado (banco não conectado)" });
+    res.set("Cache-Control", "private, max-age=604800");
+    res.set("Content-Type", e.fotoMimeType ?? "image/jpeg");
+    res.send(dadosBrutos);
   } catch (err) {
-    res.status(500).json({
-      error: err instanceof Error ? err.message : "Erro ao servir foto",
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao servir foto" });
+  }
+});
+
+// POST /api/estudantes — criar estudante
+router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
+  try {
+    const { fotoBase64, ...body } = req.body;
+    const data = insertEstudanteSchema.parse(body);
+
+    let fotoFields = {};
+    if (fotoBase64) {
+      if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
+      const foto = criptografarFoto(fotoBase64);
+      const { randomUUID } = await import("crypto");
+      fotoFields = {
+        fotoStorageKey:      randomUUID(),
+        fotoDados:           foto.dadosCriptografados,
+        fotoIv:              foto.iv,
+        fotoMimeType:        foto.mimeType,
+        fotoTamanhoBytes:    foto.tamanhoBytes,
+        fotoHashIntegridade: foto.hash,
+      };
+    }
+
+    const [estudante] = await db.insert(estudantesTable).values({ ...data, ...fotoFields }).returning();
+
+    await registrarAuditoria({
+      tabela: "estudantes", operacao: "INSERT", registroId: estudante.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "POST /api/estudantes", metodoHttp: "POST", statusHttp: 201,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
+
+    res.status(201).json({ ...estudante, temFoto: !!estudante.fotoStorageKey, fotoDados: undefined });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
 });
 
-// GET /api/estudantes — listar todos os estudantes
-// LGPD Art. 7 — retorna apenas dados públicos (nomes, registros)
-router.get("/", async (_req: Request, res: Response) => {
+// POST /api/estudantes/:id/foto — atualizar foto de estudante existente
+router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Implementar query ao banco com joins
-    // const estudantes = await db
-    //   .select({
-    //     id: estudantesTable.id,
-    //     nome: estudantesTable.nome,
-    //     registro: estudantesTable.registro,
-    //     fotoUrl: sql`CONCAT('/api/estudantes/', ${estudantesTable.id}, '/foto')`,
-    //     turmaId: estudantesTable.turmaId,
-    //     // ... outros campos públicos
-    //   })
-    //   .from(estudantesTable)
-    //   .where(isNull(estudantesTable.deletadoEm))
-    //   .orderBy(estudantesTable.nome);
+    const { fotoBase64 } = z.object({ fotoBase64: z.string().min(1) }).parse(req.body);
+    if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
 
-    res.json([]);
-  } catch (err) {
-    res.status(500).json({ error: "Erro ao listar estudantes" });
-  }
-});
+    const foto = criptografarFoto(fotoBase64);
+    const { randomUUID } = await import("crypto");
 
-// POST /api/estudantes — criar novo estudante
-// Requer permissão estudantes:manage
-router.post("/", requirePermissao("estudantes:manage"), async (_req: Request, res: Response) => {
-  try {
-    // TODO: Validação com Zod e insert ao banco
-    res.status(201).json({ message: "Não implementado" });
+    const [estudante] = await db
+      .update(estudantesTable)
+      .set({
+        fotoStorageKey:      randomUUID(),
+        fotoDados:           foto.dadosCriptografados,
+        fotoIv:              foto.iv,
+        fotoMimeType:        foto.mimeType,
+        fotoTamanhoBytes:    foto.tamanhoBytes,
+        fotoHashIntegridade: foto.hash,
+        atualizadoEm:        new Date(),
+      })
+      .where(eq(estudantesTable.id, req.params.id))
+      .returning({ id: estudantesTable.id });
+
+    if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
+
+    await registrarAuditoria({
+      tabela: "estudantes", operacao: "UPDATE", registroId: estudante.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: `POST /api/estudantes/${req.params.id}/foto`, metodoHttp: "POST", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao criar estudante" });
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
 });
 
 // PUT /api/estudantes/:id — atualizar dados do estudante
-// Requer permissão estudantes:manage
-router.put("/:id", requirePermissao("estudantes:manage"), async (_req: Request, res: Response) => {
+router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Validação e update ao banco
-    res.json({ message: "Não implementado" });
+    const data = insertEstudanteSchema.partial().parse(req.body);
+    const [estudante] = await db
+      .update(estudantesTable)
+      .set({ ...data, atualizadoEm: new Date() })
+      .where(eq(estudantesTable.id, req.params.id))
+      .returning();
+    if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
+    await registrarAuditoria({
+      tabela: "estudantes", operacao: "UPDATE", registroId: estudante.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/estudantes/:id", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+    res.json({ ...estudante, temFoto: !!estudante.fotoStorageKey, fotoDados: undefined });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao atualizar estudante" });
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
 });
 
-// DELETE /api/estudantes/:id — deletar estudante (soft delete)
-// Requer permissão estudantes:manage
-router.delete("/:id", requirePermissao("estudantes:manage"), async (_req: Request, res: Response) => {
+// DELETE /api/estudantes/:id — soft delete
+router.delete("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Soft delete (marcar deletadoEm)
-    res.status(204).end();
+    const [estudante] = await db
+      .update(estudantesTable)
+      .set({ deletadoEm: new Date() })
+      .where(eq(estudantesTable.id, req.params.id))
+      .returning({ id: estudantesTable.id });
+    if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
+    await registrarAuditoria({
+      tabela: "estudantes", operacao: "DELETE", registroId: estudante.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "DELETE /api/estudantes/:id", metodoHttp: "DELETE", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+    res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao deletar estudante" });
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao excluir estudante" });
   }
 });
 
