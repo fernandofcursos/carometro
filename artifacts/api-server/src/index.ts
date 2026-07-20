@@ -9,6 +9,11 @@ import turnosRouter from "./routes/turnos.js";
 import cursosRouter from "./routes/cursos.js";
 import disciplinasRouter from "./routes/disciplinas.js";
 import turmasRouter from "./routes/turmas.js";
+// SDD Dia 2: ocorrências, roles e usuários
+import tiposOcorrenciasRouter from "./routes/tipos-ocorrencias.js";
+import ocorrenciasRouter from "./routes/ocorrencias.js";
+import rolesRouter from "./routes/roles.js";
+import usuariosRouter from "./routes/usuarios.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -33,13 +38,15 @@ app.use("/api/turnos", turnosRouter);
 app.use("/api/cursos", cursosRouter);
 app.use("/api/disciplinas", disciplinasRouter);
 app.use("/api/turmas", turmasRouter);
-// Pendentes de implementação:
+// SDD Dia 2: rotas implementadas
+app.use("/api/tipos-ocorrencias", tiposOcorrenciasRouter);
+app.use("/api/ocorrencias", ocorrenciasRouter);
+app.use("/api/roles", rolesRouter);
+app.use("/api/usuarios", usuariosRouter);
+// Pendentes de implementação (Dia 3+):
 // app.use("/api/estudantes", estudantesRouter);
 // app.use("/api/carometro", carometroRouter);
 // app.use("/api/import", importRouter);
-// app.use("/api/ocorrencias", ocorrenciasRouter);
-// app.use("/api/roles", rolesRouter);
-// app.use("/api/usuarios", usuariosRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos

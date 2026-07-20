@@ -1,4 +1,6 @@
 import { pgTable, uuid, text, timestamp, date } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
 import { estudantesTable } from "./estudantes";
 import { tiposOcorrenciasTable } from "./tipos-ocorrencias";
 import { disciplinasTable } from "./disciplinas";
@@ -17,4 +19,6 @@ export const ocorrenciasTable = pgTable("ocorrencias", {
   deletadoEm: timestamp("deletado_em", { withTimezone: true }),
 });
 
+export const insertOcorrenciaSchema = createInsertSchema(ocorrenciasTable).omit({ id: true, criadoEm: true, atualizadoEm: true, deletadoEm: true });
+export type InsertOcorrencia = z.infer<typeof insertOcorrenciaSchema>;
 export type Ocorrencia = typeof ocorrenciasTable.$inferSelect;

@@ -1,4 +1,6 @@
 import { pgTable, uuid, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
 
 export const statusEnum = pgEnum("status_ocorrencia", ["ativo", "inativo"]);
 
@@ -10,4 +12,6 @@ export const tiposOcorrenciasTable = pgTable("tipos_ocorrencias", {
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const insertTipoOcorrenciaSchema = createInsertSchema(tiposOcorrenciasTable).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertTipoOcorrencia = z.infer<typeof insertTipoOcorrenciaSchema>;
 export type TipoOcorrencia = typeof tiposOcorrenciasTable.$inferSelect;
