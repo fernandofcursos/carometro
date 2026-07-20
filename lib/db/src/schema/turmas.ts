@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, char, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, varchar, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { turnosTable } from "./turnos";
@@ -6,7 +6,7 @@ import { cursosTable } from "./cursos";
 
 export const turmasTable = pgTable("turmas", {
   id: uuid("id").primaryKey().defaultRandom(),
-  sigla: char("sigla", { length: 10 }).notNull(),
+  sigla: varchar("sigla", { length: 10 }).notNull(),
   descricao: text("descricao").notNull(),
   cursoId: uuid("curso_id").notNull().references(() => cursosTable.id, { onDelete: "restrict" }),
   turnoId: uuid("turno_id").notNull().references(() => turnosTable.id, { onDelete: "restrict" }),

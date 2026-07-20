@@ -28,18 +28,12 @@ export type FotoCriptografada = {
 // Input: data URL (ex: "data:image/jpeg;base64,/9j/4AAQ...")
 // Output: dados criptografados + IV + hash para integridade
 export function criptografarFoto(dadosBase64: string): FotoCriptografada {
-  // Extrair MIME type e dados puros do data URL
-  // Formato esperado: "data:image/jpeg;base64,/9j/4AAQ..."
+  // Aceita data URL ("data:image/jpeg;base64,...") ou base64 puro
   const match = dadosBase64.match(/^data:(.+);base64,(.+)$/);
-  if (!match) {
-    // Data URL inválida — não consegue extrair MIME type
-    throw new Error("Formato de foto inválido. Esperado: data:image/jpeg;base64,...");
-  }
-
-  // Extrair MIME type (ex: "image/jpeg")
-  const mimeType = match[1];
+  const mimeType = match ? match[1] : "image/jpeg";
+  const rawBase64 = match ? match[2] : dadosBase64;
   // Decodificar base64 para Buffer binário
-  const dadosBrutos = Buffer.from(match[2], "base64");
+  const dadosBrutos = Buffer.from(rawBase64, "base64");
 
   // Gerar IV aleatório de 16 bytes (necessário para AES-256-CBC)
   // IV é usado como nonce para garantir que mesma foto gera output diferente

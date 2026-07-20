@@ -53,8 +53,7 @@ router.get("/", requirePermissao("auditoria:view"), async (req: Request, res: Re
       duracaoMs:  req.startTime ? Date.now() - req.startTime : undefined, // Fase 9: duração via startTime
     });
 
-    res.json({ logs, limite, total: logs.length }); // Fase 9: formato enriquecido com total
-    // Fase 3: era res.json({ message: "...", logs: [], limite })
+    res.json(logs);
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Erro ao listar auditoria",
