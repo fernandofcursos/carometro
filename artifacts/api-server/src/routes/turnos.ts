@@ -1,74 +1,84 @@
 import { Router, Request, Response } from "express";
+import { db, turnosTable, eq } from "@workspace/db";
+import { insertTurnoSchema } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
+import { registrarAuditoria } from "../lib/audit.js";
 
-// Criar router para rota /api/turnos
 const router = Router();
-
-// Todos os endpoints de turnos exigem autenticação
 router.use(requireAuth);
 
-// GET /api/turnos — listar todos os turnos ativos
-// Retorna array de turnos ordenado por nome
-router.get("/", async (req: Request, res: Response) => {
+// GET /api/turnos — listar todos os turnos ordenados por nome
+router.get("/", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Implementar query ao banco
-    // const turnos = await db.select().from(turnosTable).where(isNull(turnosTable.deletadoEm)).orderBy(turnosTable.nome);
-    // res.json(turnos);
-
-    // Resposta de exemplo
-    res.json([
-      { id: "1", nome: "Manhã", criadoEm: new Date() },
-      { id: "2", nome: "Tarde", criadoEm: new Date() },
-    ]);
+    const turnos = await db.select().from(turnosTable).orderBy(turnosTable.nome);
+    res.json({ turnos });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao listar turnos" });
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar turnos" });
   }
 });
 
-// POST /api/turnos — criar novo turno
-// Requer permissão turnos:manage
+// GET /api/turnos/:id — buscar turno por ID
+router.get("/:id", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
+  try {
+    const [turno] = await db.select().from(turnosTable).where(eq(turnosTable.id, req.params.id));
+    if (!turno) return res.status(404).json({ error: "Turno não encontrado" });
+    res.json(turno);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar turno" });
+  }
+});
+
+// POST /api/turnos — criar turno
 router.post("/", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Implementar validação com Zod e insert ao banco
-    // const { nome } = req.body;
-    // const [turno] = await db.insert(turnosTable).values({ nome }).returning();
-    // res.status(201).json(turno);
-
-    res.status(201).json({ message: "Turno criado (ainda não implementado)" });
+    const data = insertTurnoSchema.parse(req.body);
+    const [turno] = await db.insert(turnosTable).values(data).returning();
+    await registrarAuditoria({
+      tabela: "turnos", operacao: "INSERT", registroId: turno.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "POST /api/turnos", metodoHttp: "POST", statusHttp: 201,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+    res.status(201).json(turno);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao criar turno" });
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
 });
 
 // PUT /api/turnos/:id — atualizar turno
-// Requer permissão turnos:manage
 router.put("/:id", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Implementar validação e update ao banco
-    // const { nome } = req.body;
-    // const [turno] = await db.update(turnosTable).set({ nome, atualizadoEm: new Date() }).where(eq(turnosTable.id, req.params.id)).returning();
-    // res.json(turno);
-
-    res.json({ message: "Turno atualizado (ainda não implementado)" });
+    const data = insertTurnoSchema.parse(req.body);
+    const [turno] = await db.update(turnosTable).set(data).where(eq(turnosTable.id, req.params.id)).returning();
+    if (!turno) return res.status(404).json({ error: "Turno não encontrado" });
+    await registrarAuditoria({
+      tabela: "turnos", operacao: "UPDATE", registroId: turno.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/turnos/:id", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+    res.json(turno);
   } catch (err) {
-    res.status(500).json({ error: "Erro ao atualizar turno" });
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
 });
 
-// DELETE /api/turnos/:id — deletar turno (soft delete)
-// Requer permissão turnos:manage
+// DELETE /api/turnos/:id — excluir turno (hard delete — sem soft delete nesta entidade)
 router.delete("/:id", requirePermissao("turnos:manage"), async (req: Request, res: Response) => {
   try {
-    // TODO: Implementar soft delete (marcar como deletado)
-    // await db.update(turnosTable).set({ deletadoEm: new Date() }).where(eq(turnosTable.id, req.params.id));
-    // res.status(204).end();
-
-    res.status(204).end();
+    const [turno] = await db.delete(turnosTable).where(eq(turnosTable.id, req.params.id)).returning();
+    if (!turno) return res.status(404).json({ error: "Turno não encontrado" });
+    await registrarAuditoria({
+      tabela: "turnos", operacao: "DELETE", registroId: turno.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "DELETE /api/turnos/:id", metodoHttp: "DELETE", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+    res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: "Erro ao deletar turno" });
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao excluir turno" });
   }
 });
 
-// Exportar router para ser registrado em index.ts
 export default router;

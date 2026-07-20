@@ -4,6 +4,11 @@ import authRouter from "./routes/auth.js";
 // Fase 3: Importar rotas de LGPD e auditoria
 import lgpdRouter from "./routes/lgpd.js";
 import auditoriaRouter from "./routes/auditoria.js";
+// SDD Dia 1: rotas de entidades de suporte
+import turnosRouter from "./routes/turnos.js";
+import cursosRouter from "./routes/cursos.js";
+import disciplinasRouter from "./routes/disciplinas.js";
+import turmasRouter from "./routes/turmas.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -23,16 +28,18 @@ app.use("/api/lgpd", lgpdRouter);
 
 // Fase 3: Registrar rotas de auditoria (logs de operações)
 app.use("/api/auditoria", auditoriaRouter);
-// app.use("/api/turnos", turnosRouter);
-// app.use("/api/cursos", cursosRouter);
-// app.use("/api/turmas", turmasRouter);
+// SDD Dia 1: rotas implementadas
+app.use("/api/turnos", turnosRouter);
+app.use("/api/cursos", cursosRouter);
+app.use("/api/disciplinas", disciplinasRouter);
+app.use("/api/turmas", turmasRouter);
+// Pendentes de implementação:
 // app.use("/api/estudantes", estudantesRouter);
 // app.use("/api/carometro", carometroRouter);
 // app.use("/api/import", importRouter);
 // app.use("/api/ocorrencias", ocorrenciasRouter);
 // app.use("/api/roles", rolesRouter);
 // app.use("/api/usuarios", usuariosRouter);
-// app.use("/api/disciplinas", disciplinasRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos
