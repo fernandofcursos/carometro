@@ -14,7 +14,7 @@ import {
   permissoesTable, rolesPermissoesTable,
 } from "@workspace/db/schema";
 import { createHash, createCipheriv, randomBytes } from "crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and } from "@workspace/db";
 import bcrypt from "bcryptjs";
 
 // ── Criptografia de e-mail (AES-256-CBC, mesma chave do api-server) ───────────
@@ -26,12 +26,13 @@ function getKey(): Buffer {
   return createHash("sha256").update(secret).digest();
 }
 
-function encryptEmail(plaintext: string): Buffer {
+function encryptEmail(plaintext: string): string {
   const key = getKey();
   const iv  = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
   const enc = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  return Buffer.concat([iv, enc]);
+  // Formato "ivHex:encHex" — compatível com descriptografarEmail() em crypto.ts
+  return iv.toString("hex") + ":" + enc.toString("hex");
 }
 
 // ── Geradores de credenciais ──────────────────────────────────────────────────

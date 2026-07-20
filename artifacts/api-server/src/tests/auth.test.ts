@@ -14,7 +14,7 @@ const mockDb = {
 
 vi.mock("@workspace/db", () => ({
   db: mockDb,
-  usuariosTable:      { id: "id", emailHash: "emailHash", codigoAcesso: "codigoAcesso", deletadoEm: "deletadoEm", senhaHash: "senhaHash", bloqueadoAte: "bloqueadoAte", tentativasLoginFalhas: "tentativasLoginFalhas", ultimoLoginEm: "ultimoLoginEm", nome: "nome", emailEncrypted: "emailEncrypted", primeiroAcesso: "primeiroAcesso", atualizadoEm: "atualizadoEm" },
+  usuariosTable:      { id: "id", emailHash: "emailHash", codigoAcesso: "codigoAcesso", deletadoEm: "deletadoEm", senhaHash: "senhaHash", bloqueadoAte: "bloqueadoAte", tentativasLoginFalhas: "tentativasLoginFalhas", ultimoLoginEm: "ultimoLoginEm", nome: "nome", emailEncrypted: "emailEncrypted", primeiroAcesso: "primeiroAcesso", atualizadoEm: "atualizadoEm", recuperacaoTokenHash: "recuperacaoTokenHash", recuperacaoExpiresAt: "recuperacaoExpiresAt" },
   rolesTable:         { id: "id", nome: "nome" },
   usuariosRolesTable: { usuarioId: "usuarioId", roleId: "roleId" },
   rolesPermissoesTable: { roleId: "roleId", permissaoId: "permissaoId" },
@@ -200,6 +200,113 @@ describe("GET /api/auth/me", () => {
       nome: USUARIO_FIXTURE.nome,
       permissions: ["roles:manage"],
     });
+  });
+});
+
+describe("POST /api/auth/solicitar-recuperacao", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = await buildApp();
+  });
+
+  it("retorna 400 para e-mail inválido", async () => {
+    const res = await request(app)
+      .post("/api/auth/solicitar-recuperacao")
+      .send({ email: "nao-e-email" });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty("error");
+  });
+
+  it("retorna 200 mesmo quando e-mail não existe (não revela existência)", async () => {
+    mockDb.select.mockReturnValueOnce(makeQuery([]));
+
+    const res = await request(app)
+      .post("/api/auth/solicitar-recuperacao")
+      .send({ email: "naoexiste@test.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
+  it("retorna 200 e gera token quando e-mail existe", async () => {
+    mockDb.select.mockReturnValueOnce(makeQuery([{ id: USUARIO_FIXTURE.id }]));
+    mockDb.update.mockReturnValueOnce(makeQuery([]));
+
+    const res = await request(app)
+      .post("/api/auth/solicitar-recuperacao")
+      .send({ email: "admin@test.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(mockDb.update).toHaveBeenCalledOnce();
+  });
+});
+
+describe("POST /api/auth/redefinir-senha", () => {
+  let app: express.Express;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    app = await buildApp();
+  });
+
+  it("retorna 400 quando nova senha tem menos de 8 caracteres", async () => {
+    const res = await request(app)
+      .post("/api/auth/redefinir-senha")
+      .send({ token: "qualquer-token", novaSenha: "curta" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/8 caracteres/i);
+  });
+
+  it("retorna 400 quando token não existe no banco", async () => {
+    mockDb.select.mockReturnValueOnce(makeQuery([]));
+
+    const res = await request(app)
+      .post("/api/auth/redefinir-senha")
+      .send({ token: "token-invalido", novaSenha: "novaSenha123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/inválido/i);
+  });
+
+  it("retorna 400 quando token está expirado", async () => {
+    const expirado = {
+      ...USUARIO_FIXTURE,
+      recuperacaoTokenHash: "hash",
+      recuperacaoExpiresAt: new Date(Date.now() - 1000), // já expirou
+    };
+    mockDb.select.mockReturnValueOnce(makeQuery([expirado]));
+
+    const res = await request(app)
+      .post("/api/auth/redefinir-senha")
+      .send({ token: "token-expirado", novaSenha: "novaSenha123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/expirado/i);
+  });
+
+  it("retorna 200 e invalida o token após redefinição bem-sucedida", async () => {
+    const bcrypt = (await import("bcryptjs")).default;
+    vi.mocked(bcrypt.hash).mockResolvedValueOnce("$2b$12$newhash" as never);
+
+    const valido = {
+      ...USUARIO_FIXTURE,
+      recuperacaoTokenHash: "hash",
+      recuperacaoExpiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 min no futuro
+    };
+    mockDb.select.mockReturnValueOnce(makeQuery([valido]));
+    mockDb.update.mockReturnValueOnce(makeQuery([]));
+
+    const res = await request(app)
+      .post("/api/auth/redefinir-senha")
+      .send({ token: "token-valido", novaSenha: "novaSenha123" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(mockDb.update).toHaveBeenCalledOnce();
   });
 });
 

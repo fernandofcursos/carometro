@@ -31,6 +31,8 @@ export const usuariosTable = pgTable("usuarios", {
   fotoTamanhoBytes: integer("foto_tamanho_bytes"),
   fotoHashIntegridade: char("foto_hash_integridade", { length: 64 }),
   fotoDados: bytesAsBuffer("foto_dados"), // Fase 5: bytes criptografados da foto (AES-256-CBC, sem foto_url legado)
+  recuperacaoTokenHash: char("recuperacao_token_hash", { length: 64 }),
+  recuperacaoExpiresAt: timestamp("recuperacao_expires_at", { withTimezone: true }),
   criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
   deletadoEm: timestamp("deletado_em", { withTimezone: true }),

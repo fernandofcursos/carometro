@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import {
   db, usuariosTable, rolesTable, usuariosRolesTable,
@@ -270,6 +270,91 @@ router.post("/switch-role", requireAuth, async (req: Request, res: Response) => 
     });
   } catch {
     res.status(500).json({ error: "Erro ao trocar perfil" });
+  }
+});
+
+// POST /api/auth/solicitar-recuperacao — solicitar redefinição de senha
+// Resposta sempre 200 para não revelar se o e-mail existe (LGPD + user enumeration)
+router.post("/solicitar-recuperacao", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({ email: z.string().email("E-mail inválido") });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+
+    const { email } = parsed.data;
+
+    const [usuario] = await db
+      .select({ id: usuariosTable.id })
+      .from(usuariosTable)
+      .where(and(eq(usuariosTable.emailHash, emailHash(email)), isNull(usuariosTable.deletadoEm)));
+
+    if (usuario) {
+      const token = randomUUID();
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+      await db
+        .update(usuariosTable)
+        .set({ recuperacaoTokenHash: tokenHash, recuperacaoExpiresAt: expiresAt, atualizadoEm: new Date() })
+        .where(eq(usuariosTable.id, usuario.id));
+
+      // Em produção: enviar por e-mail. Em dev: exibir no console.
+      console.log(`[recuperacao] token para ${email}: ${token} (expira em ${expiresAt.toISOString()})`);
+    }
+
+    return res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Erro ao processar solicitação" });
+  }
+});
+
+// POST /api/auth/redefinir-senha — redefinir senha com token recebido
+router.post("/redefinir-senha", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      token: z.string().min(1, "Token obrigatório"),
+      novaSenha: z.string().min(8, "Nova senha deve ter mínimo 8 caracteres"),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+
+    const { token, novaSenha } = parsed.data;
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+
+    const [usuario] = await db
+      .select({ id: usuariosTable.id, recuperacaoTokenHash: usuariosTable.recuperacaoTokenHash, recuperacaoExpiresAt: usuariosTable.recuperacaoExpiresAt })
+      .from(usuariosTable)
+      .where(and(eq(usuariosTable.recuperacaoTokenHash, tokenHash), isNull(usuariosTable.deletadoEm)));
+
+    if (!usuario || !usuario.recuperacaoExpiresAt) {
+      return res.status(400).json({ error: "Token inválido ou já utilizado" });
+    }
+
+    if (new Date() > new Date(usuario.recuperacaoExpiresAt)) {
+      return res.status(400).json({ error: "Token expirado" });
+    }
+
+    const novaSenhaHash = await bcrypt.hash(novaSenha, 12);
+
+    await db
+      .update(usuariosTable)
+      .set({
+        senhaHash: novaSenhaHash,
+        primeiroAcesso: false,
+        recuperacaoTokenHash: null,
+        recuperacaoExpiresAt: null,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(usuariosTable.id, usuario.id));
+
+    return res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "Erro ao redefinir senha" });
   }
 });
 
