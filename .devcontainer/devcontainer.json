@@ -14,6 +14,10 @@
   "service": "dev",
   "workspaceFolder": "/workspace",
 
+  // VSCode substitui o entrypoint/command do container pelo VS Code Server
+  // Sem isso, o entrypoint.sh toma controle e o VSCode não consegue conectar
+  "overrideCommand": true,
+
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },

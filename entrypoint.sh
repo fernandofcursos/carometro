@@ -2,7 +2,7 @@
 # =============================================================================
 # entrypoint.sh — inicialização do ambiente de desenvolvimento Carômetro
 # =============================================================================
-set -euo pipefail
+set -uo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -53,8 +53,10 @@ fi
 if [ "$USE_LOCAL_PG" = "true" ]; then
   info "DATABASE_URL aponta para localhost — iniciando PostgreSQL 16 interno..."
 
-  sudo -u postgres pg_ctlcluster 16 main start 2>/dev/null || \
-    pg_ctlcluster 16 main start 2>/dev/null || true
+  # Tentar iniciar PG como postgres (requer sudo) ou direto; falha silenciosa
+  sudo -n -u postgres pg_ctlcluster 16 main start 2>/dev/null || \
+    pg_ctlcluster 16 main start 2>/dev/null || \
+    pg_lsclusters 2>/dev/null || true
 
   sleep 2
 
