@@ -93,6 +93,19 @@ git pull origin claude/wonderful-feynman-Klc3C
 
 ### 3. Subir os servidores
 
+Há duas formas equivalentes — escolha a que preferir:
+
+#### Opção A — Via Tasks do VSCode (recomendado)
+
+`Cmd+Shift+P` → **Tasks: Run Task** → **🚀 Carômetro: subir tudo**
+
+Isso sobe API e Frontend em paralelo, cada um em seu próprio painel de terminal.
+
+> **Importante:** as tasks só funcionam corretamente **dentro do Dev Container**.
+> Nunca execute via `runOn: folderOpen` nem antes de conectar ao container.
+
+#### Opção B — Via terminal manual
+
 Abra **dois terminais** no VSCode (`+` no painel de terminais ou `Cmd+\``):
 
 **Terminal 1 — API (porta 8080):**
@@ -167,6 +180,24 @@ docker compose down          # para e remove o container (dados preservados)
 3. `Cmd+Shift+P` → **Dev Containers: Reopen in Container**
 4. Aguarde reconexão (~15–30s)
 5. No terminal, suba os servidores (veja "Uso diário → passo 3")
+
+---
+
+## Tasks do VSCode (referência)
+
+Todas as tasks são **manuais** — nunca executam automaticamente.
+Acesso: `Cmd+Shift+P` → **Tasks: Run Task**
+
+| Task | O que faz |
+|---|---|
+| **🚀 Carômetro: subir tudo** | Sobe API (8080) e Frontend (5000) em paralelo |
+| **API: api-server dev** | Sobe apenas a API na porta 8080 |
+| **Frontend: Vite dev server** | Sobe apenas o frontend na porta 5000 |
+| **DB: aplicar schema** | Executa `push-force` no banco |
+| **TypeScript: typecheck** | Verifica tipos no backend e frontend |
+| **Testes: vitest** | Roda os 53 testes do api-server |
+| **Scripts: criar admin** | Pede e-mail e executa seed-admin |
+| **pnpm: instalar dependências** | Executa `pnpm install` |
 
 ---
 
