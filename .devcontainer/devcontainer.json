@@ -146,8 +146,8 @@
   // --------------------------------------------------------------------------
   // Comando executado UMA VEZ ao criar o container (post-create)
   // --------------------------------------------------------------------------
-  "postCreateCommand": "echo '✅ Container pronto! Use Ctrl+Shift+B para subir os servidores.'",
+  "postCreateCommand": "echo '✅ Container pronto. Abra um terminal e rode: pnpm install'",
 
-  // Executado a cada reconexão: sincroniza o repo e garante dependências
-  "postStartCommand": "git pull --ff-only origin $(git branch --show-current) 2>/dev/null || true && ([ -d node_modules ] && echo '✅ deps ok' || pnpm install --prefer-frozen-lockfile --silent 2>/dev/null || true)"
+  // Nenhum comando automático no start — inicialização é sempre manual
+  "postStartCommand": "echo '▶ Container iniciado. Suba os servidores manualmente no terminal.'"
 }

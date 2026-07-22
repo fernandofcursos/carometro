@@ -61,9 +61,9 @@ services:
       timeout: 5s
       retries: 3
 
-    # Comando padrão: entrypoint inicia PG (se local), instala deps,
-    # aplica schema, cria admin inicial e sobe o frontend Vite.
-    command: ["dev"]
+    # Inicialização manual — o entrypoint apenas abre um shell interativo.
+    # Suba os servidores manualmente no terminal do VSCode.
+    command: ["shell"]
 
     stdin_open: true
     tty: true

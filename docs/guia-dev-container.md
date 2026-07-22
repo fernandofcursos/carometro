@@ -50,6 +50,8 @@ REPL_ID=
 3. O Docker vai buildar a imagem (~2–5 min na primeira vez)
 4. O VSCode reconectará dentro do container Linux
 
+> O container abre um shell limpo. **Nenhum serviço sobe automaticamente** — tudo é iniciado manualmente para evitar sobrecarga de processos.
+
 ---
 
 ## Parte 2 — Criar o usuário administrador
