@@ -11,7 +11,7 @@
     {
       "label": "API: api-server dev",
       "type": "shell",
-      "command": "PORT=8080 pnpm --filter @workspace/api-server run dev",
+      "command": "ulimit -n 65536; PORT=8080 pnpm --filter @workspace/api-server run dev",
       "group": "build",
       "isBackground": true,
       "presentation": { "reveal": "always", "panel": "dedicated", "group": "dev", "label": "API :8080" },
@@ -20,7 +20,7 @@
     {
       "label": "Frontend: Vite dev server",
       "type": "shell",
-      "command": "pnpm --filter @workspace/carometro run dev",
+      "command": "ulimit -n 65536; pnpm --filter @workspace/carometro run dev",
       "group": "build",
       "isBackground": true,
       "presentation": { "reveal": "always", "panel": "dedicated", "group": "dev", "label": "Frontend :5000" },

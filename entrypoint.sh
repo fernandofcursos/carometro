@@ -9,6 +9,8 @@ CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+ulimit -n 65536 2>/dev/null || true
+
 CMD_ARG="${1:-shell}"
 
 # Comandos utilitários (usados pelo docker compose run --rm dev <cmd>)
