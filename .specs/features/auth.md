@@ -63,7 +63,8 @@ Troca o `activeRoleId` no JWT. O role deve pertencer ao usuário.
 2. Informa o e-mail cadastrado
 3. Sistema valida internamente se o e-mail existe — **não revela ao usuário** (LGPD + user enumeration)
 4. Se existir: gera token UUID aleatório, armazena hash SHA-256 no banco, válido por **1 hora**
-5. Exibe o token no console/log (ambiente dev) — em produção seria enviado por e-mail
+5. Envia e-mail com o token via SMTP (variáveis `SMTP_HOST/PORT/USER/PASS/FROM`)
+   - Sem SMTP configurado: usa Ethereal (serviço de teste) e exibe URL de pré-visualização no log da API
 6. Usuário informa o token e a nova senha
 7. Sistema valida token (hash + expiração + não usado), atualiza senha, invalida token
 

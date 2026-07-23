@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
 import { descriptografarEmail } from "../lib/crypto.js"; // Fase 9: descriptografar e-mail para retornar no /me
+import { enviarEmailRecuperacao } from "../lib/mailer.js";
 
 const router = Router();
 
@@ -286,7 +287,7 @@ router.post("/solicitar-recuperacao", async (req: Request, res: Response) => {
     const { email } = parsed.data;
 
     const [usuario] = await db
-      .select({ id: usuariosTable.id })
+      .select({ id: usuariosTable.id, emailEncrypted: usuariosTable.emailEncrypted })
       .from(usuariosTable)
       .where(and(eq(usuariosTable.emailHash, emailHash(email)), isNull(usuariosTable.deletadoEm)));
 
@@ -300,8 +301,13 @@ router.post("/solicitar-recuperacao", async (req: Request, res: Response) => {
         .set({ recuperacaoTokenHash: tokenHash, recuperacaoExpiresAt: expiresAt, atualizadoEm: new Date() })
         .where(eq(usuariosTable.id, usuario.id));
 
-      // Em produção: enviar por e-mail. Em dev: exibir no console.
-      console.log(`[recuperacao] token para ${email}: ${token} (expira em ${expiresAt.toISOString()})`);
+      const emailDestino = descriptografarEmail(usuario.emailEncrypted);
+      try {
+        await enviarEmailRecuperacao(emailDestino, token, expiresAt);
+      } catch (err) {
+        // Falha no envio não deve revelar informação — registrar e continuar
+        console.error("[recuperacao] falha ao enviar e-mail:", err);
+      }
     }
 
     return res.json({ ok: true });
