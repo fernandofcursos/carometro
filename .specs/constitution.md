@@ -62,7 +62,16 @@ Formato: `recurso:acao`
 | `import:execute` | Importar XLSX |
 | `auditoria:view` | Ver logs |
 
-## 5. Convenções de Código
+## 6. Premissas de Plataforma
+
+- **Sistema web** — acessível exclusivamente via browser, sem cliente nativo instalável além do PWA
+- **PWA obrigatório** — o frontend deve ser instalável como Progressive Web App em qualquer dispositivo (desktop, tablet, celular)
+- **Suporte a mobile** — layout responsivo para tablets e celulares; orientação portrait como padrão para mobile
+- **Modo offline** — operações de leitura funcionam com cache local (Workbox); mutações offline são enfileiradas em localStorage e sincronizadas automaticamente ao reconectar
+- **Conteinerizado** — desenvolvimento e produção rodam em containers Docker; orquestração em Kubernetes para produção quando aplicável
+- **Hospedagem em nuvem** — aplicação hospedada em provedor cloud (a definir); banco de dados em Neon (PostgreSQL cloud); credenciais nunca commitadas
+
+## 7. Convenções de Código
 
 - Rotas: `artifacts/api-server/src/routes/<recurso>.ts`
 - Schemas Drizzle: `lib/db/src/schema/<recurso>.ts`
