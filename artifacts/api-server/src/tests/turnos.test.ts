@@ -67,6 +67,8 @@ describe("GET /api/turnos", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
     app = await buildApp();
   });
 
@@ -100,6 +102,8 @@ describe("POST /api/turnos", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
     app = await buildApp();
   });
 
@@ -136,6 +140,8 @@ describe("DELETE /api/turnos/:id", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
     app = await buildApp();
   });
 

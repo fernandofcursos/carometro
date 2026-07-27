@@ -1,7 +1,7 @@
 /**
  * Tests for /api/cursos — verifica CRUD básico e soft-delete.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -70,7 +70,12 @@ async function authCookie(roles = ["admin"]) {
 
 describe("GET /api/cursos", () => {
   let app: express.Express;
-  beforeEach(async () => { vi.clearAllMocks(); app = await buildApp(); });
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
+    app = await buildApp();
+  });
 
   it("retorna 401 sem auth", async () => {
     const res = await request(app).get("/api/cursos");
@@ -91,7 +96,12 @@ describe("GET /api/cursos", () => {
 
 describe("GET /api/cursos/:id", () => {
   let app: express.Express;
-  beforeEach(async () => { vi.clearAllMocks(); app = await buildApp(); });
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
+    app = await buildApp();
+  });
 
   it("retorna 404 quando curso não existe ou foi excluído", async () => {
     const cookie = await authCookie();
@@ -117,7 +127,12 @@ describe("GET /api/cursos/:id", () => {
 
 describe("POST /api/cursos", () => {
   let app: express.Express;
-  beforeEach(async () => { vi.clearAllMocks(); app = await buildApp(); });
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
+    app = await buildApp();
+  });
 
   it("retorna 400 sem nome", async () => {
     const cookie = await authCookie();
@@ -144,7 +159,12 @@ describe("POST /api/cursos", () => {
 
 describe("DELETE /api/cursos/:id (soft delete)", () => {
   let app: express.Express;
-  beforeEach(async () => { vi.clearAllMocks(); app = await buildApp(); });
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
+    app = await buildApp();
+  });
 
   it("retorna 404 quando curso não existe", async () => {
     const cookie = await authCookie();

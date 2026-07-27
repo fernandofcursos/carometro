@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { db, estudantesTable, estudanteEmailsTable, turmasTable, cursosTable, turnosTable, eq, isNull, and, inArray } from "@workspace/db";
+import { db, estudantesTable, estudanteEmailsTable, turmasTable, cursosTable, turnosTable, eq, isNull, and, inArray, ilike, or } from "@workspace/db";
 import {
   criptografarFoto,
   descriptografarFoto,
@@ -48,8 +48,16 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
 
     const condicoes = [isNull(estudantesTable.deletadoEm)];
     if (turmaId) condicoes.push(eq(estudantesTable.turmaId, turmaId as string));
+    if (termoBusca) {
+      condicoes.push(
+        or(
+          ilike(estudantesTable.nome, `%${termoBusca}%`),
+          ilike(estudantesTable.registro, `%${termoBusca}%`),
+        )!
+      );
+    }
 
-    const rows = await db
+    const filtrados = await db
       .select({
         id:          estudantesTable.id,
         nome:        estudantesTable.nome,
@@ -69,14 +77,6 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
       .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
       .where(and(...condicoes))
       .orderBy(estudantesTable.nome);
-
-    // Filtro de busca em memória
-    const filtrados = termoBusca
-      ? rows.filter((r) =>
-          r.nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
-          r.registro.includes(termoBusca)
-        )
-      : rows;
 
     // Carregar e-mails em batch (uma query)
     const emailsMap = await carregarEmails(filtrados.map((r) => r.id));

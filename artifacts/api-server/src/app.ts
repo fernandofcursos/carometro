@@ -1,4 +1,5 @@
-import express, { Express, Request, Response, NextFunction } from "express"; // Fase 9: adicionado Request/Response/NextFunction para middleware startTime
+import express, { Express, Request, Response, NextFunction } from "express";
+import { AppError } from "./domain/errors.js";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -45,11 +46,24 @@ export function createApp(): Express {
   // Pino registra automaticamente todas as requisições/respostas
   app.use(pinoHttp({ level: process.env.LOG_LEVEL ?? "info" }));
 
-  // Fase 9: middleware para medir duração das requisições
+  // Middleware para medir duração das requisições
   // req.startTime é usado por registrarAuditoria para calcular duracaoMs
   app.use((req: Request, _res: Response, next: NextFunction) => {
-    req.startTime = Date.now(); // Fase 9: timestamp de início da requisição
+    req.startTime = Date.now();
     next();
+  });
+
+  // Handler global de erros — deve ser registrado APÓS as rotas (em index.ts)
+  // Trata AppError (domínio) de forma uniforme; erros desconhecidos retornam 500
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof AppError) {
+      return res.status(err.statusCode).json({
+        error: err.message,
+        ...(err.code ? { code: err.code } : {}),
+      });
+    }
+    console.error("[unhandled error]", err);
+    res.status(500).json({ error: "Erro interno do servidor" });
   });
 
   // Retornar aplicação configurada (middlewares prontos)

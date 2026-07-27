@@ -64,6 +64,8 @@ describe("Guard de permissões — GET /api/roles", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    const { limparCachePermissoes } = await import("../lib/permissions.js");
+    limparCachePermissoes();
     app = await buildApp();
   });
 

@@ -8,8 +8,9 @@ import {
   eq, and, isNull,
 } from "@workspace/db";
 import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
-import { descriptografarEmail } from "../lib/crypto.js"; // Fase 9: descriptografar e-mail para retornar no /me
+import { descriptografarEmail } from "../lib/crypto.js";
 import { enviarEmailRecuperacao } from "../lib/mailer.js";
+import { invalidarCachePermissoes } from "../lib/permissions.js";
 
 const router = Router();
 
@@ -145,7 +146,8 @@ router.post("/login", async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/logout
-router.post("/logout", (_req: Request, res: Response) => {
+router.post("/logout", (req: Request, res: Response) => {
+  if (req.usuarioId) invalidarCachePermissoes(req.usuarioId);
   clearAuthCookie(res);
   res.json({ message: "Logout realizado" });
 });
@@ -250,6 +252,9 @@ router.post("/switch-role", requireAuth, async (req: Request, res: Response) => 
       ));
 
     if (!vinculo) return res.status(403).json({ error: "Perfil não autorizado para este usuário" });
+
+    // Invalidar cache de permissões — novo role pode ter permissões diferentes
+    invalidarCachePermissoes(req.usuarioId!);
 
     // Retornar dados atualizados com nova role ativa
     const [usuario] = await db

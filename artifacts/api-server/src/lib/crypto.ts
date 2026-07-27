@@ -1,13 +1,13 @@
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
-// Função auxiliar para obter chave de criptografia derivada do SESSION_SECRET
-// A chave DEVE ser consistente entre diferentes instâncias (usa SESSION_SECRET como derivação)
+// Chave AES-256 derivada de ENCRYPTION_KEY (32 bytes hex = 64 chars).
+// NUNCA usar SESSION_SECRET aqui — rotacionar o JWT não deve invalidar dados criptografados.
 export function getChaveEncriptacao(): Buffer {
-  // Criar hash SHA-256 do SESSION_SECRET para gerar chave de 32 bytes (256 bits)
-  // necessário para AES-256-CBC
-  return createHash("sha256")
-    .update(process.env.SESSION_SECRET!)
-    .digest();
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) throw new Error("ENCRYPTION_KEY não definida");
+  // Aceita 64 chars hex (32 bytes) ou qualquer string (derivada via SHA-256)
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, "hex");
+  return createHash("sha256").update(raw).digest();
 }
 
 // Tipo para resultado de criptografia de foto
