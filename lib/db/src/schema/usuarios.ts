@@ -33,6 +33,11 @@ export const usuariosTable = pgTable("usuarios", {
   fotoDados: bytesAsBuffer("foto_dados"), // Fase 5: bytes criptografados da foto (AES-256-CBC, sem foto_url legado)
   recuperacaoTokenHash: char("recuperacao_token_hash", { length: 64 }),
   recuperacaoExpiresAt: timestamp("recuperacao_expires_at", { withTimezone: true }),
+  // Biometria facial — descriptor Float32Array(128) criptografado AES-256
+  biometriaFacialDescriptor: bytesAsBuffer("biometria_facial_descriptor"),
+  biometriaFacialIv: char("biometria_facial_iv", { length: 24 }),
+  biometriaFacialAtivada: boolean("biometria_facial_ativada").notNull().default(false),
+  biometriaFacialCadastradaEm: timestamp("biometria_facial_cadastrada_em", { withTimezone: true }),
   criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
   deletadoEm: timestamp("deletado_em", { withTimezone: true }),

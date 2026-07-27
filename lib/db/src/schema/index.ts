@@ -17,3 +17,4 @@ export * from "./auditoria-logs";
 export * from "./tokens-sessao";
 export * from "./consentimentos-lgpd";
 export * from "./solicitacoes-lgpd";
+export * from "./webauthn-credenciais";
