@@ -18,6 +18,7 @@ import usuariosRouter from "./routes/usuarios.js";
 import estudantesRouter from "./routes/estudantes.js";
 import carometroRouter from "./routes/carometro.js";
 import importRouter from "./routes/import.js";
+import biometriaRouter from "./routes/biometria.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -51,6 +52,8 @@ app.use("/api/usuarios", usuariosRouter);
 app.use("/api/estudantes", estudantesRouter);
 app.use("/api/carometro", carometroRouter);
 app.use("/api/import", importRouter);
+// Biometria facial e digital (WebAuthn FIDO2)
+app.use("/api/auth/biometria", biometriaRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos
