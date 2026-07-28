@@ -266,3 +266,68 @@ ENCRYPTION_KEY=<valor gerado acima>
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+---
+
+## 19. Login 500 / 401 — PostgreSQL local não iniciado no container
+
+**Erro:**
+- POST `/api/auth/login` → HTTP 500 ("Erro ao fazer login")
+- Log: `DrizzleQueryError: connect ECONNREFUSED 127.0.0.1:5432`
+- Console API: `[login] erro interno: ... cause: Error: connect ECONNREFUSED 127.0.0.1:5432`
+
+**Causa:** O PostgreSQL local do container não foi iniciado. O `entrypoint.sh` era 100% manual e não subia o PG automaticamente ao abrir o Dev Container.
+
+**Solução (automática a partir deste commit):** O `entrypoint.sh` agora inicia o PostgreSQL automaticamente quando `DATABASE_URL` aponta para `localhost` ou `127.0.0.1`. Basta reabrir o Dev Container.
+
+**Solução manual (se ainda ocorrer):**
+```bash
+# Dentro do container:
+su -c "pg_ctlcluster 16 main start" postgres
+pg_isready  # deve mostrar "accepting connections"
+
+# Criar banco se não existir:
+su -c "psql -c \"CREATE USER carometro WITH PASSWORD 'carometro';\"
+       psql -c \"CREATE DATABASE carometro OWNER carometro;\"
+       psql -c \"GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;\"" postgres
+
+# Aplicar schema:
+pnpm --filter @workspace/db run push-force
+
+# Criar admin:
+pnpm --filter @workspace/api-server run seed-admin
+```
+
+**Solução alternativa (sem container):** Usar o banco Neon em `.env`:
+```
+DATABASE_URL=postgresql://usuario:senha@host.neon.tech/carometro?sslmode=require
+```
+
+---
+
+## 20. Senha do admin inválida após redefinição do banco
+
+**Sintoma:** Login retorna `401 "Identificador ou senha inválidos"` mesmo com as credenciais corretas.
+
+**Causa:** O banco foi recriado (push-force) e o seed do admin gerou uma senha aleatória temporária exibida no terminal na criação. Se esse terminal foi fechado, a senha foi perdida.
+
+**Solução:** Redefinir a senha via SQL (requer `pgcrypto`):
+```sql
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+UPDATE usuarios
+SET senha_hash = crypt('NovaSenha@123', gen_salt('bf', 12)),
+    tentativas_login_falhas = 0,
+    bloqueado_ate = NULL,
+    primeiro_acesso = false
+WHERE codigo_acesso = 'SEU_CODIGO_AQUI';
+```
+
+Ou via psql de uma linha:
+```bash
+psql $DATABASE_URL -c "
+  CREATE EXTENSION IF NOT EXISTS pgcrypto;
+  UPDATE usuarios SET senha_hash = crypt('Admin@123', gen_salt('bf', 12)),
+    tentativas_login_falhas = 0, bloqueado_ate = NULL, primeiro_acesso = false;
+"
+```

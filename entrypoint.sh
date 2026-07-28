@@ -1,15 +1,41 @@
 #!/bin/bash
 # =============================================================================
 # entrypoint.sh — ambiente de desenvolvimento Carômetro
-# Inicialização MANUAL — nenhum serviço sobe automaticamente.
+# PostgreSQL local sobe automaticamente se DATABASE_URL apontar para localhost.
 # =============================================================================
 
 BOLD='\033[1m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 ulimit -n 65536 2>/dev/null || true
+
+# ── PostgreSQL local — inicia automaticamente se DATABASE_URL usar localhost ──
+# Se DATABASE_URL aponta para Neon/externo, este bloco é ignorado.
+if echo "${DATABASE_URL:-}" | grep -qE 'localhost|127\.0\.0\.1'; then
+  if ! pg_isready -q 2>/dev/null; then
+    echo -e "${CYAN}[db] Iniciando PostgreSQL local...${NC}"
+    su -c "pg_ctlcluster 16 main start" postgres 2>/dev/null || true
+    # Aguardar PG aceitar conexões (até 10s)
+    for i in $(seq 1 10); do
+      pg_isready -q && break
+      sleep 1
+    done
+    if pg_isready -q; then
+      echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
+      # Criar banco e usuário se não existirem
+      su -c "psql -c \"CREATE USER carometro WITH PASSWORD 'carometro';\" 2>/dev/null; \
+             psql -c \"CREATE DATABASE carometro OWNER carometro;\" 2>/dev/null; \
+             psql -c \"GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;\" 2>/dev/null" \
+        postgres 2>/dev/null || true
+    else
+      echo -e "${RED}[db] AVISO: PostgreSQL não respondeu. Use DATABASE_URL do Neon no .env.${NC}"
+    fi
+  fi
+fi
 
 CMD_ARG="${1:-shell}"
 
