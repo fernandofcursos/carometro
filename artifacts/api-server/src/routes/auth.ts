@@ -141,6 +141,7 @@ router.post("/login", async (req: Request, res: Response) => {
       disciplinas:   [],                                   // adicionado: placeholder (implementar na Fase 1e)
     });
   } catch (err) {
+    console.error("[login] erro interno:", err);
     res.status(500).json({ error: "Erro ao fazer login" });
   }
 });

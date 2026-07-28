@@ -8,6 +8,11 @@ import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 function getKey(): Buffer {
+  const raw = process.env["ENCRYPTION_KEY"];
+  if (raw) {
+    if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, "hex");
+    return createHash("sha256").update(raw).digest();
+  }
   const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
   return createHash("sha256").update(secret).digest();
 }

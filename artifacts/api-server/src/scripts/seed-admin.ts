@@ -20,8 +20,12 @@ import bcrypt from "bcryptjs";
 // ── Criptografia de e-mail (AES-256-CBC, mesma chave do api-server) ───────────
 function getKey(): Buffer {
   const raw = process.env.ENCRYPTION_KEY;
-  if (raw && raw.length === 32) return Buffer.from(raw, "utf8");
-  // Fallback: derivar da SESSION_SECRET (compatibilidade com versão anterior)
+  if (raw) {
+    // 64 chars hex = 32 bytes (formato preferido)
+    if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, "hex");
+    return createHash("sha256").update(raw).digest();
+  }
+  // Fallback: derivar da SESSION_SECRET (compatibilidade com instalações sem ENCRYPTION_KEY)
   const secret = process.env.SESSION_SECRET ?? "default-dev-secret-change-in-production";
   return createHash("sha256").update(secret).digest();
 }
