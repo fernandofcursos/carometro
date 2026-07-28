@@ -331,3 +331,35 @@ psql $DATABASE_URL -c "
     tentativas_login_falhas = 0, bloqueado_ate = NULL, primeiro_acesso = false;
 "
 ```
+
+---
+
+## 21. PostgreSQL local "Connection refused" mesmo com entrypoint corrigido
+
+**Erro:**
+```
+psql: error: connection to server at "localhost" (::1), port 5432 failed: Connection refused
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+```
+
+**Causa:** O cluster existe (`pg_lsclusters` mostra `down`) mas não iniciou. O `entrypoint.sh` anterior usava `su -c` que falha silenciosamente sem TTY (comum em Dev Container / `docker exec`).
+
+**Solução imediata (uma vez, dentro do container):**
+```bash
+pg_ctlcluster 16 main start
+pg_isready   # deve mostrar "accepting connections"
+```
+
+**Verificar status:**
+```bash
+pg_lsclusters   # coluna Status deve ser "online"
+```
+
+**Solução permanente (já aplicada no entrypoint.sh):** O script agora tenta iniciar o PG com `pg_ctlcluster` direto (como root) antes de tentar `su`. Se ainda falhar, exibe o comando manual com instruções claras.
+
+**Se o cluster não existir** (data directory vazio/corrompido):
+```bash
+pg_dropcluster 16 main --stop 2>/dev/null || true
+pg_createcluster 16 main
+pg_ctlcluster 16 main start
+```

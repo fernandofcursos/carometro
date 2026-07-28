@@ -15,25 +15,38 @@ ulimit -n 65536 2>/dev/null || true
 
 # ── PostgreSQL local — inicia automaticamente se DATABASE_URL usar localhost ──
 # Se DATABASE_URL aponta para Neon/externo, este bloco é ignorado.
+_iniciar_pg() {
+  # Tenta iniciar como usuário postgres (root pode usar pg_ctlcluster diretamente)
+  pg_ctlcluster 16 main start 2>/dev/null \
+    || su -s /bin/bash postgres -c "pg_ctlcluster 16 main start" 2>/dev/null \
+    || true
+}
+
+_setup_db() {
+  # Cria usuário e banco carometro se não existirem
+  local PSQL="psql -U postgres"
+  $PSQL -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
+  $PSQL -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
+  $PSQL -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
+}
+
 if echo "${DATABASE_URL:-}" | grep -qE 'localhost|127\.0\.0\.1'; then
   if ! pg_isready -q 2>/dev/null; then
     echo -e "${CYAN}[db] Iniciando PostgreSQL local...${NC}"
-    su -c "pg_ctlcluster 16 main start" postgres 2>/dev/null || true
-    # Aguardar PG aceitar conexões (até 10s)
-    for i in $(seq 1 10); do
-      pg_isready -q && break
+    _iniciar_pg
+    # Aguardar PG aceitar conexões (até 15s)
+    for i in $(seq 1 15); do
+      pg_isready -q 2>/dev/null && break
       sleep 1
     done
-    if pg_isready -q; then
-      echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
-      # Criar banco e usuário se não existirem
-      su -c "psql -c \"CREATE USER carometro WITH PASSWORD 'carometro';\" 2>/dev/null; \
-             psql -c \"CREATE DATABASE carometro OWNER carometro;\" 2>/dev/null; \
-             psql -c \"GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;\" 2>/dev/null" \
-        postgres 2>/dev/null || true
-    else
-      echo -e "${RED}[db] AVISO: PostgreSQL não respondeu. Use DATABASE_URL do Neon no .env.${NC}"
-    fi
+  fi
+  if pg_isready -q 2>/dev/null; then
+    echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
+    _setup_db
+  else
+    echo -e "${RED}[db] AVISO: PostgreSQL não respondeu após 15s.${NC}"
+    echo -e "${RED}      Inicie manualmente: pg_ctlcluster 16 main start${NC}"
+    echo -e "${RED}      Ou use o banco Neon no .env (DATABASE_URL=postgresql://...neon.tech/...)${NC}"
   fi
 fi
 
