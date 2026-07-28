@@ -203,3 +203,66 @@ unset DATABASE_URL
 export DATABASE_URL=$(grep '^DATABASE_URL' .env | cut -d= -f2-)
 cd lib/db && npx drizzle-kit push --force --config ./drizzle.config.ts
 ```
+
+---
+
+## 17. ERR_MODULE_NOT_FOUND: src/domain/errors.js ao iniciar API
+
+**Erro:**
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '…/src/domain/errors.js'
+code: 'ERR_MODULE_NOT_FOUND'
+```
+
+**Causa:** O `tsx` com `"moduleResolution": "bundler"` no tsconfig não consegue mapear imports `.js` para arquivos `.ts` em modo ESM nativo do Node.js. Ocorre ao adicionar subdiretórios novos (ex: `src/domain/`) cujos arquivos `.ts` são importados com extensão `.js`.
+
+**Solução:** Criar `tsconfig.dev.json` no `api-server` com `moduleResolution: node` apenas para o runtime do `tsx`, e apontar o script `dev` para esse arquivo via `TSX_TSCONFIG_PATH`:
+
+1. Criar `artifacts/api-server/tsconfig.dev.json`:
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node"
+  }
+}
+```
+
+2. Editar `artifacts/api-server/package.json`:
+```json
+"dev": "TSX_TSCONFIG_PATH=tsconfig.dev.json tsx watch src/index.ts"
+```
+
+O `tsconfig.json` original (com `bundler`) permanece para o typecheck (`tsc --noEmit`).
+
+---
+
+## 18. Login retornando 500 "Erro ao fazer login"
+
+**Erro:** POST `/api/auth/login` → HTTP 500. Log do pino não mostra o erro real (apenas `"msg":"request errored"`).
+
+**Causa:** `ENCRYPTION_KEY` não definida no `.env`. A função `getChaveEncriptacao()` lança erro imediatamente quando a variável está ausente. O login chama essa função para descriptografar o e-mail do usuário, logo falha em 100% dos logins.
+
+**Solução:**
+
+1. Adicionar `ENCRYPTION_KEY` ao `.env`. Para desenvolvimento, derivar do `SESSION_SECRET` existente:
+```bash
+node -e "
+  const { createHash } = require('crypto');
+  const s = process.env.SESSION_SECRET ?? 'dev-secret-troque-em-producao-minimo-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  console.log('ENCRYPTION_KEY=' + createHash('sha256').update(s).digest('hex'));
+"
+```
+
+2. Adicionar ao `.env`:
+```
+ENCRYPTION_KEY=<valor gerado acima>
+```
+
+3. Reiniciar a API.
+
+**Observação:** Em produção, `ENCRYPTION_KEY` e `SESSION_SECRET` DEVEM ser valores independentes. Rotacionar o JWT (SESSION_SECRET) não deve invalidar dados criptografados no banco. Gerar com:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
