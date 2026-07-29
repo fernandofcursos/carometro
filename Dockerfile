@@ -1,17 +1,10 @@
 # =============================================================================
-# Carômetro — Ambiente de Desenvolvimento (simula Replit)
+# Carômetro — Ambiente de Desenvolvimento
 #
-# Replit usa:
-#   - modules = ["nodejs-20"]  (Node 20.x via nix stable-25_05)
-#   - pnpm ^10.34.1            (declarado em package.json / root)
-#   - lockfileVersion: 9.0     (pnpm-lock.yaml)
-#   - Linux x64                (esbuild overrides para linux-x64 apenas)
-#   - PostgreSQL via DATABASE_URL externa (Neon cloud no Replit)
-#
-# Este container adiciona:
-#   - PostgreSQL 16 local (para desenvolvimento sem depender de Neon)
-#   - git, curl, wget, openssl (ferramentas de desenvolvimento)
-#   - Porta 5000 (frontend Vite) e 8080 (api-server)
+# - Node 22 + pnpm 10
+# - PostgreSQL 16 local (iniciado pelo entrypoint como root via runuser)
+# - git, curl, openssl e ferramentas de desenvolvimento
+# - Porta 5000 (frontend Vite) e 8080 (api-server)
 # =============================================================================
 
 FROM node:22-bookworm-slim
@@ -20,8 +13,8 @@ FROM node:22-bookworm-slim
 # Metadados
 # ---------------------------------------------------------------------------
 LABEL maintainer="carometro-dev"
-LABEL description="Ambiente de desenvolvimento Carômetro — simula Replit"
-LABEL node.version="20"
+LABEL description="Ambiente de desenvolvimento Carômetro"
+LABEL node.version="22"
 LABEL pnpm.version="10"
 
 # ---------------------------------------------------------------------------
@@ -54,17 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN corepack disable && npm install -g pnpm@10.13.1
 
 # ---------------------------------------------------------------------------
-# Usuário não-root para desenvolvimento (boa prática, simula Replit)
-# ---------------------------------------------------------------------------
-RUN useradd -m -s /bin/bash -u 1001 replit \
-  && mkdir -p /home/replit/.pnpm-store \
-  && chown -R replit:replit /home/replit
-
-# ---------------------------------------------------------------------------
 # PostgreSQL: configurar instância local
 # ---------------------------------------------------------------------------
-# Replit usa Neon (cloud) em produção, mas localmente precisamos de um PG.
-# Criamos um cluster PostgreSQL 16 dentro do container.
 RUN mkdir -p /var/run/postgresql /var/lib/postgresql/16/main \
   && chown -R postgres:postgres /var/run/postgresql /var/lib/postgresql \
   && su -c "pg_createcluster 16 main" postgres 2>/dev/null || true
@@ -96,12 +80,8 @@ ENV BASE_PATH=/
 ENV LANG=pt_BR.UTF-8 LANGUAGE=pt_BR:pt LC_ALL=pt_BR.UTF-8
 ENV LC_ALL=pt_BR.UTF-8
 
-# Replit expõe REPL_ID — deixamos vazio aqui para NÃO ativar plugins Replit
-# (cartographer, dev-banner) que dependem de infra exclusiva do Replit
-ENV REPL_ID=""
-
 # pnpm store no volume para cache entre rebuilds
-ENV PNPM_HOME=/home/replit/.pnpm-store
+ENV PNPM_HOME=/root/.pnpm-store
 ENV PATH="$PNPM_HOME:$PATH"
 
 # ---------------------------------------------------------------------------
@@ -117,7 +97,5 @@ EXPOSE 5432
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER replit
-
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["dev"]
+CMD ["shell"]

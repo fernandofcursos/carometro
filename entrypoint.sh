@@ -27,13 +27,37 @@ fi
 
 # ── PostgreSQL local — inicia se DATABASE_URL apontar para localhost ──────────
 _iniciar_pg() {
-  pg_ctlcluster 16 main start 2>/dev/null \
-    || su -s /bin/bash postgres -c "pg_ctlcluster 16 main start" 2>/dev/null \
-    || true
+  local PGDATA=/var/lib/postgresql/16/main
+
+  # Garante que o diretório de socket exista e pertença ao postgres
+  mkdir -p /var/run/postgresql
+  chown postgres:postgres /var/run/postgresql 2>/dev/null || true
+
+  if [ "$(id -u)" = "0" ]; then
+    # Rodando como root: usa runuser para trocar para postgres
+    runuser -u postgres -- pg_ctlcluster 16 main start 2>/dev/null && return 0
+    # Fallback: pg_ctl direto como postgres
+    runuser -u postgres -- pg_ctl -D "$PGDATA" start -l /var/log/postgresql/postgresql-16-main.log 2>/dev/null && return 0
+  else
+    # Rodando como usuário não-root: tenta pg_ctlcluster normalmente
+    # (funciona se o usuário é dono do cluster ou tem permissão)
+    pg_ctlcluster 16 main start 2>/dev/null && return 0
+    # Fallback: tenta via su (pode falhar sem senha no Replit)
+    su -s /bin/bash postgres -c "pg_ctlcluster 16 main start" 2>/dev/null && return 0
+    # Último recurso: pg_ctl diretamente (falha se /var/lib/postgresql não for acessível)
+    pg_ctl -D "$PGDATA" -U postgres start -l /var/log/postgresql/postgresql-16-main.log 2>/dev/null && return 0
+  fi
+  return 1
 }
 
 _setup_db() {
-  local PSQL="psql -U postgres"
+  # Conecta como postgres (sem senha, usando peer auth via socket)
+  local PSQL
+  if [ "$(id -u)" = "0" ]; then
+    PSQL="runuser -u postgres -- psql -U postgres"
+  else
+    PSQL="psql -U postgres -h 127.0.0.1"
+  fi
   $PSQL -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
   $PSQL -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
   $PSQL -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
@@ -42,19 +66,22 @@ _setup_db() {
 if echo "${DATABASE_URL:-}" | grep -qE 'localhost|127\.0\.0\.1'; then
   if ! pg_isready -q 2>/dev/null; then
     echo -e "${CYAN}[db] Iniciando PostgreSQL local...${NC}"
-    _iniciar_pg
-    for i in $(seq 1 15); do
-      pg_isready -q 2>/dev/null && break
-      sleep 1
-    done
+    if _iniciar_pg; then
+      for i in $(seq 1 15); do
+        pg_isready -q 2>/dev/null && break
+        sleep 1
+      done
+    fi
   fi
   if pg_isready -q 2>/dev/null; then
     echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
     _setup_db
   else
     echo -e "${RED}[db] AVISO: PostgreSQL não respondeu após 15s.${NC}"
-    echo -e "${RED}      Inicie manualmente: pg_ctlcluster 16 main start${NC}"
-    echo -e "${RED}      Ou configure um banco externo (Neon) no .env${NC}"
+    echo -e "${YELLOW}[db] Tente manualmente:${NC}"
+    echo -e "       runuser -u postgres -- pg_ctlcluster 16 main start   (como root)"
+    echo -e "       pg_ctlcluster 16 main start                          (como postgres)"
+    echo -e "     Ou configure um banco externo (Neon) no .env"
   fi
 fi
 
