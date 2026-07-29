@@ -55,8 +55,15 @@ RUN mkdir -p /var/run/postgresql /var/lib/postgresql/16/main \
 
 # Configurações do PostgreSQL para desenvolvimento local
 RUN echo "listen_addresses = '*'" >> /etc/postgresql/16/main/postgresql.conf \
-  && echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/16/main/pg_hba.conf \
-  && echo "host all all ::/0 md5" >> /etc/postgresql/16/main/pg_hba.conf
+  && cat > /etc/postgresql/16/main/pg_hba.conf <<'HBA'
+# Dev container — password auth para todas as conexões (local e TCP)
+local   all             postgres                                trust
+local   all             all                                     scram-sha-256
+host    all             all             0.0.0.0/0               scram-sha-256
+host    all             all             ::/0                    scram-sha-256
+local   replication     all                                     trust
+host    replication     all             0.0.0.0/0               scram-sha-256
+HBA
 
 # ---------------------------------------------------------------------------
 # Diretório de trabalho — onde o repositório será montado
