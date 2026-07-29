@@ -4,21 +4,19 @@ Container Docker que replica o ambiente Replit para desenvolvimento local do pro
 
 ## O que está incluído
 
-| Componente | Versão | Mesmo do Replit? |
+| Componente | Versão | Disponível |
 |---|---|---|
 | Node.js | 20 (Debian Bookworm slim) | ✅ `modules = ["nodejs-20"]` |
 | pnpm | 10.x | ✅ `"pnpm": "^10.34.1"` |
-| lockfileVersion | 9.0 | ✅ |
+| lockfileVersion | 9.0 |
 | PostgreSQL | 16 (local no container) | ✅ mesma versão (Neon usa PG 16) |
 | esbuild | linux-x64 apenas | ✅ overrides do pnpm-workspace.yaml |
-| Plugins Replit | **Desativados** (`REPL_ID=""`) | N/A — só funcionam no Replit |
-| git | 2.x | ➕ extra |
+| Plugins Replit | **Desativados** (`| git | 2.x | ➕ extra |
 | openssl | 3.x | ➕ extra |
 
 ## Estrutura dos arquivos
 
 ```
-replit-dev/
 ├── Dockerfile           # imagem Node 20 + PostgreSQL 16 + ferramentas
 ├── docker-compose.yml   # orquestração do container dev
 ├── entrypoint.sh        # inicialização: PG + pnpm install + db push + dev
@@ -45,8 +43,7 @@ cd carometro
 
 # 2. Copiar os arquivos deste diretório para dentro do repositório
 #    (ou colocar este diretório ao lado do repositório e ajustar o volume)
-cp -r replit-dev/* .
-
+cp -r 
 # 3. Copiar e revisar variáveis de ambiente
 cp .env.dev .env
 # Edite .env se quiser mudar DATABASE_URL, SESSION_SECRET etc.
@@ -86,7 +83,7 @@ make rebuild       # rebuild completo sem cache
 make help          # lista todos os comandos
 ```
 
-## Usar o banco externo (Neon — idêntico ao Replit)
+## Usar o banco externo (Neon — banco externo (Neon))
 
 Edite o `.env` e substitua `DATABASE_URL`:
 
@@ -108,35 +105,4 @@ docker compose --profile split --profile tools up
 
 Credenciais do pgAdmin: `admin@carometro.local` / `admin`
 
-## Diferenças em relação ao Replit
-
-| Comportamento | Replit | Este container |
-|---|---|---|
-| Banco de dados | Neon cloud (externo) | PostgreSQL 16 local (interno) |
-| Plugins Vite | `cartographer`, `devBanner` ativos | Desativados (`REPL_ID=""`) |
-| Porta externa | 80 (remapeada pelo Replit) | 5000 (direta) |
-| HTTPS | Automático pelo Replit | HTTP (adicione nginx para HTTPS) |
-| Hot reload | Via websocket do Replit | Via websocket do Vite (funciona igual) |
-
-## Solução de problemas
-
-**`pnpm install` falha com erro de `minimumReleaseAge`:**
-O `pnpm-workspace.yaml` exige pacotes com 1+ dia de publicação. Se um pacote novo falhar, adicione-o em `minimumReleaseAgeExclude` no `pnpm-workspace.yaml`.
-
-**PostgreSQL não inicia:**
-```bash
-make shell
-# dentro do container:
-sudo -u postgres pg_ctlcluster 16 main status
-sudo -u postgres pg_ctlcluster 16 main start
-```
-
-**TypeScript `TS server` travado:**
-No VSCode: `Ctrl+Shift+P` → `TypeScript: Restart TS Server`
-
-**Limpar tudo e começar do zero:**
-```bash
-make clean       # remove container + volumes + imagem
-make build       # reconstrói
-make up          # sobe novamente
-```
+## 

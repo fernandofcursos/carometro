@@ -29,7 +29,6 @@ DATABASE_URL=postgresql://usuario:senha@host.neon.tech/neondb?sslmode=require
 SESSION_SECRET=string-aleatoria-com-minimo-32-caracteres
 ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
 NODE_ENV=development
-REPL_ID=
 ```
 
 ### 4. Abrir no Dev Container

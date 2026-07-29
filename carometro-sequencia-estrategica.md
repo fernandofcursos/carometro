@@ -1247,8 +1247,6 @@ node_modules
 **/dist
 **/.tmp-introspect
 *.log
-.replit
-replit.md
 .agents
 ```
 

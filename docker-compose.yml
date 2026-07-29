@@ -1,7 +1,7 @@
 # =============================================================================
 # Carômetro — docker-compose de desenvolvimento
 #
-# Simula o ambiente Replit localmente.
+# Ambiente de desenvolvimento local.
 # Por padrão usa PostgreSQL INTERNO ao container.
 # Para usar Neon (cloud), configure DATABASE_URL no .env.local.
 #
@@ -17,7 +17,7 @@ name: carometro-dev
 
 services:
   # ---------------------------------------------------------------------------
-  # dev — container principal que simula o Replit
+  # dev — container principal de desenvolvimento
   # ---------------------------------------------------------------------------
   dev:
     build:
@@ -31,7 +31,7 @@ services:
 
     volumes:
       - ./:/workspace:cached                         # repositório com hot-reload
-      - pnpm_store:/home/replit/.pnpm-store          # cache pnpm entre restarts
+      - pnpm_store:/root/.pnpm-store                  # cache pnpm entre restarts
       - pg_data_dev:/var/lib/postgresql/16/main      # dados do PG interno
 
     working_dir: /workspace
@@ -45,7 +45,7 @@ services:
         required: false
 
     ports:
-      - "5000:5000" # Vite dev server (= Replit porta externa 80)
+      - "5000:5000" # Vite dev server
       - "8080:8080" # api-server Express
 
     # O container precisa de capacidades extras para rodar PostgreSQL internamente

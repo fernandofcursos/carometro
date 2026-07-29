@@ -3,11 +3,11 @@
   // .devcontainer/devcontainer.json
   //
   // Configura o VSCode para abrir o projeto DENTRO do container Docker,
-  // exatamente como o Replit roda o ambiente.
+  // ambiente de desenvolvimento containerizado.
   //
   // Documentação: https://containers.dev/implementors/json_reference/
   // ==========================================================================
-  "name": "Carômetro Dev (Replit)",
+  "name": "Carômetro Dev",
 
   // Usar o docker-compose.yml que já existe no projeto
   "dockerComposeFile": "../docker-compose.yml",
@@ -23,11 +23,11 @@
   },
 
   "mounts": [
-    "source=claude-code-config-${devcontainerId},target=/home/replit/.claude,type=volume"
+    "source=claude-code-config-${devcontainerId},target=/root/.claude,type=volume"
   ],
 
   "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/replit/.claude",
+    "CLAUDE_CONFIG_DIR": "/root/.claude",
     "DISABLE_AUTOUPDATER": "0"
   },
 
@@ -119,7 +119,7 @@
   // --------------------------------------------------------------------------
   // Usuário remoto — mesmo usuário definido no Dockerfile
   // --------------------------------------------------------------------------
-  "remoteUser": "replit",
+  "remoteUser": "root",
 
   // --------------------------------------------------------------------------
   // Portas encaminhadas automaticamente para o Mac
