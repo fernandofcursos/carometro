@@ -363,3 +363,41 @@ pg_dropcluster 16 main --stop 2>/dev/null || true
 pg_createcluster 16 main
 pg_ctlcluster 16 main start
 ```
+
+---
+
+## 22. No Replit: "Connection refused" em localhost:5432
+
+**Erro:**
+```
+psql: error: connection to server at "localhost" (::1), port 5432 failed: Connection refused
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+```
+
+**Causa:** O Replit não tem PostgreSQL local. O `.env` com `DATABASE_URL=postgresql://carometro:carometro@localhost:5432/carometro` é válido apenas para o Dev Container (Docker local). No Replit, o banco deve ser externo (Neon cloud).
+
+**Solução:**
+
+1. Acesse [https://neon.tech](https://neon.tech) e crie um projeto (plano gratuito é suficiente)
+2. Copie a connection string: `postgresql://usuario:senha@ep-xxx.us-east-2.aws.neon.tech/carometro?sslmode=require`
+3. No painel do Replit, abra **Secrets** (ícone de cadeado no menu lateral)
+4. Adicione um novo Secret:
+   - **Key:** `DATABASE_URL`
+   - **Value:** `postgresql://...neon.tech/carometro?sslmode=require`
+5. Adicione também `SESSION_SECRET` e `ENCRYPTION_KEY` nos Secrets (nunca no `.env` commitado)
+6. Reinicie o Replit
+
+**Por que Secrets e não .env?**
+O Replit não carrega o `.env` automaticamente como o Node.js faz localmente. Os Secrets do Replit são injetados como variáveis de ambiente pelo próprio runtime e são a forma segura de passar credenciais.
+
+**Verificar se a variável foi carregada:**
+```bash
+echo $DATABASE_URL  # deve mostrar a URL do Neon, não localhost
+psql $DATABASE_URL -c "SELECT 1;"  # deve retornar 1
+```
+
+**Após configurar o banco Neon, aplicar o schema:**
+```bash
+pnpm --filter @workspace/db run push-force
+pnpm --filter @workspace/api-server run seed-admin
+```

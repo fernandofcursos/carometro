@@ -13,17 +13,37 @@ NC='\033[0m'
 
 ulimit -n 65536 2>/dev/null || true
 
-# ── PostgreSQL local — inicia automaticamente se DATABASE_URL usar localhost ──
-# Se DATABASE_URL aponta para Neon/externo, este bloco é ignorado.
+# ── Carregar .env se existir (Replit não carrega automaticamente) ─────────────
+if [ -f /workspace/.env ]; then
+  set -a; source /workspace/.env; set +a
+elif [ -f "$(pwd)/.env" ]; then
+  set -a; source "$(pwd)/.env"; set +a
+fi
+
+# ── Detectar ambiente ─────────────────────────────────────────────────────────
+_eh_replit() {
+  [ -n "${REPL_ID:-}" ] || [ -n "${REPL_SLUG:-}" ] || [ -d /home/replit ]
+}
+
+# ── Validar DATABASE_URL ──────────────────────────────────────────────────────
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo -e "${RED}[db] ERRO: DATABASE_URL não definida.${NC}"
+  if _eh_replit; then
+    echo -e "${RED}      No Replit: adicione DATABASE_URL nos Secrets do projeto${NC}"
+    echo -e "${RED}      (painel lateral → Secrets → + New Secret)${NC}"
+  else
+    echo -e "${RED}      Configure DATABASE_URL no .env${NC}"
+  fi
+fi
+
+# ── PostgreSQL local — só no Dev Container (não no Replit) ───────────────────
 _iniciar_pg() {
-  # Tenta iniciar como usuário postgres (root pode usar pg_ctlcluster diretamente)
   pg_ctlcluster 16 main start 2>/dev/null \
     || su -s /bin/bash postgres -c "pg_ctlcluster 16 main start" 2>/dev/null \
     || true
 }
 
 _setup_db() {
-  # Cria usuário e banco carometro se não existirem
   local PSQL="psql -U postgres"
   $PSQL -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
   $PSQL -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
@@ -31,22 +51,29 @@ _setup_db() {
 }
 
 if echo "${DATABASE_URL:-}" | grep -qE 'localhost|127\.0\.0\.1'; then
-  if ! pg_isready -q 2>/dev/null; then
-    echo -e "${CYAN}[db] Iniciando PostgreSQL local...${NC}"
-    _iniciar_pg
-    # Aguardar PG aceitar conexões (até 15s)
-    for i in $(seq 1 15); do
-      pg_isready -q 2>/dev/null && break
-      sleep 1
-    done
-  fi
-  if pg_isready -q 2>/dev/null; then
-    echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
-    _setup_db
+  if _eh_replit; then
+    echo -e "${RED}[db] ERRO: DATABASE_URL aponta para localhost mas você está no Replit.${NC}"
+    echo -e "${RED}      O Replit não tem PostgreSQL local. Use o banco Neon:${NC}"
+    echo -e "${YELLOW}      1. Acesse https://neon.tech e crie/acesse seu projeto${NC}"
+    echo -e "${YELLOW}      2. Copie a connection string (postgresql://...neon.tech/...)${NC}"
+    echo -e "${YELLOW}      3. Adicione nos Secrets do Replit: DATABASE_URL = <connection string>${NC}"
+    echo -e "${YELLOW}      4. Reinicie o Replit${NC}"
   else
-    echo -e "${RED}[db] AVISO: PostgreSQL não respondeu após 15s.${NC}"
-    echo -e "${RED}      Inicie manualmente: pg_ctlcluster 16 main start${NC}"
-    echo -e "${RED}      Ou use o banco Neon no .env (DATABASE_URL=postgresql://...neon.tech/...)${NC}"
+    if ! pg_isready -q 2>/dev/null; then
+      echo -e "${CYAN}[db] Iniciando PostgreSQL local...${NC}"
+      _iniciar_pg
+      for i in $(seq 1 15); do
+        pg_isready -q 2>/dev/null && break
+        sleep 1
+      done
+    fi
+    if pg_isready -q 2>/dev/null; then
+      echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
+      _setup_db
+    else
+      echo -e "${RED}[db] AVISO: PostgreSQL não respondeu após 15s.${NC}"
+      echo -e "${RED}      Inicie manualmente: pg_ctlcluster 16 main start${NC}"
+    fi
   fi
 fi
 
