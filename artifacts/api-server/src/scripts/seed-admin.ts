@@ -72,6 +72,60 @@ const PERMISSOES: { recurso: string; acao: string; descricao: string }[] = [
   { recurso: "auditoria",         acao: "view",    descricao: "Visualizar log de auditoria" },
 ];
 
+// ── Roles padrão do sistema ───────────────────────────────────────────────────
+const ROLES_PADRAO: { nome: string; descricao: string; permissoes: { recurso: string; acao: string }[] }[] = [
+  {
+    nome: "coordenador",
+    descricao: "Coordenador de curso",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "estudantes",  acao: "manage" },
+      { recurso: "ocorrencias", acao: "view"   },
+      { recurso: "ocorrencias", acao: "create" },
+      { recurso: "turmas",      acao: "manage" },
+    ],
+  },
+  {
+    nome: "professor",
+    descricao: "Professor",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "ocorrencias", acao: "view"   },
+      { recurso: "ocorrencias", acao: "create" },
+    ],
+  },
+  {
+    nome: "secretaria",
+    descricao: "Secretaria escolar",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "estudantes",  acao: "manage" },
+      { recurso: "import",      acao: "execute"},
+    ],
+  },
+];
+
+async function seedRolesPadrao() {
+  for (const r of ROLES_PADRAO) {
+    const [existing] = await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.nome, r.nome));
+    let roleId: string;
+    if (existing) {
+      roleId = existing.id;
+    } else {
+      const [novo] = await db.insert(rolesTable).values({ nome: r.nome, descricao: r.descricao }).returning();
+      roleId = novo.id;
+    }
+    for (const p of r.permissoes) {
+      const permId = await upsertPermissao(p.recurso, p.acao, p.recurso);
+      await db.insert(rolesPermissoesTable).values({ roleId, permissaoId: permId }).onConflictDoNothing();
+    }
+  }
+  console.log(`   ✅ ${ROLES_PADRAO.length} roles padrão garantidos (coordenador, professor, secretaria).`);
+}
+
 async function upsertPermissao(recurso: string, acao: string, descricao: string): Promise<string> {
   await db.insert(permissoesTable).values({ recurso, acao, descricao }).onConflictDoNothing();
   const [row] = await db
@@ -108,6 +162,7 @@ async function main() {
     } else {
       console.log("   ⚠️  Role 'administrador' não encontrada. Crie manualmente.");
     }
+    await seedRolesPadrao();
     process.exit(0);
   }
 
@@ -136,6 +191,7 @@ async function main() {
 
   await db.insert(usuariosRolesTable).values({ usuarioId: u.id, roleId: adminRole.id });
   await seedPermissoes(adminRole.id);
+  await seedRolesPadrao();
 
   console.log("");
   console.log("✅  Administrador criado com sucesso!");
