@@ -601,7 +601,7 @@ function NovoUsuarioModal({
 
 export default function UsuariosPage() {
   const [showNovoModal, setShowNovoModal] = useState(false);
-  const { data: usuarios, isLoading } = useListUsuarios();
+  const { data: usuarios, isLoading, isError } = useListUsuarios();
   const { data: roles } = useListRoles();
   const { data: disciplinas } = useListDisciplinas();
   const del = useDeleteUsuario();
@@ -633,6 +633,12 @@ export default function UsuariosPage() {
       <div className="space-y-3">
         {isLoading ? (
           <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : isError ? (
+          <div className="text-center py-12 border border-dashed rounded-lg bg-card">
+            <AlertCircle className="w-12 h-12 text-destructive opacity-40 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">Erro ao carregar usuários.</p>
+            <p className="text-sm text-muted-foreground mt-1">Verifique a conexão com o servidor.</p>
+          </div>
         ) : usuarios?.length === 0 ? (
           <div className="text-center py-12 border border-dashed rounded-lg bg-card">
             <UserCog className="w-12 h-12 text-muted-foreground opacity-30 mx-auto mb-3" />
