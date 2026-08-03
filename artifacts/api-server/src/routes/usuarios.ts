@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
+import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable } from "@workspace/db/schema";
 import { z } from "zod";
 import { createHash, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -34,8 +35,9 @@ function decryptEmail(encrypted: string, secret: string): string {
 
 const createUsuarioSchema = z.object({
   email: z.string().email(),
-  nome: z.string().min(2).optional(),
-  roleId: z.string().uuid().optional(),
+  nome: z.string().min(1).optional(),
+  roleIds: z.array(z.string().uuid()).optional().default([]),
+  disciplinaOfertaIds: z.array(z.string().uuid()).optional().default([]),
 });
 
 // GET /api/usuarios — listar usuários ativos com seus roles
@@ -56,16 +58,35 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           .innerJoin(rolesTable, eq(usuariosRolesTable.roleId, rolesTable.id))
           .where(eq(usuariosRolesTable.usuarioId, u.id));
 
+        const disciplinas = await db
+          .select({
+            ofertaId:       disciplinaOfertasTable.id,
+            disciplinaId:   disciplinasTable.id,
+            disciplinaNome: disciplinasTable.nome,
+            cursoId:        cursosTable.id,
+            cursoNome:      cursosTable.nome,
+            turnoId:        turnosTable.id,
+            turnoNome:      turnosTable.nome,
+          })
+          .from(usuarioDisciplinasTable)
+          .innerJoin(disciplinaOfertasTable, eq(usuarioDisciplinasTable.disciplinaOfertaId, disciplinaOfertasTable.id))
+          .innerJoin(disciplinasTable, eq(disciplinaOfertasTable.disciplinaId, disciplinasTable.id))
+          .innerJoin(cursosTable, eq(disciplinaOfertasTable.cursoId, cursosTable.id))
+          .innerJoin(turnosTable, eq(disciplinaOfertasTable.turnoId, turnosTable.id))
+          .where(eq(usuarioDisciplinasTable.usuarioId, u.id));
+
         return {
           id:            u.id,
           nome:          u.nome,
           email:         decryptEmail(u.emailEncrypted, secret),
           codigoAcesso:  u.codigoAcesso,
           primeiroAcesso: u.primeiroAcesso,
+          fotoUrl:       null,
           bloqueadoAte:  u.bloqueadoAte,
           ultimoLoginEm: u.ultimoLoginEm,
           criadoEm:      u.criadoEm,
           roles,
+          disciplinas,
         };
       })
     );
@@ -112,17 +133,17 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 // POST /api/usuarios — criar usuário com senha temporária
 router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { email, nome, roleId } = createUsuarioSchema.parse(req.body);
+    const { email, nome, roleIds, disciplinaOfertaIds } = createUsuarioSchema.parse(req.body);
     const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
 
     // Gerar credenciais temporárias
     const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const codigoAcesso = Array.from({ length: 8 }, () => charset[Math.floor(Math.random() * charset.length)]).join("");
-    const senhaTemp = randomBytes(8).toString("base64url").slice(0, 10);
-    const senhaHash = await bcrypt.hash(senhaTemp, 12);
+    const senhaGerada = randomBytes(8).toString("base64url").slice(0, 10);
+    const senhaHash = await bcrypt.hash(senhaGerada, 12);
 
     const [u] = await db.insert(usuariosTable).values({
-      nome,
+      nome: nome || null,
       emailEncrypted: encryptEmail(email, secret),
       emailHash: createHash("sha256").update(email.toLowerCase()).digest("hex"),
       codigoAcesso,
@@ -130,9 +151,18 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       primeiroAcesso: true,
     }).returning();
 
-    // Vincular ao role se informado
-    if (roleId) {
-      await db.insert(usuariosRolesTable).values({ usuarioId: u.id, roleId, concedidoPor: req.usuarioId });
+    // Vincular roles
+    if (roleIds.length > 0) {
+      await db.insert(usuariosRolesTable).values(
+        roleIds.map((roleId) => ({ usuarioId: u.id, roleId, concedidoPor: req.usuarioId }))
+      );
+    }
+
+    // Vincular disciplina-ofertas
+    if (disciplinaOfertaIds.length > 0) {
+      await db.insert(usuarioDisciplinasTable).values(
+        disciplinaOfertaIds.map((disciplinaOfertaId) => ({ usuarioId: u.id, disciplinaOfertaId }))
+      ).onConflictDoNothing();
     }
 
     await registrarAuditoria({
@@ -143,9 +173,16 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
     });
 
     res.status(201).json({
-      id: u.id, email, codigoAcesso,
-      senhaTemporaria: senhaTemp,
-      primeiroAcesso: true,
+      usuario: {
+        id: u.id,
+        nome: u.nome,
+        email,
+        codigoAcesso,
+        primeiroAcesso: true,
+        roles: [],
+        disciplinas: [],
+      },
+      senhaGerada,
     });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
