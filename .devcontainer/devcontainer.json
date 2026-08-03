@@ -149,5 +149,5 @@
   "postCreateCommand": "echo 'Container pronto. Abra um terminal e rode: pnpm install'",
 
   // Sobe o PostgreSQL automaticamente a cada start do devcontainer
-  "postStartCommand": "mkdir -p /var/run/postgresql && chown postgres:postgres /var/run/postgresql && runuser -u postgres -- pg_ctlcluster 16 main start 2>/dev/null || true && pg_isready -q && runuser -u postgres -- psql -U postgres -c \"CREATE USER carometro WITH PASSWORD 'carometro';\" 2>/dev/null; runuser -u postgres -- psql -U postgres -c \"CREATE DATABASE carometro OWNER carometro;\" 2>/dev/null; runuser -u postgres -- psql -U postgres -c \"GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;\" 2>/dev/null; echo 'PostgreSQL pronto.'"
+  "postStartCommand": "bash /workspace/scripts/start-db.sh"
 }
