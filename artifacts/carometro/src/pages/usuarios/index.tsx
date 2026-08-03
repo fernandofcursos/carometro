@@ -49,7 +49,7 @@ function getInitials(u: Pick<Usuario, "nome" | "email">) {
 function DisciplinasModal({
   usuario, allDisciplinas, onClose,
 }: { usuario: Usuario; allDisciplinas: EnrichedDisc[]; onClose: () => void }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(usuario.disciplinas.map((d) => d.ofertaId)));
+  const [selected, setSelected] = useState<Set<string>>(new Set((usuario.disciplinas ?? []).map((d) => d.ofertaId)));
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -377,10 +377,10 @@ function UsuarioRow({
           {usuario.roles.map((r) => (
             <Badge key={r.id} variant="secondary" className="text-xs capitalize">{r.nome}</Badge>
           ))}
-          {usuario.disciplinas.length > 0 && (
+          {(usuario.disciplinas?.length ?? 0) > 0 && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <BookOpen className="w-3 h-3" />
-              {[...new Set(usuario.disciplinas.map((d) => d.disciplinaNome))].join(", ")}
+              {[...new Set((usuario.disciplinas ?? []).map((d) => d.disciplinaNome))].join(", ")}
             </span>
           )}
         </div>
