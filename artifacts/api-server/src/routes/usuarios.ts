@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
 import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable } from "@workspace/db/schema";
 import { z } from "zod";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
 import bcrypt from "bcryptjs";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
@@ -12,7 +12,6 @@ const router = Router();
 router.use(requireAuth);
 
 function encryptEmail(email: string, secret: string): string {
-  const { createCipheriv } = require("crypto");
   const key = createHash("sha256").update(secret).digest();
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-cbc", key, iv);
@@ -22,7 +21,6 @@ function encryptEmail(email: string, secret: string): string {
 
 function decryptEmail(encrypted: string, secret: string): string {
   try {
-    const { createDecipheriv } = require("crypto");
     const key = createHash("sha256").update(secret).digest();
     const [ivHex, encHex] = encrypted.split(":");
     if (!ivHex || !encHex) return "";
@@ -33,9 +31,45 @@ function decryptEmail(encrypted: string, secret: string): string {
   }
 }
 
+function calcularIdade(dataNascimento: string): number {
+  const hoje = new Date();
+  const nasc = new Date(dataNascimento);
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const m = hoje.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade;
+}
+
+async function validarRegrasRoles(roleIds: string[], dataNascimento?: string | null): Promise<string | null> {
+  if (roleIds.length === 0) return null;
+
+  const roleEstudante = await db
+    .select({ id: rolesTable.id })
+    .from(rolesTable)
+    .where(eq(rolesTable.nome, "estudante"))
+    .limit(1);
+
+  if (roleEstudante.length === 0) return null;
+
+  const temEstudante = roleIds.includes(roleEstudante[0].id);
+  if (!temEstudante) return null;
+
+  if (!dataNascimento) {
+    return "Data de nascimento obrigatória para atribuir o perfil 'estudante'.";
+  }
+
+  const idade = calcularIdade(dataNascimento);
+  if (idade < 18 && roleIds.length > 1) {
+    return "Usuários menores de 18 anos com perfil 'estudante' não podem ter outros perfis combinados.";
+  }
+
+  return null;
+}
+
 const createUsuarioSchema = z.object({
   email: z.string().email(),
   nome: z.string().min(1).optional(),
+  dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   roleIds: z.array(z.string().uuid()).optional().default([]),
   disciplinaOfertaIds: z.array(z.string().uuid()).optional().default([]),
 });
@@ -133,8 +167,11 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 // POST /api/usuarios — criar usuário com senha temporária
 router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { email, nome, roleIds, disciplinaOfertaIds } = createUsuarioSchema.parse(req.body);
+    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds } = createUsuarioSchema.parse(req.body);
     const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+
+    const erroRegra = await validarRegrasRoles(roleIds, dataNascimento);
+    if (erroRegra) return res.status(422).json({ error: erroRegra });
 
     // Gerar credenciais temporárias
     const charset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -144,6 +181,7 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
 
     const [u] = await db.insert(usuariosTable).values({
       nome: nome || null,
+      dataNascimento: dataNascimento ?? null,
       emailEncrypted: encryptEmail(email, secret),
       emailHash: createHash("sha256").update(email.toLowerCase()).digest("hex"),
       codigoAcesso,
@@ -215,6 +253,15 @@ router.put("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
     const { roleIds } = z.object({ roleIds: z.array(z.string().uuid()) }).parse(req.body);
+
+    // Buscar dataNascimento do usuário para validar regra do estudante menor de 18
+    const [usuario] = await db
+      .select({ dataNascimento: usuariosTable.dataNascimento })
+      .from(usuariosTable)
+      .where(eq(usuariosTable.id, String(req.params.id)));
+
+    const erroRegra = await validarRegrasRoles(roleIds, usuario?.dataNascimento);
+    if (erroRegra) return res.status(422).json({ error: erroRegra });
 
     await db.delete(usuariosRolesTable).where(eq(usuariosRolesTable.usuarioId, String(req.params.id)));
     if (roleIds.length > 0) {

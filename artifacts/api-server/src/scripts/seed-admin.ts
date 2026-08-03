@@ -106,6 +106,14 @@ const ROLES_PADRAO: { nome: string; descricao: string; permissoes: { recurso: st
       { recurso: "import",      acao: "execute"},
     ],
   },
+  {
+    nome: "estudante",
+    descricao: "Estudante — acesso restrito ao próprio carômetro",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+    ],
+  },
 ];
 
 async function seedRolesPadrao() {

@@ -1724,6 +1724,11 @@ components:
           nullable: true
         email:
           type: string
+        dataNascimento:
+          type: string
+          format: date
+          nullable: true
+          description: Data de nascimento (YYYY-MM-DD). Obrigatória quando o perfil "estudante" for atribuído a menores de 18 anos.
         codigoAcesso:
           type: string
         primeiroAcesso:
@@ -1735,6 +1740,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RoleSummary"
+          description: >
+            Um usuário pode ter múltiplos perfis simultaneamente.
+            Exceção: usuários com o perfil "estudante" e menores de 18 anos
+            só podem ter esse único perfil — nenhum outro pode ser combinado.
         disciplinas:
           type: array
           items:
@@ -1771,11 +1780,20 @@ components:
           nullable: true
         email:
           type: string
+        dataNascimento:
+          type: string
+          format: date
+          nullable: true
+          description: YYYY-MM-DD. Obrigatória se roleIds incluir o perfil "estudante" e o usuário for menor de 18 anos.
         roleIds:
           type: array
           items:
             type: string
             format: uuid
+          description: >
+            IDs dos perfis a atribuir. Múltiplos perfis são permitidos.
+            Restrição: se o perfil "estudante" for incluído e dataNascimento
+            indicar idade < 18 anos, nenhum outro perfil pode ser combinado.
         disciplinaOfertaIds:
           type: array
           items:
@@ -1790,6 +1808,10 @@ components:
           nullable: true
         email:
           type: string
+        dataNascimento:
+          type: string
+          format: date
+          nullable: true
         primeiroAcesso:
           type: boolean
 

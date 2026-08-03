@@ -437,6 +437,7 @@ function NovoUsuarioModal({
 }: { allRoles: RoleSummary[]; allDisciplinas: EnrichedDisc[]; onClose: () => void }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
   const [roleIds, setRoleIds] = useState<Set<string>>(new Set());
   const [disciplinaOfertaIds, setDisciplinaOfertaIds] = useState<Set<string>>(new Set());
   const create = useCreateUsuario();
@@ -444,9 +445,35 @@ function NovoUsuarioModal({
   const { toast } = useToast();
   const [createdCreds, setCreatedCreds] = useState<{ nome: string | null; email: string; codigo: string; senha: string } | null>(null);
 
+  const roleEstudanteId = allRoles.find((r) => r.nome === "estudante")?.id;
+  const temEstudante = roleEstudanteId ? roleIds.has(roleEstudanteId) : false;
+
+  const calcIdade = (d: string) => {
+    if (!d) return null;
+    const hoje = new Date();
+    const nasc = new Date(d);
+    let idade = hoje.getFullYear() - nasc.getFullYear();
+    const m = hoje.getMonth() - nasc.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+    return idade;
+  };
+
+  const idadeAtual = dataNascimento ? calcIdade(dataNascimento) : null;
+  const ehMenorEstudante = temEstudante && idadeAtual !== null && idadeAtual < 18;
+
   const toggleRole = (id: string) => {
     const s = new Set(roleIds);
-    if (s.has(id)) s.delete(id); else s.add(id);
+    if (s.has(id)) {
+      s.delete(id);
+    } else {
+      // Se está selecionando estudante e usuário é menor, limpa outros roles
+      if (id === roleEstudanteId && idadeAtual !== null && idadeAtual < 18) {
+        s.clear();
+      }
+      // Se já tem estudante (menor) e tenta adicionar outro role, bloqueia
+      if (ehMenorEstudante && id !== roleEstudanteId) return;
+      s.add(id);
+    }
     setRoleIds(s);
   };
 
@@ -464,6 +491,7 @@ function NovoUsuarioModal({
         data: {
           nome: nome.trim() || undefined,
           email: email.trim(),
+          dataNascimento: dataNascimento || undefined,
           roleIds: [...roleIds],
           disciplinaOfertaIds: [...disciplinaOfertaIds],
         },
@@ -546,17 +574,51 @@ function NovoUsuarioModal({
           </div>
         </div>
 
+        <div className="space-y-1.5">
+          <Label htmlFor="novo-nasc">
+            Data de nascimento
+            {temEstudante && <span className="text-destructive ml-1">*</span>}
+          </Label>
+          <Input
+            id="novo-nasc"
+            type="date"
+            value={dataNascimento}
+            onChange={(e) => setDataNascimento(e.target.value)}
+            className="bg-background"
+            required={temEstudante}
+          />
+          {idadeAtual !== null && (
+            <p className="text-xs text-muted-foreground">{idadeAtual} anos</p>
+          )}
+        </div>
+
         <div className="space-y-2">
           <Label>Perfil(s)</Label>
+          {ehMenorEstudante && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+              Usuário menor de 18 anos com perfil <strong>estudante</strong> não pode ter outros perfis combinados.
+            </div>
+          )}
           {allRoles.length === 0
             ? <p className="text-sm text-muted-foreground">Nenhum perfil cadastrado.</p>
             : <div className="grid grid-cols-2 gap-2">
-                {allRoles.map((r) => (
-                  <label key={r.id} className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer select-none">
-                    <Checkbox checked={roleIds.has(r.id)} onCheckedChange={() => toggleRole(r.id)} />
-                    <span className="text-sm capitalize">{r.nome}</span>
-                  </label>
-                ))}
+                {allRoles.map((r) => {
+                  const bloqueado = ehMenorEstudante && r.id !== roleEstudanteId;
+                  return (
+                    <label
+                      key={r.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg border select-none transition-colors ${bloqueado ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/50 cursor-pointer"}`}
+                    >
+                      <Checkbox
+                        checked={roleIds.has(r.id)}
+                        onCheckedChange={() => !bloqueado && toggleRole(r.id)}
+                        disabled={bloqueado}
+                      />
+                      <span className="text-sm capitalize">{r.nome}</span>
+                    </label>
+                  );
+                })}
               </div>
           }
         </div>

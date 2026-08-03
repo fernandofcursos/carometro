@@ -314,6 +314,7 @@ export interface UsuarioCreated {
 export interface UsuarioInput {
   nome?: string | null;
   email: string;
+  dataNascimento?: string | null;
   roleIds?: string[];
   disciplinaOfertaIds?: string[];
 }
@@ -321,6 +322,7 @@ export interface UsuarioInput {
 export interface UsuarioUpdate {
   nome?: string | null;
   email?: string;
+  dataNascimento?: string | null;
   primeiroAcesso?: boolean;
 }
 

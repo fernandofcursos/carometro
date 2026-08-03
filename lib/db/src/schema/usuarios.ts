@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, smallint, customType, char, varchar, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, smallint, customType, char, varchar, integer, date } from "drizzle-orm/pg-core";
 
 const bytesAsString = customType<{ data: string; driverData: Buffer }>({
   dataType() { return "bytea"; },
@@ -16,6 +16,7 @@ const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
 export const usuariosTable = pgTable("usuarios", {
   id: uuid("id").primaryKey().defaultRandom(),
   nome: text("nome"),
+  dataNascimento: date("data_nascimento"),
   emailEncrypted: bytesAsString("email_encrypted").notNull(),
   emailHash: char("email_hash", { length: 64 }).notNull().unique(),
   emailVerificado: boolean("email_verificado").notNull().default(false),
