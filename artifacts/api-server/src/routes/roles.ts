@@ -105,13 +105,20 @@ router.put("/:id", requirePermissao("roles:manage"), async (req: Request, res: R
       .where(eq(rolesTable.id, String(req.params.id)))
       .returning();
     if (!role) return res.status(404).json({ error: "Role não encontrado" });
+
+    const permissoes = await db
+      .select({ recurso: permissoesTable.recurso, acao: permissoesTable.acao })
+      .from(rolesPermissoesTable)
+      .innerJoin(permissoesTable, eq(rolesPermissoesTable.permissaoId, permissoesTable.id))
+      .where(eq(rolesPermissoesTable.roleId, role.id));
+
     await registrarAuditoria({
       tabela: "roles", operacao: "UPDATE", registroId: role.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
       endpoint: "PUT /api/roles/:id", metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
-    res.json(role);
+    res.json({ ...role, permissoes: permissoes.map((p) => `${p.recurso}:${p.acao}`) });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }

@@ -145,11 +145,11 @@ function RoleRow({
         </div>
         {role.descricao && <p className="text-xs text-muted-foreground mt-0.5">{role.descricao}</p>}
         <div className="flex flex-wrap gap-1 mt-1.5">
-          {role.permissoes.slice(0, 6).map((p) => (
+          {(role.permissoes ?? []).slice(0, 6).map((p) => (
             <Badge key={p} variant="secondary" className="text-xs font-mono">{p}</Badge>
           ))}
-          {role.permissoes.length > 6 && (
-            <Badge variant="secondary" className="text-xs">+{role.permissoes.length - 6}</Badge>
+          {(role.permissoes ?? []).length > 6 && (
+            <Badge variant="secondary" className="text-xs">+{(role.permissoes ?? []).length - 6}</Badge>
           )}
         </div>
       </div>
