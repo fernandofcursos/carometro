@@ -8,6 +8,7 @@ import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
 import { enviarEmailBoasVindas } from "../lib/mailer.js";
+import { criptografarFoto, descriptografarFoto, verificarIntegridade } from "../lib/crypto.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -116,7 +117,7 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           email:         decryptEmail(u.emailEncrypted, secret),
           codigoAcesso:  u.codigoAcesso,
           primeiroAcesso: u.primeiroAcesso,
-          fotoUrl:       null,
+          fotoUrl:       u.fotoStorageKey ? `/api/usuarios/${u.id}/foto` : null,
           bloqueadoAte:  u.bloqueadoAte,
           ultimoLoginEm: u.ultimoLoginEm,
           criadoEm:      u.criadoEm,
@@ -155,6 +156,7 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
     res.json({
       id: u.id, nome: u.nome,
       email: decryptEmail(u.emailEncrypted, secret),
+      fotoUrl: u.fotoStorageKey ? `/api/usuarios/${u.id}/foto` : null,
       codigoAcesso: u.codigoAcesso, primeiroAcesso: u.primeiroAcesso,
       bloqueadoAte: u.bloqueadoAte, ultimoLoginEm: u.ultimoLoginEm, criadoEm: u.criadoEm,
       roles,
@@ -230,6 +232,73 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
     });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// GET /api/usuarios/:id/foto — servir foto descriptografada
+router.get("/:id/foto", async (req: Request, res: Response) => {
+  try {
+    const [u] = await db
+      .select({
+        fotoDados: usuariosTable.fotoDados,
+        fotoIv: usuariosTable.fotoIv,
+        fotoMimeType: usuariosTable.fotoMimeType,
+        fotoHashIntegridade: usuariosTable.fotoHashIntegridade,
+      })
+      .from(usuariosTable)
+      .where(eq(usuariosTable.id, String(req.params.id)));
+
+    if (!u?.fotoDados || !u.fotoIv) return res.status(404).end();
+
+    const dadosBrutos = descriptografarFoto(u.fotoDados, u.fotoIv);
+
+    if (u.fotoHashIntegridade && !verificarIntegridade(dadosBrutos, u.fotoHashIntegridade)) {
+      return res.status(500).json({ error: "Erro de integridade da foto" });
+    }
+
+    res.set("Content-Type", u.fotoMimeType ?? "image/jpeg");
+    res.set("Cache-Control", "private, max-age=3600");
+    res.send(dadosBrutos);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao servir foto" });
+  }
+});
+
+// PUT /api/usuarios/:id/foto — upload ou atualização de foto de perfil
+router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const { fotoBase64 } = z.object({ fotoBase64: z.string().min(1) }).parse(req.body);
+    if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
+
+    const foto = criptografarFoto(fotoBase64);
+    const { randomUUID } = await import("crypto");
+
+    const [u] = await db
+      .update(usuariosTable)
+      .set({
+        fotoStorageKey: randomUUID(),
+        fotoDados: foto.dadosCriptografados,
+        fotoIv: foto.iv,
+        fotoMimeType: foto.mimeType,
+        fotoTamanhoBytes: foto.tamanhoBytes,
+        fotoHashIntegridade: foto.hash,
+        atualizadoEm: new Date(),
+      })
+      .where(eq(usuariosTable.id, String(req.params.id)))
+      .returning({ id: usuariosTable.id });
+
+    if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    await registrarAuditoria({
+      tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: `PUT /api/usuarios/${String(req.params.id)}/foto`, metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, fotoUrl: `/api/usuarios/${u.id}/foto` });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Erro ao salvar foto" });
   }
 });
 
