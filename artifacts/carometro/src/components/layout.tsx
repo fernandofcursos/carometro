@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, UserSquare2, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft,
+  PanelLeft, Crown, Building2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -73,7 +73,12 @@ export function AppSidebar() {
       bgColor: "#eef2ff",
       items: [
         nav("Estudantes", "/carometro", Users),
-        nav("Usuários", "/carometro-usuarios", UserSquare2),
+        nav("Equipe Gestora", "/carometro/equipe-gestora", Crown),
+        nav("Administração", "/carometro/administracao", Building2),
+        nav("Equipe Pedagógica", "/carometro/equipe-pedagogica", GraduationCap),
+        nav("Corpo Docente", "/carometro/corpo-docente", BookOpen),
+        nav("Apoio / Operacional", "/carometro/apoio-operacional", Wrench),
+        nav("Usuários", "/carometro/usuarios", UserSquare2),
       ],
     }] : []),
     ...((canManageUsuarios || canManageRoles) ? [{

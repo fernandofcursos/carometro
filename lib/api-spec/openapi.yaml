@@ -537,6 +537,114 @@ paths:
                 items:
                   $ref: "#/components/schemas/CarometroGroup"
 
+  /carometro/equipe-gestora:
+    get:
+      operationId: getCarometroEquipeGestora
+      tags: [carometro]
+      summary: Carômetro — Equipe Gestora
+      description: Lista usuários com perfil Equipe Gestora, agrupados por turno/curso quando vinculados.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Seções de usuários da Equipe Gestora
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarometroGrupoResponse"
+        "401":
+          description: Unauthorized
+
+  /carometro/administracao:
+    get:
+      operationId: getCarometroAdministracao
+      tags: [carometro]
+      summary: Carômetro — Administração
+      description: Lista usuários com perfis Secretaria e Administração.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Seções de usuários da Administração
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarometroGrupoResponse"
+        "401":
+          description: Unauthorized
+
+  /carometro/equipe-pedagogica:
+    get:
+      operationId: getCarometroEquipePedagogica
+      tags: [carometro]
+      summary: Carômetro — Equipe Pedagógica
+      description: Lista usuários com perfis Coordenador, SOE, AEE e Supervisão Pedagógica.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Seções de usuários da Equipe Pedagógica
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarometroGrupoResponse"
+        "401":
+          description: Unauthorized
+
+  /carometro/corpo-docente:
+    get:
+      operationId: getCarometroCorpoDocente
+      tags: [carometro]
+      summary: Carômetro — Corpo Docente
+      description: Lista usuários com perfis Professor e Educador, com as disciplinas que ministram.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Seções de usuários do Corpo Docente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarometroGrupoResponse"
+        "401":
+          description: Unauthorized
+
+  /carometro/apoio-operacional:
+    get:
+      operationId: getCarometroApoioOperacional
+      tags: [carometro]
+      summary: Carômetro — Apoio e Operacional
+      description: Lista usuários com perfis Inspetor, Limpeza, Portaria, Merendeira e Segurança.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Seções de usuários de Apoio e Operacional
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarometroGrupoResponse"
+        "401":
+          description: Unauthorized
+
+  /carometro/usuarios:
+    get:
+      operationId: getCarometroUsuarios
+      tags: [carometro]
+      summary: Carômetro — Usuários
+      description: Lista usuários com perfis Pai/Responsável e Estudante. Responsáveis mostram vinculados; estudantes mostram turno/curso.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Seções de usuários (Pai/Responsável e Estudante)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CarometroGrupoResponse"
+        "401":
+          description: Unauthorized
+
   /stats:
     get:
       operationId: getStats
@@ -1899,3 +2007,59 @@ components:
           items:
             type: string
             format: uuid
+
+    CarometroGrupoResponse:
+      type: object
+      required: [sections]
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CarometroGrupoSection"
+
+    CarometroGrupoSection:
+      type: object
+      required: [turnoNome, usuarios]
+      properties:
+        turnoNome:
+          type: string
+        cursoNome:
+          type: string
+          nullable: true
+        usuarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/CarometroUsuarioItem"
+
+    CarometroUsuarioItem:
+      type: object
+      required: [id, nome, fotoUrl, roles, disciplinas]
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+          nullable: true
+        fotoUrl:
+          type: string
+          nullable: true
+        roles:
+          type: array
+          items:
+            type: string
+        disciplinas:
+          type: array
+          items:
+            type: string
+        vinculados:
+          type: array
+          description: Usuários vinculados (filhos) — apenas para pai/responsável
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              nome:
+                type: string
+                nullable: true

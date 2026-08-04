@@ -114,6 +114,102 @@ const ROLES_PADRAO: { nome: string; descricao: string; permissoes: { recurso: st
       { recurso: "estudantes",  acao: "view"   },
     ],
   },
+  {
+    nome: "equipe_gestora",
+    descricao: "Equipe gestora da instituição",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
+  {
+    nome: "administracao",
+    descricao: "Administração escolar",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+    ],
+  },
+  {
+    nome: "soe",
+    descricao: "Serviço de Orientação Educacional",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "ocorrencias", acao: "view"   },
+      { recurso: "ocorrencias", acao: "create" },
+    ],
+  },
+  {
+    nome: "aee",
+    descricao: "Atendimento Educacional Especializado",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "ocorrencias", acao: "view"   },
+      { recurso: "ocorrencias", acao: "create" },
+    ],
+  },
+  {
+    nome: "supervisao_pedagogica",
+    descricao: "Supervisão Pedagógica",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "ocorrencias", acao: "view"   },
+    ],
+  },
+  {
+    nome: "educador",
+    descricao: "Educador",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "ocorrencias", acao: "view"   },
+      { recurso: "ocorrencias", acao: "create" },
+    ],
+  },
+  {
+    nome: "inspetor",
+    descricao: "Inspetor escolar",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
+  {
+    nome: "limpeza",
+    descricao: "Equipe de limpeza",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
+  {
+    nome: "portaria",
+    descricao: "Portaria",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
+  {
+    nome: "merendeira",
+    descricao: "Merendeira",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
+  {
+    nome: "seguranca",
+    descricao: "Segurança",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
+  {
+    nome: "pai_responsavel",
+    descricao: "Pai / Responsável",
+    permissoes: [
+      { recurso: "carometro",   acao: "view"   },
+    ],
+  },
 ];
 
 async function seedRolesPadrao() {
@@ -131,7 +227,7 @@ async function seedRolesPadrao() {
       await db.insert(rolesPermissoesTable).values({ roleId, permissaoId: permId }).onConflictDoNothing();
     }
   }
-  console.log(`   ✅ ${ROLES_PADRAO.length} roles padrão garantidos (coordenador, professor, secretaria).`);
+  console.log(`   ✅ ${ROLES_PADRAO.length} roles padrão garantidos.`);
 }
 
 async function upsertPermissao(recurso: string, acao: string, descricao: string): Promise<string> {

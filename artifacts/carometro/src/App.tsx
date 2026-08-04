@@ -18,6 +18,14 @@ import LoginPage from "@/pages/login/index";
 import Dashboard from "@/pages/dashboard";
 import Carometro from "@/pages/carometro";
 import CarometroUsuarios from "@/pages/carometro-usuarios";
+import {
+  CarometroEquipeGestora,
+  CarometroAdministracao,
+  CarometroEquipePedagogica,
+  CarometroCorpoDocente,
+  CarometroApoioOperacional,
+  CarometroUsuariosVinculados,
+} from "@/pages/carometro-grupo";
 import EstudantesList from "@/pages/estudantes/index";
 import EstudantesNew from "@/pages/estudantes/new";
 import EstudantesDetail from "@/pages/estudantes/detail";
@@ -67,6 +75,12 @@ function AppRoutes() {
           <Route path="/" component={Dashboard} />
           <Route path="/carometro" component={Carometro} />
           <Route path="/carometro-usuarios" component={CarometroUsuarios} />
+          <Route path="/carometro/equipe-gestora" component={CarometroEquipeGestora} />
+          <Route path="/carometro/administracao" component={CarometroAdministracao} />
+          <Route path="/carometro/equipe-pedagogica" component={CarometroEquipePedagogica} />
+          <Route path="/carometro/corpo-docente" component={CarometroCorpoDocente} />
+          <Route path="/carometro/apoio-operacional" component={CarometroApoioOperacional} />
+          <Route path="/carometro/usuarios" component={CarometroUsuariosVinculados} />
           <Route path="/estudantes" component={EstudantesList} />
           <Route path="/estudantes/novo" component={EstudantesNew} />
           <Route path="/estudantes/:id" component={EstudantesDetail} />
