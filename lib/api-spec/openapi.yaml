@@ -1769,7 +1769,9 @@ components:
           $ref: "#/components/schemas/Usuario"
         senhaGerada:
           type: string
-          description: Plain text password shown only once
+          description: >
+            Plain text password shown only once. An e-mail with these
+            credentials is also sent to the user's address automatically.
 
     UsuarioInput:
       type: object

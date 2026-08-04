@@ -70,3 +70,61 @@ export async function enviarEmailRecuperacao(
     console.log(`[mailer] e-mail de recuperação enviado para ${para} (messageId: ${info.messageId})`);
   }
 }
+
+export async function enviarEmailBoasVindas(
+  para: string,
+  codigoAcesso: string,
+  senhaGerada: string,
+  nome?: string | null,
+): Promise<void> {
+  const remetente = process.env.SMTP_FROM ?? "Carômetro <noreply@carometro.local>";
+  const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+      <h2 style="color:#1a56db">Bem-vindo ao Carômetro</h2>
+      <p>${saudacao}</p>
+      <p>Sua conta foi criada. Use as credenciais abaixo para fazer o primeiro acesso:</p>
+      <table style="border-collapse:collapse;margin:16px 0">
+        <tr>
+          <td style="padding:6px 12px;background:#f3f4f6;font-weight:600">Código de acesso</td>
+          <td style="padding:6px 12px;font-family:monospace;font-size:1.1em;letter-spacing:2px">${codigoAcesso}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px;background:#f3f4f6;font-weight:600">Senha temporária</td>
+          <td style="padding:6px 12px;font-family:monospace;font-size:1.1em">${senhaGerada}</td>
+        </tr>
+      </table>
+      <p style="color:#dc2626"><strong>Atenção:</strong> você será solicitado a definir uma nova senha no primeiro acesso.</p>
+      <p style="color:#6b7280;font-size:0.85em">Se você não esperava receber este e-mail, entre em contato com a administração da instituição.</p>
+    </div>
+  `;
+
+  const text = `${saudacao}\n\nSua conta no Carômetro foi criada.\n\nCódigo de acesso: ${codigoAcesso}\nSenha temporária: ${senhaGerada}\n\nVocê será solicitado a definir uma nova senha no primeiro acesso.`;
+
+  if (!transport) {
+    const conta = await nodemailer.createTestAccount();
+    transport = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: { user: conta.user, pass: conta.pass },
+    });
+    console.log(`[mailer] usando Ethereal: ${conta.user} / ${conta.pass}`);
+  }
+
+  const info = await transport.sendMail({
+    from: remetente,
+    to: para,
+    subject: "Seu acesso ao Carômetro",
+    text,
+    html,
+  });
+
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) {
+    console.log(`[mailer] e-mail de boas-vindas enviado → ${previewUrl}`);
+  } else {
+    console.log(`[mailer] e-mail de boas-vindas enviado para ${para} (messageId: ${info.messageId})`);
+  }
+}

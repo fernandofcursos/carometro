@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
+import { enviarEmailBoasVindas } from "../lib/mailer.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -221,6 +222,11 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
         disciplinas: [],
       },
       senhaGerada,
+    });
+
+    // Enviar e-mail com credenciais — não bloqueia nem falha a criação
+    enviarEmailBoasVindas(email, codigoAcesso, senhaGerada, nome).catch((err) => {
+      console.error("[usuarios] falha ao enviar e-mail de boas-vindas:", err);
     });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
