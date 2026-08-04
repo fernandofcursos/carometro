@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ShieldCheck, Plus, Trash2, Edit2, Check, X, Lock } from "lucide-react";
+import { ShieldCheck, Plus, Trash2, Edit2, Check, X, Lock, AlertCircle } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -30,7 +30,7 @@ type Role = {
 function PermissoesModal({
   role, allPermissoes, onClose,
 }: { role: Role; allPermissoes: Permissao[]; onClose: () => void }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set(role.permissoes));
+  const [selected, setSelected] = useState<Set<string>>(new Set(role.permissoes ?? []));
   const setPerms = useSetRolePermissoes();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -190,7 +190,7 @@ function RoleRow({
 export default function RolesPage() {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
-  const { data: roles, isLoading } = useListRoles();
+  const { data: roles, isLoading, isError } = useListRoles();
   const { data: permissoes } = useListPermissoes();
   const create = useCreateRole();
   const del = useDeleteRole();
@@ -245,6 +245,12 @@ export default function RolesPage() {
       <div className="space-y-3">
         {isLoading ? (
           <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        ) : isError ? (
+          <div className="text-center py-12 border border-dashed rounded-lg bg-card">
+            <AlertCircle className="w-12 h-12 text-destructive opacity-40 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">Erro ao carregar roles.</p>
+            <p className="text-sm text-muted-foreground mt-1">Verifique a conexão com o servidor.</p>
+          </div>
         ) : roles?.length === 0 ? (
           <div className="text-center py-12 border border-dashed rounded-lg bg-card">
             <ShieldCheck className="w-12 h-12 text-muted-foreground opacity-30 mx-auto mb-3" />
