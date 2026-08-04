@@ -117,7 +117,7 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           email:         decryptEmail(u.emailEncrypted, secret),
           codigoAcesso:  u.codigoAcesso,
           primeiroAcesso: u.primeiroAcesso,
-          fotoUrl:       u.fotoStorageKey ? `/api/usuarios/${u.id}/foto` : null,
+          fotoUrl:       (u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null,
           bloqueadoAte:  u.bloqueadoAte,
           ultimoLoginEm: u.ultimoLoginEm,
           criadoEm:      u.criadoEm,
@@ -156,7 +156,7 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
     res.json({
       id: u.id, nome: u.nome,
       email: decryptEmail(u.emailEncrypted, secret),
-      fotoUrl: u.fotoStorageKey ? `/api/usuarios/${u.id}/foto` : null,
+      fotoUrl: (u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null,
       codigoAcesso: u.codigoAcesso, primeiroAcesso: u.primeiroAcesso,
       bloqueadoAte: u.bloqueadoAte, ultimoLoginEm: u.ultimoLoginEm, criadoEm: u.criadoEm,
       roles,

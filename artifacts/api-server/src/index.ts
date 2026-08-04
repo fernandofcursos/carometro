@@ -18,6 +18,7 @@ import usuariosRouter from "./routes/usuarios.js";
 import estudantesRouter from "./routes/estudantes.js";
 import carometroRouter from "./routes/carometro.js";
 import importRouter from "./routes/import.js";
+import statsRouter from "./routes/stats.js";
 import biometriaRouter from "./routes/biometria.js";
 
 // Criar aplicação com middlewares configurados
@@ -52,6 +53,7 @@ app.use("/api/usuarios", usuariosRouter);
 app.use("/api/estudantes", estudantesRouter);
 app.use("/api/carometro", carometroRouter);
 app.use("/api/import", importRouter);
+app.use("/api/stats", statsRouter);
 // Biometria facial e digital (WebAuthn FIDO2)
 app.use("/api/auth/biometria", biometriaRouter);
 

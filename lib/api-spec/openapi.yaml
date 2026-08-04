@@ -542,6 +542,8 @@ paths:
       operationId: getStats
       tags: [carometro]
       summary: Get summary statistics
+      security:
+        - cookieAuth: []
       responses:
         "200":
           description: Statistics
@@ -549,6 +551,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Stats"
+        "401":
+          description: Unauthorized
 
   /import/cursos:
     post:
