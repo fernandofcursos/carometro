@@ -144,13 +144,33 @@ _schema_hash() {
   find /workspace/lib/db/src -name "*.ts" 2>/dev/null | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
+# ── Instalar dependências Node se necessário ──────────────────────────────────
+_ensure_deps() {
+  # Verifica se o pacote db está compilado (necessário para drizzle-kit push)
+  if [ ! -d /workspace/node_modules ] || [ ! -d /workspace/lib/db/node_modules 2>/dev/null ] && [ ! -f /workspace/node_modules/.modules.yaml ]; then
+    echo -e "${CYAN}[db] Instalando dependências Node (pnpm install)...${NC}"
+    (cd /workspace && pnpm install --frozen-lockfile 2>&1) || \
+    (cd /workspace && pnpm install 2>&1) || {
+      echo -e "${RED}[db] ERRO: pnpm install falhou. Verifique a conexão e o lockfile.${NC}"
+      return 1
+    }
+    echo -e "${GREEN}[db] Dependências instaladas.${NC}"
+  fi
+
+  # Garantir que @workspace/db está compilado (drizzle-kit precisa dos types)
+  if [ ! -d /workspace/lib/db/dist ]; then
+    echo -e "${CYAN}[db] Compilando @workspace/db...${NC}"
+    (cd /workspace && pnpm --filter @workspace/db run build 2>&1) || true
+  fi
+}
+
 # ── Setup automático: schema push + seed ─────────────────────────────────────
 _auto_setup() {
-  # Só executa se as dependências Node estiverem instaladas
-  if [ ! -d /workspace/node_modules ]; then
-    echo -e "${YELLOW}[db] node_modules não encontrado. Execute 'pnpm install' para continuar.${NC}"
+  # Garantir dependências antes de qualquer operação Node
+  _ensure_deps || {
+    echo -e "${RED}[db] Não foi possível instalar dependências. Schema e seed pulados.${NC}"
     return
-  fi
+  }
 
   local current_hash stored_hash=""
   current_hash=$(_schema_hash)
