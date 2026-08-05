@@ -67,7 +67,7 @@ export function AppSidebar() {
 
   const groups: NavGroup[] = [
     ...(canViewCarometro ? [{
-      label: "Carômetro",
+      label: "Carômetro",   // nome da funcionalidade (mantido)
       icon: Grid,
       color: "#6366f1",
       bgColor: "#eef2ff",
@@ -196,8 +196,16 @@ export function AppSidebar() {
       <SidebarHeader className="h-16 flex items-center px-6 pt-4 border-b border-border/50">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2 font-semibold text-lg text-primary tracking-tight">
-            <Grid className="w-6 h-6" />
-            <span className="group-data-[collapsible=icon]:hidden">Carômetro</span>
+            {/* Heliê de Seshat: estrela de 7 pontas + bastão + chifres */}
+            <svg className="w-6 h-6 flex-shrink-0" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <polygon
+                points="32,10 34.25,18.09 42.16,14.89 37.26,21.80 44.67,25.89 36.22,26.37 37.41,34.82 32,28.40 26.59,34.82 27.78,26.37 19.33,25.89 26.74,21.80 21.84,14.89 29.75,18.09"
+                className="fill-primary"/>
+              <line x1="32" y1="36" x2="32" y2="57" className="stroke-primary" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M 30.5,36 Q 21,42 16,53" className="stroke-primary" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M 33.5,36 Q 43,42 48,53" className="stroke-primary" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+            <span className="group-data-[collapsible=icon]:hidden tracking-wide">Seshat</span>
           </div>
           <SidebarToggle />
         </div>

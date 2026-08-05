@@ -1,6 +1,6 @@
-# Carômetro — Ambiente de Desenvolvimento Docker
+# Seshat — Ambiente de Desenvolvimento Docker
 
-Container Docker que replica o ambiente Replit para desenvolvimento local do projeto Carômetro.
+Container Docker para desenvolvimento local da plataforma **Seshat** — sistema de gestão educacional com registro fotográfico, equipes, turmas e ocorrências.
 
 ## O que está incluído
 

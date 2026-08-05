@@ -12,8 +12,8 @@ FROM node:22-bookworm-slim
 # ---------------------------------------------------------------------------
 # Metadados
 # ---------------------------------------------------------------------------
-LABEL maintainer="carometro-dev"
-LABEL description="Ambiente de desenvolvimento Carômetro"
+LABEL maintainer="seshat-dev"
+LABEL description="Seshat — Ambiente de desenvolvimento"
 LABEL node.version="22"
 LABEL pnpm.version="10"
 

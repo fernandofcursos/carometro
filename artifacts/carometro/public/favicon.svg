@@ -1,3 +1,13 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#080E1A"/>
+  <!-- Estrela de sete pontas — heliê de Seshat -->
+  <!-- centro (32,23) raio-ext=13 raio-int=5.4 7 pontas -->
+  <polygon
+    points="32,10 34.25,18.09 42.16,14.89 37.26,21.80 44.67,25.89 36.22,26.37 37.41,34.82 32,28.40 26.59,34.82 27.78,26.37 19.33,25.89 26.74,21.80 21.84,14.89 29.75,18.09"
+    fill="#C8A84B"/>
+  <!-- Bastão -->
+  <line x1="32" y1="36" x2="32" y2="57" stroke="#C8A84B" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Chifres descendentes -->
+  <path d="M 30.5,36 Q 21,42 16,53" stroke="#C8A84B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M 33.5,36 Q 43,42 48,53" stroke="#C8A84B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
 </svg>

@@ -4,7 +4,7 @@ info:
   title: Api
   version: 0.6.0
   description: |
-    Carômetro API — Sistema de registro fotográfico de estudantes por turma e turno.
+    Seshat API — Plataforma de gestão educacional com registro fotográfico, equipes, turmas e ocorrências.
 
     ## Banco de dados
 
