@@ -1,7 +1,14 @@
 #!/bin/bash
 # =============================================================================
 # entrypoint.sh — ambiente de desenvolvimento Carômetro
-# PostgreSQL local sobe automaticamente se DATABASE_URL apontar para localhost.
+#
+# Ciclo de vida do banco:
+#   1. Se PGDATA não tiver PG_VERSION → inicializa o cluster (primeiro uso)
+#   2. Inicia PostgreSQL
+#   3. Cria role/banco carometro (idempotente)
+#   4. Aplica extensões necessárias
+#   5. Se hash do schema mudou → drizzle-kit push (só quando necessário)
+#   6. Se banco nunca foi inicializado → seed-admin (somente primeira vez)
 # =============================================================================
 
 BOLD='\033[1m'
@@ -25,77 +32,195 @@ if [ -z "${DATABASE_URL:-}" ]; then
   echo -e "${RED}[db] ERRO: DATABASE_URL não definida. Configure no .env${NC}"
 fi
 
-# ── PostgreSQL local — inicia se DATABASE_URL apontar para localhost ──────────
-_iniciar_pg() {
-  local PGDATA=/var/lib/postgresql/16/main
+# ── Constantes ────────────────────────────────────────────────────────────────
+PGDATA=/var/lib/postgresql/16/main
+PGCONF=/etc/postgresql/16/main
+PGLOG=/var/log/postgresql/postgresql-16-main.log
+SCHEMA_HASH_FILE="$PGDATA/.carometro_schema_hash"
+INIT_MARKER="$PGDATA/.carometro_initialized"
 
-  # Garante que o diretório de socket exista e pertença ao postgres
+# ── Helpers de execução como postgres ────────────────────────────────────────
+_run_as_postgres() {
+  if [ "$(id -u)" = "0" ]; then
+    runuser -u postgres -- "$@"
+  else
+    "$@"
+  fi
+}
+
+_psql_admin() {
+  if [ "$(id -u)" = "0" ]; then
+    runuser -u postgres -- psql -U postgres "$@"
+  else
+    psql -U postgres -h 127.0.0.1 "$@"
+  fi
+}
+
+# ── Inicialização do cluster (somente primeira vez) ───────────────────────────
+_init_cluster() {
+  if [ -f "$PGDATA/PG_VERSION" ]; then
+    return 0  # Cluster já inicializado
+  fi
+
+  echo -e "${CYAN}[db] Cluster não encontrado — inicializando (primeiro uso)...${NC}"
+
+  # Garantir diretórios com permissões corretas
+  mkdir -p "$PGDATA" /var/run/postgresql
+  mkdir -p "$(dirname "$PGLOG")"
+  chown -R postgres:postgres "$PGDATA" /var/run/postgresql "$(dirname "$PGLOG")" 2>/dev/null || true
+  chmod 700 "$PGDATA"
+
+  # Inicializar cluster com locale correto
+  if ! _run_as_postgres pg_createcluster --locale pt_BR.UTF-8 --encoding UTF8 16 main 2>/dev/null; then
+    # Fallback: initdb direto
+    echo -e "${YELLOW}[db] pg_createcluster falhou, tentando initdb...${NC}"
+    _run_as_postgres pg_ctl -D "$PGDATA" initdb -o "--locale=pt_BR.UTF-8 --encoding=UTF8" 2>/dev/null || {
+      echo -e "${RED}[db] ERRO: Não foi possível inicializar o cluster PostgreSQL${NC}"
+      return 1
+    }
+  fi
+
+  # Aplicar configurações de rede e autenticação
+  if [ -f "$PGCONF/postgresql.conf" ]; then
+    echo "listen_addresses = '*'" >> "$PGCONF/postgresql.conf"
+  else
+    # Se o cluster foi inicializado via initdb, postgresql.conf está no PGDATA
+    echo "listen_addresses = '*'" >> "$PGDATA/postgresql.conf"
+  fi
+
+  local HBA_FILE="$PGCONF/pg_hba.conf"
+  [ ! -f "$HBA_FILE" ] && HBA_FILE="$PGDATA/pg_hba.conf"
+
+  cat > "$HBA_FILE" <<'HBA'
+# Dev container — trust para socket local do postgres, senha para os demais
+local   all             postgres                                trust
+local   all             all                                     scram-sha-256
+host    all             all             0.0.0.0/0               scram-sha-256
+host    all             all             ::/0                    scram-sha-256
+local   replication     all                                     trust
+host    replication     all             0.0.0.0/0               scram-sha-256
+HBA
+
+  echo -e "${GREEN}[db] Cluster inicializado.${NC}"
+}
+
+# ── Iniciar PostgreSQL ────────────────────────────────────────────────────────
+_iniciar_pg() {
+  # Primeiro: garantir que o cluster existe
+  _init_cluster || return 1
+
   mkdir -p /var/run/postgresql
   chown postgres:postgres /var/run/postgresql 2>/dev/null || true
+  mkdir -p "$(dirname "$PGLOG")"
+  chown postgres:postgres "$(dirname "$PGLOG")" 2>/dev/null || true
+  touch "$PGLOG" && chown postgres:postgres "$PGLOG" 2>/dev/null || true
 
-  if [ "$(id -u)" = "0" ]; then
-    # Rodando como root: usa runuser para trocar para postgres
-    runuser -u postgres -- pg_ctlcluster 16 main start 2>/dev/null && return 0
-    # Fallback: pg_ctl direto como postgres
-    runuser -u postgres -- pg_ctl -D "$PGDATA" start -l /var/log/postgresql/postgresql-16-main.log 2>/dev/null && return 0
-  else
-    # Rodando como usuário não-root: tenta pg_ctlcluster normalmente
-    # (funciona se o usuário é dono do cluster ou tem permissão)
-    pg_ctlcluster 16 main start 2>/dev/null && return 0
-    # Fallback: tenta via su (pode falhar sem senha no Replit)
-    su -s /bin/bash postgres -c "pg_ctlcluster 16 main start" 2>/dev/null && return 0
-    # Último recurso: pg_ctl diretamente (falha se /var/lib/postgresql não for acessível)
-    pg_ctl -D "$PGDATA" -U postgres start -l /var/log/postgresql/postgresql-16-main.log 2>/dev/null && return 0
+  # Tentar iniciar via pg_ctlcluster (prefere config em /etc/postgresql)
+  if _run_as_postgres pg_ctlcluster 16 main start 2>/dev/null; then
+    return 0
   fi
+
+  # Fallback: pg_ctl direto
+  if _run_as_postgres pg_ctl -D "$PGDATA" start -l "$PGLOG" 2>/dev/null; then
+    return 0
+  fi
+
   return 1
 }
 
+# ── Criar role e banco (idempotente) ─────────────────────────────────────────
 _setup_db() {
-  # Conecta como postgres (sem senha, usando peer auth via socket)
-  local PSQL
-  if [ "$(id -u)" = "0" ]; then
-    PSQL="runuser -u postgres -- psql -U postgres"
-  else
-    PSQL="psql -U postgres -h 127.0.0.1"
-  fi
-  $PSQL -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
-  $PSQL -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
-  $PSQL -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
+  _psql_admin -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
+  _psql_admin -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
+  _psql_admin -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
+  # Extensões necessárias
+  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
+  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
+  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"unaccent\";" 2>/dev/null || true
 }
 
+# ── Hash do schema (detecta mudanças) ────────────────────────────────────────
+_schema_hash() {
+  find /workspace/lib/db/src -name "*.ts" 2>/dev/null | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+
+# ── Setup automático: schema push + seed ─────────────────────────────────────
+_auto_setup() {
+  # Só executa se as dependências Node estiverem instaladas
+  if [ ! -d /workspace/node_modules ]; then
+    echo -e "${YELLOW}[db] node_modules não encontrado. Execute 'pnpm install' para continuar.${NC}"
+    return
+  fi
+
+  local current_hash stored_hash=""
+  current_hash=$(_schema_hash)
+  [ -f "$SCHEMA_HASH_FILE" ] && stored_hash=$(cat "$SCHEMA_HASH_FILE")
+
+  # Aplicar schema somente se mudou
+  if [ "$current_hash" != "$stored_hash" ]; then
+    echo -e "${CYAN}[db] Schema alterado — aplicando (drizzle-kit push)...${NC}"
+    if (cd /workspace && pnpm --filter @workspace/db run push-force 2>&1); then
+      echo "$current_hash" > "$SCHEMA_HASH_FILE"
+      echo -e "${GREEN}[db] Schema aplicado com sucesso.${NC}"
+    else
+      echo -e "${RED}[db] AVISO: drizzle-kit push falhou. Verifique os logs.${NC}"
+      return
+    fi
+  else
+    echo -e "${GREEN}[db] Schema em dia — nenhuma atualização necessária.${NC}"
+  fi
+
+  # Seed do admin somente na primeira inicialização
+  if [ ! -f "$INIT_MARKER" ]; then
+    echo -e "${CYAN}[db] Primeira inicialização — criando usuário administrador...${NC}"
+    if (cd /workspace && pnpm --filter @workspace/api-server run seed-admin 2>&1); then
+      touch "$INIT_MARKER"
+      echo -e "${GREEN}[db] Administrador criado com sucesso.${NC}"
+    else
+      echo -e "${RED}[db] AVISO: seed-admin falhou. Execute manualmente: pnpm --filter @workspace/api-server run seed-admin${NC}"
+    fi
+  fi
+}
+
+# ── Bloco principal: inicia PG se DATABASE_URL apontar para localhost ─────────
 if echo "${DATABASE_URL:-}" | grep -qE 'localhost|127\.0\.0\.1'; then
   if ! pg_isready -q 2>/dev/null; then
     echo -e "${CYAN}[db] Iniciando PostgreSQL local...${NC}"
     if _iniciar_pg; then
-      for i in $(seq 1 15); do
+      # Aguardar PG estar pronto (até 30s)
+      for i in $(seq 1 30); do
         pg_isready -q 2>/dev/null && break
         sleep 1
       done
     fi
   fi
+
   if pg_isready -q 2>/dev/null; then
     echo -e "${GREEN}[db] PostgreSQL pronto.${NC}"
     _setup_db
+    _auto_setup
   else
-    echo -e "${RED}[db] AVISO: PostgreSQL não respondeu após 15s.${NC}"
-    echo -e "${YELLOW}[db] Tente manualmente:${NC}"
-    echo -e "       runuser -u postgres -- pg_ctlcluster 16 main start   (como root)"
-    echo -e "       pg_ctlcluster 16 main start                          (como postgres)"
-    echo -e "     Ou configure um banco externo (Neon) no .env"
+    echo -e "${RED}[db] AVISO: PostgreSQL não respondeu após 30s.${NC}"
+    echo -e "${YELLOW}Tente manualmente:${NC}"
+    echo -e "  runuser -u postgres -- pg_ctlcluster 16 main start   (como root)"
+    echo -e "  pg_ctlcluster 16 main start                          (como postgres)"
+    echo -e "Ou configure um banco externo (Neon) no .env"
   fi
 fi
 
+# ── Comandos ──────────────────────────────────────────────────────────────────
 CMD_ARG="${1:-shell}"
 
 case "$CMD_ARG" in
   shell)
+    echo ""
     echo -e "${BOLD}Carômetro Dev — shell interativo${NC}"
     echo -e "${CYAN}Comandos disponíveis:${NC}"
-    echo -e "  ${YELLOW}pnpm install${NC}                                   instalar dependências"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/db run push-force${NC}     aplicar schema"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/api-server run seed-admin${NC} criar admin"
-    echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}  subir API"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/carometro run dev${NC}     subir frontend"
+    echo -e "  ${YELLOW}pnpm install${NC}                                            instalar dependências"
+    echo -e "  ${YELLOW}pnpm --filter @workspace/db run push-force${NC}              forçar reaplicação do schema"
+    echo -e "  ${YELLOW}pnpm --filter @workspace/api-server run seed-admin${NC}      recriar/verificar admin"
+    echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}   subir API"
+    echo -e "  ${YELLOW}pnpm --filter @workspace/carometro run dev${NC}              subir frontend"
     echo ""
     exec /bin/bash
     ;;
@@ -108,9 +233,17 @@ case "$CMD_ARG" in
   db:push)
     exec pnpm --filter @workspace/db run push-force
     ;;
+  db:seed)
+    exec pnpm --filter @workspace/api-server run seed-admin "${@:2}"
+    ;;
   seed)
-    EMAIL="${2:-admin@escola.edu.br}"
-    exec pnpm --filter @workspace/api-server run seed-admin "$EMAIL"
+    # Alias legado
+    exec pnpm --filter @workspace/api-server run seed-admin "${@:2}"
+    ;;
+  db:hash-reset)
+    echo -e "${YELLOW}[db] Removendo marcadores de hash e init para forçar re-setup...${NC}"
+    rm -f "$SCHEMA_HASH_FILE" "$INIT_MARKER"
+    echo -e "${GREEN}[db] Marcadores removidos. Reinicie o container.${NC}"
     ;;
   *)
     exec "$@"

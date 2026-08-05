@@ -47,16 +47,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN corepack disable && npm install -g pnpm@10.13.1
 
 # ---------------------------------------------------------------------------
-# PostgreSQL: configurar instância local
+# PostgreSQL: criar diretórios e pré-configurar (o cluster é inicializado
+# pelo entrypoint na primeira vez, dentro do volume persistente)
 # ---------------------------------------------------------------------------
-RUN mkdir -p /var/run/postgresql /var/lib/postgresql/16/main \
-  && chown -R postgres:postgres /var/run/postgresql /var/lib/postgresql \
-  && su -c "pg_createcluster 16 main" postgres 2>/dev/null || true
+RUN mkdir -p /var/run/postgresql /var/lib/postgresql /var/log/postgresql \
+  && chown -R postgres:postgres /var/run/postgresql /var/lib/postgresql /var/log/postgresql
 
-# Configurações do PostgreSQL para desenvolvimento local
-RUN echo "listen_addresses = '*'" >> /etc/postgresql/16/main/postgresql.conf \
+# Pré-criar o diretório de configuração e deixar os arquivos de conf prontos.
+# pg_createcluster cria o cluster no PGDATA (montado em volume) durante o
+# primeiro start via entrypoint — nunca durante o build — para que o volume
+# persista os dados entre reinicializações.
+RUN mkdir -p /etc/postgresql/16/main \
+  && pg_createcluster --locale pt_BR.UTF-8 --encoding UTF8 16 main 2>/dev/null || true
+
+# Sobrescrever configurações após pg_createcluster (tolerante a falha)
+RUN if [ -f /etc/postgresql/16/main/postgresql.conf ]; then \
+      echo "listen_addresses = '*'" >> /etc/postgresql/16/main/postgresql.conf; \
+    fi \
   && cat > /etc/postgresql/16/main/pg_hba.conf <<'HBA'
-# Dev container — password auth para todas as conexões (local e TCP)
+# Dev container — trust para postgres local, senha para demais
 local   all             postgres                                trust
 local   all             all                                     scram-sha-256
 host    all             all             0.0.0.0/0               scram-sha-256

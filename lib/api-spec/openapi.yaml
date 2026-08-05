@@ -2,8 +2,34 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.5.0
-  description: Carômetro API - Sistema de registro fotográfico de estudantes por turma e turno
+  version: 0.6.0
+  description: |
+    Carômetro API — Sistema de registro fotográfico de estudantes por turma e turno.
+
+    ## Banco de dados
+
+    O PostgreSQL 16 roda **dentro do container de desenvolvimento** e é gerenciado
+    automaticamente pelo `entrypoint.sh`:
+
+    1. **Inicialização do cluster** — `pg_createcluster` é executado somente se o
+       volume estiver vazio (`PG_VERSION` ausente em `PGDATA`).
+    2. **Persistência** — dados armazenados no volume Docker `carometro-pg-dev`
+       montado em `/var/lib/postgresql/16/main`.
+    3. **Schema** — `drizzle-kit push` roda automaticamente **somente quando** o
+       hash dos arquivos `lib/db/src/**/*.ts` muda. O hash é persistido em
+       `$PGDATA/.carometro_schema_hash`.
+    4. **Seed do administrador** — executado **apenas na primeira inicialização**
+       via marcador `$PGDATA/.carometro_initialized`. O script `seed-admin.ts` é
+       idempotente (não duplica o usuário se já existir).
+
+    ### Comandos úteis
+
+    ```
+    docker compose run --rm dev db:push       # forçar reaplicação do schema
+    docker compose run --rm dev db:seed       # verificar/recriar administrador
+    docker compose run --rm dev db:hash-reset # remover marcadores e forçar re-setup
+    docker compose down -v && docker compose up --build  # reinício limpo
+    ```
 servers:
   - url: /api
     description: Base API path

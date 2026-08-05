@@ -56,10 +56,11 @@ services:
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD", "true"]
-      interval: 60s
+      test: ["CMD-SHELL", "pg_isready -U carometro -d carometro -q || exit 1"]
+      interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 6
+      start_period: 60s
 
     # Inicialização manual — o entrypoint apenas abre um shell interativo.
     # Suba os servidores manualmente no terminal do VSCode.
