@@ -1,4 +1,4 @@
-# Guia de Desenvolvimento — Carômetro no VSCode Dev Container
+# Guia de Desenvolvimento — Seshat no VSCode Dev Container
 
 Passo a passo completo: desde a primeira execução até encerrar o ambiente corretamente.
 

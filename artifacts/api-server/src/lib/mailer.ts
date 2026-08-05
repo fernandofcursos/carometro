@@ -29,11 +29,11 @@ export async function enviarEmailRecuperacao(
   expiresAt: Date,
 ): Promise<void> {
   const remetente = process.env.SMTP_FROM ?? "Seshat <noreply@seshat.local>";
-  const assunto = "Redefinição de senha — Carômetro";
+  const assunto = "Redefinição de senha — Seshat";
   const expiracao = expiresAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
   const html = `
-    <p>Você solicitou a redefinição de senha no Carômetro.</p>
+    <p>Você solicitou a redefinição de senha no Seshat.</p>
     <p>Use o token abaixo na tela de recuperação:</p>
     <p style="font-size:1.4em;font-family:monospace;letter-spacing:2px"><strong>${token}</strong></p>
     <p>O token expira em: <strong>${expiracao}</strong></p>
@@ -82,7 +82,7 @@ export async function enviarEmailBoasVindas(
 
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-      <h2 style="color:#1a56db">Bem-vindo ao Carômetro</h2>
+      <h2 style="color:#1a56db">Bem-vindo ao Seshat</h2>
       <p>${saudacao}</p>
       <p>Sua conta foi criada. Use as credenciais abaixo para fazer o primeiro acesso:</p>
       <table style="border-collapse:collapse;margin:16px 0">
@@ -100,7 +100,7 @@ export async function enviarEmailBoasVindas(
     </div>
   `;
 
-  const text = `${saudacao}\n\nSua conta no Carômetro foi criada.\n\nCódigo de acesso: ${codigoAcesso}\nSenha temporária: ${senhaGerada}\n\nVocê será solicitado a definir uma nova senha no primeiro acesso.`;
+  const text = `${saudacao}\n\nSua conta no Seshat foi criada.\n\nCódigo de acesso: ${codigoAcesso}\nSenha temporária: ${senhaGerada}\n\nVocê será solicitado a definir uma nova senha no primeiro acesso.`;
 
   if (!transport) {
     const conta = await nodemailer.createTestAccount();
@@ -116,7 +116,7 @@ export async function enviarEmailBoasVindas(
   const info = await transport.sendMail({
     from: remetente,
     to: para,
-    subject: "Seu acesso ao Carômetro",
+    subject: "Seu acesso ao Seshat",
     text,
     html,
   });

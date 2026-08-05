@@ -16,7 +16,7 @@ import rolesRouter from "./routes/roles.js";
 import usuariosRouter from "./routes/usuarios.js";
 // SDD Dia 3: estudantes, carômetro e import
 import estudantesRouter from "./routes/estudantes.js";
-import carometroRouter from "./routes/carometro.js";
+import seshatRouter from "./routes/seshat.js";
 import importRouter from "./routes/import.js";
 import statsRouter from "./routes/stats.js";
 import biometriaRouter from "./routes/biometria.js";
@@ -51,7 +51,7 @@ app.use("/api/roles", rolesRouter);
 app.use("/api/usuarios", usuariosRouter);
 // SDD Dia 3: rotas implementadas
 app.use("/api/estudantes", estudantesRouter);
-app.use("/api/carometro", carometroRouter);
+app.use("/api/carometro", seshatRouter);
 app.use("/api/import", importRouter);
 app.use("/api/stats", statsRouter);
 // Biometria facial e digital (WebAuthn FIDO2)

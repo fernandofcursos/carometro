@@ -1,4 +1,4 @@
-# Ciclo Completo de Inicialização — Carômetro Dev
+# Ciclo Completo de Inicialização — Seshat Dev
 
 ---
 
@@ -96,7 +96,7 @@ Há duas formas equivalentes — escolha a que preferir:
 
 #### Opção A — Via Tasks do VSCode (recomendado)
 
-`Cmd+Shift+P` → **Tasks: Run Task** → **🚀 Carômetro: subir tudo**
+`Cmd+Shift+P` → **Tasks: Run Task** → **🚀 Seshat: subir tudo**
 
 Isso sobe API e Frontend em paralelo, cada um em seu próprio painel de terminal.
 
@@ -189,7 +189,7 @@ Acesso: `Cmd+Shift+P` → **Tasks: Run Task**
 
 | Task | O que faz |
 |---|---|
-| **🚀 Carômetro: subir tudo** | Sobe API (8080) e Frontend (5000) em paralelo |
+| **🚀 Seshat: subir tudo** | Sobe API (8080) e Frontend (5000) em paralelo |
 | **API: api-server dev** | Sobe apenas a API na porta 8080 |
 | **Frontend: Vite dev server** | Sobe apenas o frontend na porta 5000 |
 | **DB: aplicar schema** | Executa `push-force` no banco |

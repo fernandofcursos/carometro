@@ -153,7 +153,7 @@ export function useLGPD(userId: string | null = null) {
   const exportMyData = useCallback(async () => {
     const exportData = {
       meta: {
-        sistema: "Carômetro",
+        sistema: "Seshat",
         versao_lgpd: "1.0",
         data_exportacao: new Date().toISOString(),
         titular: userId,

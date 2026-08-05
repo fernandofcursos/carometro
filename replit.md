@@ -1,4 +1,4 @@
-# Carômetro
+# Seshat
 
 Sistema de foto-roster escolar com controle de ocorrências, autenticação por perfil e exportação de dados.
 

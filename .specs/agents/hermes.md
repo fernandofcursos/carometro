@@ -77,7 +77,7 @@ artifacts/seshat/src/pages/<recurso>/index.tsx — página React
 | Feature | Arquivo de Spec | Status |
 |---------|----------------|--------|
 | Autenticação | `features/auth.md` | ✅ Implementado |
-| Carômetro | `features/carometro.md` | ✅ Implementado |
+| Carômetro | `features/seshat.md` | ✅ Implementado |
 | Estudantes | `features/estudantes.md` | ✅ Implementado |
 | Turmas | `features/turmas.md` | ✅ Implementado |
 | Ocorrências | `features/ocorrencias.md` | ✅ Implementado |

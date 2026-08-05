@@ -95,7 +95,7 @@ export function InstalarApp() {
     <div
       role="dialog"
       aria-modal="false"
-      aria-label="Instalar Carômetro"
+      aria-label="Instalar Seshat"
       className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300"
     >
       <div className="mx-3 mb-3 rounded-2xl bg-background border border-border shadow-2xl overflow-hidden">
@@ -106,7 +106,7 @@ export function InstalarApp() {
 
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-foreground leading-tight">
-              Instalar Carômetro
+              Instalar Seshat
             </p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
               {ios

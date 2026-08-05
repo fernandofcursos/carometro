@@ -7,7 +7,7 @@
   //
   // Documentação: https://containers.dev/implementors/json_reference/
   // ==========================================================================
-  "name": "Carômetro Dev",
+  "name": "Seshat Dev",
 
   // Usar o docker-compose.yml que já existe no projeto
   "dockerComposeFile": "../docker-compose.yml",

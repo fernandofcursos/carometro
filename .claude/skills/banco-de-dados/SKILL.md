@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O banco PostgreSQL 16 roda **dentro do container de desenvolvimento** (`carometro-dev`).
+O banco PostgreSQL 16 roda **dentro do container de desenvolvimento** (`seshat-dev`).
 O entrypoint (`entrypoint.sh`) gerencia todo o ciclo de vida automaticamente:
 
 ```
@@ -120,7 +120,7 @@ docker compose up --build       # rebuild + reinicialização limpa
 
 | Variável | Descrição | Padrão dev |
 |---|---|---|
-| `DATABASE_URL` | URL de conexão PostgreSQL | `postgresql://carometro:carometro@localhost:5432/carometro` |
+| `DATABASE_URL` | URL de conexão PostgreSQL | `postgresql://seshat:seshat@localhost:5432/seshat` |
 | `ENCRYPTION_KEY` | Chave AES-256 (hex 64 chars) para criptografia de fotos/e-mails | Definida em `.env` |
 | `SESSION_SECRET` | Segredo JWT/sessão | Definido em `.env` |
 | `ADMIN_EMAIL` | E-mail do administrador inicial | `admin@escola.edu.br` |

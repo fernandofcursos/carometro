@@ -108,7 +108,7 @@ docker compose --profile tools up -d
    a. git pull origin claude/wonderful-feynman-Klc3C
    b. pnpm install          (só se houve mudança em package.json)
    c. pnpm --filter @workspace/db run push-force   (só se schema mudou)
-5. Cmd+Shift+B → "🚀 Carômetro: subir tudo"
+5. Cmd+Shift+B → "🚀 Seshat: subir tudo"
    OU:
    Terminal 1: PORT=8080 pnpm --filter @workspace/api-server run dev
    Terminal 2: pnpm --filter @workspace/seshat run dev

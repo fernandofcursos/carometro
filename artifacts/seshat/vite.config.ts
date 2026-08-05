@@ -18,8 +18,8 @@ export default defineConfig({
       injectRegister: "auto",
       includeAssets: ["favicon.svg", "icon-192.png", "icon-512.png", "icon-maskable.png"],
       manifest: {
-        name: "Carômetro",
-        short_name: "Carômetro",
+        name: "Seshat",
+        short_name: "Seshat",
         description: "Sistema de foto-roster escolar com controle de ocorrências",
         theme_color: "#FF3C00",
         background_color: "#ffffff",

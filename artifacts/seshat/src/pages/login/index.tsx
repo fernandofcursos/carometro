@@ -132,7 +132,7 @@ export default function LoginPage() {
                   <Grid className="w-8 h-8" />
                 </div>
               </div>
-              <CardTitle className="text-2xl font-bold">Carômetro</CardTitle>
+              <CardTitle className="text-2xl font-bold">Seshat</CardTitle>
               <CardDescription>Entre com seu e-mail ou código de acesso</CardDescription>
             </CardHeader>
             <CardContent className="pt-4">

@@ -234,7 +234,7 @@ export default function CarometroUsuarios() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE}/api/carometro-usuarios`, { credentials: "include" })
+    fetch(`${BASE}/api/seshat-usuarios`, { credentials: "include" })
       .then((r) => r.json())
       .then((data: UsuarioCard[]) => setUsuarios(Array.isArray(data) ? data : []))
       .catch(() => setUsuarios([]))

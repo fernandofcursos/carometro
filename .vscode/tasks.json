@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "🚀 Carômetro: subir tudo",
+      "label": "🚀 Seshat: subir tudo",
       "dependsOn": ["API: api-server dev", "Frontend: Vite dev server"],
       "dependsOrder": "parallel",
       "group": { "kind": "build", "isDefault": true },

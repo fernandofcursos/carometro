@@ -63,7 +63,7 @@ export function LgpdConsentModal({
           </div>
 
           <p className="text-sm text-muted-foreground leading-relaxed">
-            O Carômetro trata dados pessoais de colaboradores. Gerencie abaixo
+            O Seshat trata dados pessoais de colaboradores. Gerencie abaixo
             quais tratamentos você autoriza. Consentimentos podem ser revogados
             a qualquer momento via <strong>Configurações → Privacidade</strong>.
           </p>

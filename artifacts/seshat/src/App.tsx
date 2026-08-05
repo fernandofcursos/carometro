@@ -17,7 +17,7 @@ import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login/index";
 import Dashboard from "@/pages/dashboard";
 import Carometro from "@/pages/carometro";
-import CarometroUsuarios from "@/pages/carometro-usuarios";
+import CarometroUsuarios from "@/pages/seshat-usuarios";
 import {
   CarometroEquipeGestora,
   CarometroAdministracao,
@@ -74,7 +74,7 @@ function AppRoutes() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/carometro" component={Carometro} />
-          <Route path="/carometro-usuarios" component={CarometroUsuarios} />
+          <Route path="/seshat-usuarios" component={CarometroUsuarios} />
           <Route path="/carometro/equipe-gestora" component={CarometroEquipeGestora} />
           <Route path="/carometro/administracao" component={CarometroAdministracao} />
           <Route path="/carometro/equipe-pedagogica" component={CarometroEquipePedagogica} />

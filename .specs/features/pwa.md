@@ -6,7 +6,7 @@
 
 ## Objetivo
 
-Permitir que o Carômetro seja instalado como aplicativo em qualquer dispositivo (desktop, tablet, celular Android/iOS) sem loja de aplicativos, mantendo comportamento nativo: ícone na tela inicial, tela cheia (sem barra do browser), carregamento instantâneo via cache.
+Permitir que o Seshat seja instalado como aplicativo em qualquer dispositivo (desktop, tablet, celular Android/iOS) sem loja de aplicativos, mantendo comportamento nativo: ícone na tela inicial, tela cheia (sem barra do browser), carregamento instantâneo via cache.
 
 ## Requisitos
 

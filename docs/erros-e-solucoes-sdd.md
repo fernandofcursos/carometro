@@ -1,6 +1,6 @@
 # Erros e Soluções — Migração para SDD
 
-Registro dos erros encontrados durante a implementação do Spec Driven Development no projeto Carômetro.
+Registro dos erros encontrados durante a implementação do Spec Driven Development no projeto Seshat.
 
 ---
 

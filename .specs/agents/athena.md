@@ -60,7 +60,7 @@
 | Autenticação | `features/auth.md` | ✅ Aprovado e implementado |
 | RBAC | `features/rbac.md` | ✅ Aprovado / parcialmente implementado |
 | Estudantes | `features/estudantes.md` | ✅ Aprovado e implementado |
-| Carômetro | `features/carometro.md` | ✅ Aprovado e implementado |
+| Carômetro | `features/seshat.md` | ✅ Aprovado e implementado |
 | Turmas | `features/turmas.md` | ✅ Aprovado e implementado |
 | Ocorrências | `features/ocorrencias.md` | ✅ Aprovado e implementado |
 | Importação XLSX | `features/import.md` | ✅ Aprovado e implementado |

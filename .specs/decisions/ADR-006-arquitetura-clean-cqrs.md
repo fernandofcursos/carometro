@@ -346,4 +346,4 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 - Clean Architecture — Robert C. Martin (Uncle Bob)
 - CQRS Pattern — Martin Fowler (`martinfowler.com/bliki/CQRS.html`)
 - Single Responsibility Principle — SOLID
-- Constituição do Carômetro (`.specs/constitution.md`)
+- Constituição do Seshat (`.specs/constitution.md`)

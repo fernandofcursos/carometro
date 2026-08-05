@@ -1,6 +1,6 @@
 # AGENTS.md — Framework de Agentes Mitológicos
 
-Este documento descreve o framework SDD (Spec Driven Development) do Carômetro.  
+Este documento descreve o framework SDD (Spec Driven Development) do Seshat.  
 Cada agente tem um papel único e responsabilidades não sobrepostas.
 
 ## Os 7 Agentes
