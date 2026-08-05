@@ -115,7 +115,7 @@ Aguarde: `api-server listening on port 8080`
 
 **Terminal 2 — Frontend (porta 5000):**
 ```bash
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 ```
 Aguarde: `➜ Local: http://localhost:5000/`
 
@@ -217,14 +217,14 @@ pnpm --filter @workspace/api-server run seed-admin admin@escola.edu.br
 PORT=8080 pnpm --filter @workspace/api-server run dev
 
 # Subir frontend (porta 5000)
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 
 # Rodar testes
 pnpm --filter @workspace/api-server run test
 
 # Verificar TypeScript
 pnpm --filter @workspace/api-server run typecheck
-pnpm --filter @workspace/carometro run typecheck
+pnpm --filter @workspace/seshat run typecheck
 
 # Matar processo travado na porta 5000
 kill $(lsof -ti :5000)

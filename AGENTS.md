@@ -54,7 +54,7 @@ Responsabilidade: defender os limites de segurança.
 
 Responsabilidade: garantir que o frontend existe e funciona.
 
-- Implementa páginas em `artifacts/carometro/src/pages/`
+- Implementa páginas em `artifacts/seshat/src/pages/`
 - Usa hooks Orval gerados (`use<Recurso>`, `use<Recurso>Mutation`)
 - Protege páginas com `permissionGuard` no layout
 - Garante consistência visual com shadcn/ui
@@ -77,7 +77,7 @@ Hermes: artifacts/api-server/src/routes/<recurso>.ts
     ↓
 Hephaestus: tests/<recurso>.test.ts
     ↓
-Aphrodite: artifacts/carometro/src/pages/<recurso>/index.tsx
+Aphrodite: artifacts/seshat/src/pages/<recurso>/index.tsx
     ↓
 Ares: revisar guards e headers
 ```
@@ -95,7 +95,7 @@ pnpm --filter @workspace/db run push-force
 pnpm --filter @workspace/api-server run dev
 
 # Iniciar frontend em desenvolvimento
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 
 # Seed do administrador inicial
 pnpm --filter @workspace/api-server run seed-admin

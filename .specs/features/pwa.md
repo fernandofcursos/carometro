@@ -56,7 +56,7 @@ Permitir que o Carômetro seja instalado como aplicativo em qualquer dispositivo
 ## Arquivos de Infraestrutura PWA
 
 ```
-artifacts/carometro/
+artifacts/seshat/
 ├── public/
 │   ├── favicon.svg
 │   ├── icon-192.png         ← ícone padrão

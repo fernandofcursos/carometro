@@ -2,7 +2,7 @@ kind = "web"
 previewPath = "/"
 title = "Carômetro"
 version = "1.0.0"
-id = "artifacts/carometro"
+id = "artifacts/seshat"
 router = "path"
 
 [[integratedSkills]]
@@ -15,11 +15,11 @@ paths = [ "/" ]
 localPort = 24620
 
 [services.development]
-run = "pnpm --filter @workspace/carometro run dev"
+run = "pnpm --filter @workspace/seshat run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/carometro", "run", "build" ]
-publicDir = "artifacts/carometro/dist/public"
+build = [ "pnpm", "--filter", "@workspace/seshat", "run", "build" ]
+publicDir = "artifacts/seshat/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]

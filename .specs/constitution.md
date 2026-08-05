@@ -75,6 +75,6 @@ Formato: `recurso:acao`
 
 - Rotas: `artifacts/api-server/src/routes/<recurso>.ts`
 - Schemas Drizzle: `lib/db/src/schema/<recurso>.ts`
-- Páginas frontend: `artifacts/carometro/src/pages/<recurso>/index.tsx`
+- Páginas frontend: `artifacts/seshat/src/pages/<recurso>/index.tsx`
 - Testes unitários: `tests/<recurso>.test.ts`
 - Testes E2E: `tests/e2e/<fluxo>.spec.ts`

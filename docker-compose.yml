@@ -58,7 +58,7 @@ services:
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U carometro -d carometro -q || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U seshat -d seshat -q || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 6
@@ -108,9 +108,9 @@ services:
     container_name: seshat-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: carometro
-      POSTGRES_PASSWORD: carometro
-      POSTGRES_DB: carometro
+      POSTGRES_USER: seshat
+      POSTGRES_PASSWORD: seshat
+      POSTGRES_DB: seshat
       POSTGRES_INITDB_ARGS: "--locale=pt_BR.UTF-8 --encoding=UTF8"
     volumes:
       - pg_data_split:/var/lib/postgresql/data
@@ -118,7 +118,7 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U carometro -d carometro"]
+      test: ["CMD-SHELL", "pg_isready -U seshat -d seshat"]
       interval: 10s
       timeout: 5s
       retries: 5

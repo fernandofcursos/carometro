@@ -1,5 +1,5 @@
 # =============================================================================
-# artifacts/carometro/Dockerfile — Fase 6
+# artifacts/seshat/Dockerfile — Fase 6
 #
 # Build em dois estágios:
 #   1. builder — compila React + Vite → estáticos em dist/public
@@ -20,7 +20,7 @@ COPY tsconfig.base.json ./
 
 # Copiar pacotes que o frontend precisa (lib/* são peer packages)
 COPY lib/             ./lib/
-COPY artifacts/carometro/ ./artifacts/carometro/
+COPY artifacts/seshat/ ./artifacts/seshat/
 
 RUN npm install -g pnpm@10 --silent && \
     pnpm install --frozen-lockfile --silent
@@ -28,7 +28,7 @@ RUN npm install -g pnpm@10 --silent && \
 # Build de produção (Fase 6: sem source maps, sem HMR)
 ENV NODE_ENV=production
 ENV BASE_PATH=/
-RUN pnpm --filter @workspace/carometro run build
+RUN pnpm --filter @workspace/seshat run build
 
 # -----------------------------------------------------------------------------
 # Estágio 2: servir estáticos via nginx
@@ -41,7 +41,7 @@ FROM nginx:alpine AS runtime
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Copiar estáticos do build
-COPY --from=builder /app/artifacts/carometro/dist/public /usr/share/nginx/html
+COPY --from=builder /app/artifacts/seshat/dist/public /usr/share/nginx/html
 
 EXPOSE 80
 

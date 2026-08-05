@@ -31,8 +31,8 @@ Sistema de foto-roster escolar com controle de ocorrências, autenticação por 
 - `lib/api-client-react/src/generated/` — hooks React Query gerados (não editar manualmente)
 - `artifacts/api-server/src/routes/` — rotas Express
 - `artifacts/api-server/src/lib/` — utilitários (auth JWT, crypto AES, codegen)
-- `artifacts/carometro/src/pages/` — páginas React
-- `artifacts/carometro/src/contexts/auth.tsx` — contexto de autenticação
+- `artifacts/seshat/src/pages/` — páginas React
+- `artifacts/seshat/src/contexts/auth.tsx` — contexto de autenticação
 
 ## Architecture decisions
 

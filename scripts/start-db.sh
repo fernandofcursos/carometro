@@ -71,11 +71,11 @@ echo "[db] PostgreSQL pronto."
 
 # Cria usuário e banco (idempotente — ignora erros se já existirem)
 runuser -u postgres -- psql -U postgres -d postgres \
-  -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
+  -c "CREATE USER seshat WITH PASSWORD 'seshat';;" 2>/dev/null || true
 runuser -u postgres -- psql -U postgres -d postgres \
-  -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
+  -c "CREATE DATABASE seshat OWNER seshat;" 2>/dev/null || true
 runuser -u postgres -- psql -U postgres -d postgres \
-  -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
+  -c "GRANT ALL PRIVILEGES ON DATABASE seshat TO seshat;" 2>/dev/null || true
 
 echo "[db] Usuário e banco prontos."
-echo "[db] DATABASE_URL: postgresql://carometro:carometro@localhost:5432/carometro"
+echo "[db] DATABASE_URL: postgresql://seshat:seshat@localhost:5432/seshat"

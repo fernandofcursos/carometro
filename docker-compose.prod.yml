@@ -80,7 +80,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: artifacts/carometro/Dockerfile  # Fase 6+7: Dockerfile multi-stage
+      dockerfile: artifacts/seshat/Dockerfile  # Fase 6+7: Dockerfile multi-stage
     image: seshat-frontend:latest
     container_name: seshat-prod-frontend
     restart: unless-stopped

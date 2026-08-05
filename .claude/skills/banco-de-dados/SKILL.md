@@ -24,8 +24,8 @@ Container start
 | O que persiste | Onde |
 |---|---|
 | Dados do banco (tabelas, linhas) | Volume Docker `carometro-pg-dev` → `/var/lib/postgresql/16/main` |
-| Hash do schema | `$PGDATA/.carometro_schema_hash` |
-| Marcador de primeira init | `$PGDATA/.carometro_initialized` |
+| Hash do schema | `$PGDATA/.seshat_schema_hash` |
+| Marcador de primeira init | `$PGDATA/.seshat_initialized` |
 | Config PG (pg_hba, postgresql.conf) | Imagem Docker (`/etc/postgresql/16/main/`) |
 
 ## Regras de operação
@@ -33,7 +33,7 @@ Container start
 - **Cluster**: inicializado **uma única vez** na primeira montagem do volume vazio.
 - **Schema**: `drizzle-kit push` roda automaticamente **somente quando** os arquivos
   `lib/db/src/**/*.ts` têm hash diferente do armazenado. Nunca roda sem motivo.
-- **Seed-admin**: executado **apenas na primeira inicialização** (marcador `$PGDATA/.carometro_initialized`).
+- **Seed-admin**: executado **apenas na primeira inicialização** (marcador `$PGDATA/.seshat_initialized`).
   É idempotente — se o marcador for removido ou o banco for recriado, recria o admin.
 - **Banco externo**: se `DATABASE_URL` não apontar para `localhost`/`127.0.0.1`,
   nenhuma das etapas acima roda (PG externo como Neon).

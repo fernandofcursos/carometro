@@ -79,8 +79,8 @@ jobs:
       - name: Build @workspace/api-client-react (generate .d.ts)
         run: pnpm --filter @workspace/api-client-react run build
 
-      - name: TypeScript check (carometro frontend)
-        run: pnpm --filter @workspace/carometro run typecheck
+      - name: TypeScript check (seshat frontend)
+        run: pnpm --filter @workspace/seshat run typecheck
 
   # ── E2E: Playwright (requer DATABASE_URL real — roda em schedule ou manual) ──
   # e2e:

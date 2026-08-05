@@ -5,7 +5,7 @@
 # Ciclo de vida do banco:
 #   1. Se PGDATA não tiver PG_VERSION → inicializa o cluster (primeiro uso)
 #   2. Inicia PostgreSQL
-#   3. Cria role/banco carometro (idempotente)
+#   3. Cria role/banco seshat (idempotente)
 #   4. Aplica extensões necessárias
 #   5. Se hash do schema mudou → drizzle-kit push (só quando necessário)
 #   6. Se banco nunca foi inicializado → seed-admin (somente primeira vez)
@@ -36,8 +36,8 @@ fi
 PGDATA=/var/lib/postgresql/16/main
 PGCONF=/etc/postgresql/16/main
 PGLOG=/var/log/postgresql/postgresql-16-main.log
-SCHEMA_HASH_FILE="$PGDATA/.carometro_schema_hash"
-INIT_MARKER="$PGDATA/.carometro_initialized"
+SCHEMA_HASH_FILE="$PGDATA/.seshat_schema_hash"
+INIT_MARKER="$PGDATA/.seshat_initialized"
 
 # ── Helpers de execução como postgres ────────────────────────────────────────
 _run_as_postgres() {
@@ -130,13 +130,13 @@ _iniciar_pg() {
 
 # ── Criar role e banco (idempotente) ─────────────────────────────────────────
 _setup_db() {
-  _psql_admin -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
-  _psql_admin -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
-  _psql_admin -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
+  _psql_admin -c "CREATE USER seshat WITH PASSWORD 'seshat';;" 2>/dev/null || true
+  _psql_admin -c "CREATE DATABASE seshat OWNER seshat;" 2>/dev/null || true
+  _psql_admin -c "GRANT ALL PRIVILEGES ON DATABASE seshat TO seshat;" 2>/dev/null || true
   # Extensões necessárias
-  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
-  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
-  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"unaccent\";" 2>/dev/null || true
+  _psql_admin -d seshat -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
+  _psql_admin -d seshat -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
+  _psql_admin -d seshat -c "CREATE EXTENSION IF NOT EXISTS \"unaccent\";" 2>/dev/null || true
 }
 
 # ── Hash do schema (detecta mudanças) ────────────────────────────────────────
@@ -240,7 +240,7 @@ case "$CMD_ARG" in
     echo -e "  ${YELLOW}pnpm --filter @workspace/db run push-force${NC}              forçar reaplicação do schema"
     echo -e "  ${YELLOW}pnpm --filter @workspace/api-server run seed-admin${NC}      recriar/verificar admin"
     echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}   subir API"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/carometro run dev${NC}              subir frontend"
+    echo -e "  ${YELLOW}pnpm --filter @workspace/seshat run dev${NC}              subir frontend"
     echo ""
     exec /bin/bash
     ;;

@@ -67,7 +67,7 @@ $COMPOSE up -d db
 
 echo "⏳ Aguardando PostgreSQL ficar pronto..."
 # Fase 7: aguardar healthcheck do db antes de continuar
-until $COMPOSE exec -T db pg_isready -U "${POSTGRES_USER:-carometro}" -d "${POSTGRES_DB:-carometro}" > /dev/null 2>&1; do
+until $COMPOSE exec -T db pg_isready -U "${POSTGRES_USER:-seshat}" -d "${POSTGRES_DB:-seshat}" > /dev/null 2>&1; do
   printf "."
   sleep 2
 done

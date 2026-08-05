@@ -5,9 +5,9 @@
       "Group": "Servers",
       "Host": "db",
       "Port": 5432,
-      "MaintenanceDB": "carometro",
-      "Username": "carometro",
-      "Password": "carometro",
+      "MaintenanceDB": "seshat",
+      "Username": "seshat",
+      "Password": "seshat",
       "SSLMode": "prefer",
       "SavePassword": true
     }

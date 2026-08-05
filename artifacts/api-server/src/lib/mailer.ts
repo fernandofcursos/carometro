@@ -28,7 +28,7 @@ export async function enviarEmailRecuperacao(
   token: string,
   expiresAt: Date,
 ): Promise<void> {
-  const remetente = process.env.SMTP_FROM ?? "Carômetro <noreply@carometro.local>";
+  const remetente = process.env.SMTP_FROM ?? "Seshat <noreply@seshat.local>";
   const assunto = "Redefinição de senha — Carômetro";
   const expiracao = expiresAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
@@ -77,7 +77,7 @@ export async function enviarEmailBoasVindas(
   senhaGerada: string,
   nome?: string | null,
 ): Promise<void> {
-  const remetente = process.env.SMTP_FROM ?? "Carômetro <noreply@carometro.local>";
+  const remetente = process.env.SMTP_FROM ?? "Seshat <noreply@seshat.local>";
   const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
 
   const html = `

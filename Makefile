@@ -92,7 +92,7 @@ pgadmin:
 ## clean: Remove imagens locais do projeto
 clean:
 	docker compose down -v
-	docker rmi carometro-dev:local 2>/dev/null || true
+	docker rmi seshat-dev:local 2>/dev/null || true
 
 ## ps: Status dos containers
 ps:
@@ -104,7 +104,7 @@ info:
 	@echo "  Carômetro Dev Environment"
 	@echo "  ========================="
 	@echo ""
-	@echo "  Imagem:     carometro-dev:local"
+	@echo "  Imagem:     seshat-dev:local"
 	@echo "  Frontend:   http://localhost:5000"
 	@echo "  API:        http://localhost:8080/api/healthz"
 	@echo "  PostgreSQL: localhost:5432"

@@ -12,7 +12,7 @@ O Carômetro tem três camadas distintas: banco de dados (schemas Drizzle), API 
 Usar pnpm workspaces com a seguinte estrutura:
 - `lib/db/` — schemas Drizzle, migrações, tipos compartilhados (`@workspace/db`)
 - `artifacts/api-server/` — Express + rotas (`@workspace/api-server`)
-- `artifacts/carometro/` — React + Vite (`@workspace/carometro`)
+- `artifacts/seshat/` — React + Vite (`@workspace/seshat`)
 - `scripts/` — scripts de seed e utilitários
 
 ## Consequências

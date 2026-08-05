@@ -26,7 +26,7 @@
 - Nunca retornar dados sensíveis descriptografados no listing (foto, email raw)
 
 ### Frontend
-- Implementar páginas em `artifacts/carometro/src/pages/<recurso>/index.tsx`
+- Implementar páginas em `artifacts/seshat/src/pages/<recurso>/index.tsx`
 - Usar TanStack Query (`useQuery`, `useMutation`) para toda comunicação com a API
 - Validar formulários com Zod + React Hook Form
 - Usar componentes shadcn/ui — nunca criar componentes UI do zero sem necessidade
@@ -61,7 +61,7 @@ Argos revisa o PR antes do merge
 artifacts/api-server/src/routes/<recurso>.ts   — rota Express
 artifacts/api-server/src/tests/<recurso>.test.ts — testes Vitest
 lib/db/src/schema/<recurso>.ts                 — schema Drizzle
-artifacts/carometro/src/pages/<recurso>/index.tsx — página React
+artifacts/seshat/src/pages/<recurso>/index.tsx — página React
 ```
 
 - Exportar `router` nomeado em cada arquivo de rota

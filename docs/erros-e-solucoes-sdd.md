@@ -175,7 +175,7 @@ pnpm install
 **Solução:**
 ```bash
 kill $(lsof -ti :5000)
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 ```
 
 ---

@@ -111,7 +111,7 @@ docker compose --profile tools up -d
 5. Cmd+Shift+B → "🚀 Carômetro: subir tudo"
    OU:
    Terminal 1: PORT=8080 pnpm --filter @workspace/api-server run dev
-   Terminal 2: pnpm --filter @workspace/carometro run dev
+   Terminal 2: pnpm --filter @workspace/seshat run dev
 ```
 
 ---
