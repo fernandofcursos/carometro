@@ -1,5 +1,5 @@
 # =============================================================================
-# Carômetro — docker-compose de desenvolvimento
+# Seshat — docker-compose de desenvolvimento
 #
 # Ambiente de desenvolvimento local.
 # Por padrão usa PostgreSQL INTERNO ao container.
@@ -8,12 +8,14 @@
 # Uso:
 #   docker compose up            # sobe tudo com VSCode Dev Container
 #   docker compose up --build    # rebuild ao mudar o Dockerfile
-#   docker compose run --rm dev shell   # abre shell interativo
-#   docker compose run --rm dev codegen # roda orval codegen
-#   docker compose run --rm dev db:push # aplica schema
+#   docker compose run --rm dev shell       # abre shell interativo
+#   docker compose run --rm dev codegen     # roda orval codegen
+#   docker compose run --rm dev db:push     # aplica schema
+#   docker compose run --rm dev db:seed     # cria/verifica admin
+#   docker compose run --rm dev db:hash-reset  # força re-setup completo
 # =============================================================================
 
-name: carometro-dev
+name: seshat-dev
 
 services:
   # ---------------------------------------------------------------------------
@@ -25,9 +27,9 @@ services:
       dockerfile: Dockerfile
       cache_from:
         - type=local,src=/tmp/.buildx-cache
-    image: carometro-dev:local
+    image: seshat-dev:local
 
-    container_name: carometro-dev
+    container_name: seshat-dev
 
     volumes:
       - ./:/workspace:cached                         # repositório com hot-reload
@@ -70,28 +72,26 @@ services:
     tty: true
 
   # ---------------------------------------------------------------------------
-  # Fase 6: nginx — TLS termination + proxy reverso (perfil "https")
+  # nginx — TLS termination + proxy reverso (perfil "https")
   # Uso: docker compose --profile https up -d
   #
   # Pré-requisito: gerar certificado com `bash scripts/gerar-certificado-dev.sh`
   # ---------------------------------------------------------------------------
   nginx:
-    profiles: ["https"]                                # Fase 6: não sobe no dev padrão
+    profiles: ["https"]
     image: nginx:alpine
-    container_name: carometro-nginx
+    container_name: seshat-nginx
     restart: unless-stopped
     ports:
-      - "80:80"                                        # Fase 6: redireciona para HTTPS
-      - "443:443"                                      # Fase 6: HTTPS (câmera exige)
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro    # Fase 6: config com TLS
-      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro  # Fase 6: certificado
-      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro    # Fase 6: chave privada
-      # Em produção: montar html do build do frontend
-      # - ./artifacts/carometro/dist/public:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro
     depends_on:
       dev:
-        condition: service_healthy                     # Fase 6: só sobe após o dev estar pronto
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://localhost/api/healthz"]
       interval: 30s
@@ -105,7 +105,7 @@ services:
   db:
     profiles: ["split"]
     image: postgres:16-alpine
-    container_name: carometro-db
+    container_name: seshat-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: carometro
@@ -130,10 +130,10 @@ services:
   pgadmin:
     profiles: ["tools"]
     image: dpage/pgadmin4:latest
-    container_name: carometro-pgadmin
+    container_name: seshat-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@carometro.local
+      PGADMIN_DEFAULT_EMAIL: admin@seshat.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
@@ -152,16 +152,16 @@ services:
 volumes:
   pnpm_store:
     driver: local
-    name: carometro-pnpm-store
+    name: seshat-pnpm-store
 
   pg_data_dev:
     driver: local
-    name: carometro-pg-dev
+    name: seshat-pg-dev
 
   pg_data_split:
     driver: local
-    name: carometro-pg-split
+    name: seshat-pg-split
 
   pgadmin_data:
     driver: local
-    name: carometro-pgadmin
+    name: seshat-pgadmin
