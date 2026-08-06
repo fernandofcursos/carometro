@@ -16,7 +16,7 @@ import Layout from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login/index";
 import Dashboard from "@/pages/dashboard";
-import Carometro from "@/pages/carometro";
+import Carometro from "@/pages/seshat";
 import CarometroUsuarios from "@/pages/seshat-usuarios";
 import {
   CarometroEquipeGestora,
@@ -25,7 +25,7 @@ import {
   CarometroCorpoDocente,
   CarometroApoioOperacional,
   CarometroUsuariosVinculados,
-} from "@/pages/carometro-grupo";
+} from "@/pages/seshat-grupo";
 import EstudantesList from "@/pages/estudantes/index";
 import EstudantesNew from "@/pages/estudantes/new";
 import EstudantesDetail from "@/pages/estudantes/detail";
