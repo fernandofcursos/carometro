@@ -59,10 +59,10 @@ services:
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U seshat -d seshat -q || exit 1"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 60s
+      retries: 5
+      start_period: 30s
 
     # Inicialização manual — o entrypoint apenas abre um shell interativo.
     # Suba os servidores manualmente no terminal do VSCode.

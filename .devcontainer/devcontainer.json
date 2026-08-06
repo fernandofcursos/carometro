@@ -40,7 +40,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // TypeScript — usa o TS do projeto (5.9), não o bundled do VSCode
+        // TypeScript
         "ms-vscode.vscode-typescript-next",
         "yoavbls.pretty-ts-errors",
 
@@ -51,18 +51,12 @@
         // Tailwind CSS 4
         "bradlc.vscode-tailwindcss",
 
-        // Banco de dados — conecta no PostgreSQL interno
+        // Banco de dados
         "cweijan.vscode-database-client2",
 
-        // DX geral
-        "christian-kohler.path-intellisense",
+        // DX
         "mikestead.dotenv",
-        "formulahendry.auto-rename-tag",
-        "usernamehw.errorlens",
-
-        // Git
-        "eamodio.gitlens",
-        "mhutchie.git-graph"
+        "usernamehw.errorlens"
       ],
 
       "settings": {
@@ -129,7 +123,7 @@
   "portsAttributes": {
     "5000": {
       "label": "Frontend (Vite)",
-      "onAutoForward": "openBrowser",
+      "onAutoForward": "notify",
       "protocol": "http"
     },
     "8080": {
@@ -146,8 +140,9 @@
   // --------------------------------------------------------------------------
   // Comando executado UMA VEZ ao criar o container (post-create)
   // --------------------------------------------------------------------------
-  "postCreateCommand": "echo 'Container pronto. Abra um terminal e rode: pnpm install'",
+  // Instala dependências na primeira criação do container
+  "postCreateCommand": "cd /workspace && pnpm install --frozen-lockfile 2>/dev/null || pnpm install",
 
-  // Sobe o PostgreSQL automaticamente a cada start do devcontainer
+  // Sobe o PostgreSQL a cada start — sai rápido se já estiver rodando
   "postStartCommand": "bash /workspace/scripts/start-db.sh"
 }
