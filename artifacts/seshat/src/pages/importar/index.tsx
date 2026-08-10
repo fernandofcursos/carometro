@@ -255,7 +255,7 @@ export default function ImportarPage() {
           description="Crie os cursos primeiro. Coluna obrigatória: nome."
           note="turnoNome é informativo — use para referência ao importar disciplinas"
           templateName="template_cursos.csv"
-          templateContent="nome,descricao,turnoNome,ativo\nTécnico em Informática,Curso técnico de TI,Manhã,true"
+          templateContent="sigla,nome,descricao,turnoNome,ativo\nINFO,Técnico em Informática,Curso técnico de TI,Manhã,true\nADM,Técnico em Administração,Curso técnico de Administração,Tarde,true"
           headers={["nome", "descricao", "turnoNome", "ativo"]}
           onImport={handleImportCursos}
           isPending={importCursos.isPending}

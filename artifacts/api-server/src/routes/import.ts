@@ -67,16 +67,18 @@ router.post("/cursos", requirePermissao("import:execute"), async (req: Request, 
     const errors: string[] = [];
 
     for (const row of rows) {
-      const nome = norm(row.data["nome"] ?? row.data["Curso"] ?? row.data["curso"]);
+      const sigla   = norm(row.data["sigla"] ?? row.data["Sigla"])?.toUpperCase().slice(0, 4);
+      const nome    = norm(row.data["nome"] ?? row.data["Curso"] ?? row.data["curso"]);
       const descricao = norm(row.data["descricao"] ?? row.data["Descricao"] ?? row.data["Descrição"]) || undefined;
-      const ativo = row.data["ativo"] !== undefined ? normBool(row.data["ativo"]) : true;
+      const ativo   = row.data["ativo"] !== undefined ? normBool(row.data["ativo"]) : true;
       // turnoNome é informativo — não persiste em cursos (cursos não têm turnoId)
-      if (!nome) { errors.push("Nome do curso é obrigatório"); continue; }
+      if (!sigla) { errors.push(`"${nome || "?"}": sigla é obrigatória`); continue; }
+      if (!nome)  { errors.push(`Sigla "${sigla}": nome do curso é obrigatório`); continue; }
       try {
-        await db.insert(cursosTable).values({ nome, descricao, ativo }).onConflictDoNothing();
+        await db.insert(cursosTable).values({ sigla, nome, descricao, ativo }).onConflictDoNothing();
         imported++;
       } catch (err) {
-        errors.push(`"${nome}": ${err instanceof Error ? err.message : "erro"}`);
+        errors.push(`"${sigla}/${nome}": ${err instanceof Error ? err.message : "erro"}`);
       }
     }
 

@@ -9,7 +9,7 @@ Feature de importação em lote de cursos no Seshat.
 ## Template CSV
 
 ```csv
-nome,descricao,turnoNome,ativo
+sigla,nome,descricao,turnoNome,ativo
 Técnico em Informática,Curso técnico de TI,Manhã,true
 ```
 

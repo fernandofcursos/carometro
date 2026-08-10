@@ -15,17 +15,18 @@ Permissão exigida: `import:execute`
 ## Template CSV
 
 ```csv
-nome,descricao,turnoNome,ativo
-Técnico em Informática,Curso técnico de TI,Manhã,true
-Técnico em Administração,Curso técnico de Administração,Tarde,true
+sigla,nome,descricao,turnoNome,ativo
+INFO,Técnico em Informática,Curso técnico de TI,Manhã,true
+ADM,Técnico em Administração,Curso técnico de Administração,Tarde,true
 ```
 
 > **Nota:** `turnoNome` é informativo — não persiste em cursos (cursos não têm turnoId). Use-o como referência ao preparar o CSV de disciplinas.
 
 ## Regras de Negócio
 
-- Campo obrigatório: `nome`
+- Campos obrigatórios: `sigla` (máx. 4 caracteres, não nulo), `nome`
 - Campos opcionais: `descricao`, `turnoNome` (apenas informativo), `ativo` (padrão: `true`)
+- `sigla` convertida para maiúsculas automaticamente
 - Upsert por `nome` — se curso já existe, a linha é ignorada (`onConflictDoNothing`)
 - Retorna `{ imported, errors }` com contagem e lista de erros por linha
 
