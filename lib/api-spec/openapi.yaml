@@ -745,6 +745,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportResult"
 
+  /import/disciplinas:
+    post:
+      operationId: importDisciplinas
+      tags: [import]
+      summary: Import disciplinas and their ofertas from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDisciplinasBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /import/professores:
+    post:
+      operationId: importProfessores
+      tags: [import]
+      summary: Import professores and their disciplina links from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportProfessoresBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
   /tipos-ocorrencias:
     get:
       operationId: listTiposOcorrencias
@@ -1660,6 +1698,24 @@ components:
             $ref: "#/components/schemas/ImportRow"
 
     ImportEstudantesBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportDisciplinasBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportProfessoresBody:
       type: object
       required: [rows]
       properties:

@@ -1,10 +1,12 @@
 import { useState, useRef } from "react";
 import { useImportCursos, useImportTurmas, useImportEstudantes } from "@workspace/api-client-react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, Download, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { customFetch } from "@workspace/api-client-react";
 
 type ImportResult = { imported: number; errors: string[] } | null;
 
@@ -27,11 +29,11 @@ function parseCSV(text: string): Record<string, string>[] {
 }
 
 function ImportCard({
-  title, description, templateName, templateContent, headers, onImport, isPending, result,
+  title, description, templateName, templateContent, headers, onImport, isPending, result, note,
 }: {
   title: string; description: string; templateName: string; templateContent: string;
   headers: string[]; onImport: (rows: Record<string, string>[]) => void; isPending: boolean;
-  result: ImportResult;
+  result: ImportResult; note?: string;
 }) {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -57,6 +59,7 @@ function ImportCard({
           <div>
             <CardTitle className="text-base font-semibold">{title}</CardTitle>
             <CardDescription className="mt-1 text-xs">{description}</CardDescription>
+            {note && <p className="mt-1 text-xs text-muted-foreground/70 italic">{note}</p>}
           </div>
           <Button variant="outline" size="sm" className="shrink-0 text-xs h-7 px-2 gap-1"
             onClick={() => downloadTemplate(templateName, templateContent)}>
@@ -122,20 +125,48 @@ function ImportCard({
   );
 }
 
+function useImportDisciplinas() {
+  return useMutation({
+    mutationKey: ["importDisciplinas"],
+    mutationFn: (body: { rows: { data: Record<string, unknown> }[] }) =>
+      customFetch<{ imported: number; errors: string[] }>("/api/import/disciplinas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+  });
+}
+
+function useImportProfessores() {
+  return useMutation({
+    mutationKey: ["importProfessores"],
+    mutationFn: (body: { rows: { data: Record<string, unknown> }[] }) =>
+      customFetch<{ imported: number; errors: string[] }>("/api/import/professores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+  });
+}
+
 export default function ImportarPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const importCursos = useImportCursos();
   const importTurmas = useImportTurmas();
   const importEstudantes = useImportEstudantes();
+  const importDisciplinas = useImportDisciplinas();
+  const importProfessores = useImportProfessores();
 
   const [cursosResult, setCursosResult] = useState<ImportResult>(null);
   const [turmasResult, setTurmasResult] = useState<ImportResult>(null);
   const [estudantesResult, setEstudantesResult] = useState<ImportResult>(null);
+  const [disciplinasResult, setDisciplinasResult] = useState<ImportResult>(null);
+  const [professoresResult, setProfessoresResult] = useState<ImportResult>(null);
 
   const handleImportCursos = (rows: Record<string, string>[]) => {
     importCursos.mutate(
-      { data: { rows: rows.map((r) => ({ data: { nome: r.nome ?? "" } })) } },
+      { data: { rows: rows.map((r) => ({ data: { nome: r.nome ?? "", descricao: r.descricao ?? "", turnoNome: r.turnoNome ?? "", ativo: r.ativo ?? "true" } })) } },
       {
         onSuccess: (res) => {
           setCursosResult(res);
@@ -149,7 +180,7 @@ export default function ImportarPage() {
 
   const handleImportTurmas = (rows: Record<string, string>[]) => {
     importTurmas.mutate(
-      { data: { rows: rows.map((r) => ({ data: { sigla: r.sigla ?? "", descricao: r.descricao ?? "", cursoNome: r.cursoNome ?? "", turnoNome: r.turnoNome ?? "" } })) } },
+      { data: { rows: rows.map((r) => ({ data: { sigla: r.sigla ?? "", descricao: r.descricao ?? "", cursoNome: r.cursoNome ?? "", turnoNome: r.turnoNome ?? "", ano: r.ano ?? "", semestre: r.semestre ?? "" } })) } },
       {
         onSuccess: (res) => {
           setTurmasResult(res);
@@ -181,41 +212,90 @@ export default function ImportarPage() {
     );
   };
 
+  const handleImportDisciplinas = (rows: Record<string, string>[]) => {
+    importDisciplinas.mutate(
+      { rows: rows.map((r) => ({ data: { nome: r.nome ?? "", cursoNome: r.cursoNome ?? "", turnoNome: r.turnoNome ?? "", ativo: r.ativo ?? "true" } })) },
+      {
+        onSuccess: (res) => {
+          setDisciplinasResult(res);
+          queryClient.invalidateQueries();
+          toast({ title: res.imported > 0 ? `${res.imported} disciplina(s) importada(s)` : "Nenhuma disciplina importada" });
+        },
+        onError: () => toast({ title: "Erro na importação de disciplinas", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleImportProfessores = (rows: Record<string, string>[]) => {
+    importProfessores.mutate(
+      { rows: rows.map((r) => ({ data: { nome: r.nome ?? "", email: r.email ?? "", disciplinaNome: r.disciplinaNome ?? "", cursoNome: r.cursoNome ?? "", turnoNome: r.turnoNome ?? "" } })) },
+      {
+        onSuccess: (res) => {
+          setProfessoresResult(res);
+          queryClient.invalidateQueries();
+          toast({ title: res.imported > 0 ? `${res.imported} professor(es) importado(s)` : "Nenhum professor importado" });
+        },
+        onError: () => toast({ title: "Erro na importação de professores", variant: "destructive" }),
+      }
+    );
+  };
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">Importar Dados</h1>
         <p className="text-muted-foreground mt-2">
-          Importe cursos, turmas e estudantes via arquivo CSV. Siga a ordem: <strong>Cursos</strong> primeiro, depois <strong>Turmas</strong>, por último <strong>Estudantes</strong>.
+          Importe dados via arquivo CSV. Siga a ordem: <strong>Cursos</strong> → <strong>Disciplinas</strong> → <strong>Professores</strong> → <strong>Turmas</strong> → <strong>Estudantes</strong>.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ImportCard
           title="1. Importar Cursos"
           description="Crie os cursos primeiro. Coluna obrigatória: nome."
+          note="turnoNome é informativo — use para referência ao importar disciplinas"
           templateName="template_cursos.csv"
-          templateContent="nome\nMatemática\nPortuguês\nCiências"
-          headers={["nome"]}
+          templateContent="nome,descricao,turnoNome,ativo\nTécnico em Informática,Curso técnico de TI,Manhã,true"
+          headers={["nome", "descricao", "turnoNome", "ativo"]}
           onImport={handleImportCursos}
           isPending={importCursos.isPending}
           result={cursosResult}
         />
         <ImportCard
-          title="2. Importar Turmas"
+          title="2. Importar Disciplinas"
+          description="Requer cursos e turnos já cadastrados."
+          templateName="template_disciplinas.csv"
+          templateContent="nome,cursoNome,turnoNome,ativo\nProgramação Web,Técnico em Informática,Manhã,true"
+          headers={["nome", "cursoNome", "turnoNome", "ativo"]}
+          onImport={handleImportDisciplinas}
+          isPending={importDisciplinas.isPending}
+          result={disciplinasResult}
+        />
+        <ImportCard
+          title="3. Importar Professores"
+          description="Requer disciplinas, cursos e turnos já cadastrados."
+          templateName="template_professores.csv"
+          templateContent="nome,email,disciplinaNome,cursoNome,turnoNome\nAna Silva,ana@escola.edu.br,Programação Web,Técnico em Informática,Manhã"
+          headers={["nome", "email", "disciplinaNome", "cursoNome", "turnoNome"]}
+          onImport={handleImportProfessores}
+          isPending={importProfessores.isPending}
+          result={professoresResult}
+        />
+        <ImportCard
+          title="4. Importar Turmas"
           description="Requer cursos e turnos já cadastrados."
           templateName="template_turmas.csv"
-          templateContent="sigla,descricao,cursoNome,turnoNome\n1A,1º Ano A,Ensino Médio,Manhã"
-          headers={["sigla", "descricao", "cursoNome", "turnoNome"]}
+          templateContent="sigla,descricao,cursoNome,turnoNome,ano,semestre\nINF1A,Informática 1º Ano A,Técnico em Informática,Manhã,2025,1"
+          headers={["sigla", "descricao", "cursoNome", "turnoNome", "ano", "semestre"]}
           onImport={handleImportTurmas}
           isPending={importTurmas.isPending}
           result={turmasResult}
         />
         <ImportCard
-          title="3. Importar Estudantes"
+          title="5. Importar Estudantes"
           description="Requer turmas já cadastradas."
           templateName="template_estudantes.csv"
-          templateContent="nome,registro,emailProprio,emailResponsavel,turmaSigla\nJoão Silva,2024001,joao@escola.edu.br,responsavel@email.com,1A"
+          templateContent="nome,registro,emailProprio,emailResponsavel,turmaSigla\nJoão Silva,2024001,joao@escola.edu.br,responsavel@email.com,INF1A"
           headers={["nome", "registro", "emailProprio", "emailResponsavel", "turmaSigla"]}
           onImport={handleImportEstudantes}
           isPending={importEstudantes.isPending}
