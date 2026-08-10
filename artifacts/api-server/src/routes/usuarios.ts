@@ -231,7 +231,11 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       console.error("[usuarios] falha ao enviar e-mail de boas-vindas:", err);
     });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("23505") || msg.includes("email_hash") || msg.includes("unique")) {
+      return res.status(400).json({ error: "O e-mail informado já está cadastrado para outro usuário." });
+    }
+    res.status(400).json({ error: msg || "Dados inválidos" });
   }
 });
 
