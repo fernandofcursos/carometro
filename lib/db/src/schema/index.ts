@@ -1,6 +1,7 @@
 export * from "./turnos";
 export * from "./cursos";
 export * from "./turmas";
+export * from "./turma-turnos";
 export * from "./estudantes";
 export * from "./estudante-necessidades-especiais";
 export * from "./tipos-ocorrencias";

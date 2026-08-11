@@ -106,7 +106,7 @@ router.post("/turmas", requirePermissao("import:execute"), async (req: Request, 
     const cursos = await db.select({ id: cursosTable.id, nome: cursosTable.nome }).from(cursosTable).where(isNull(cursosTable.deletadoEm));
     const cursoMap = new Map(cursos.map((c) => [c.nome.toLowerCase(), c.id]));
 
-    const { turmasTable: t2, turnosTable } = await import("@workspace/db");
+    const { turmasTable: t2, turmaTurnosTable, turnosTable } = await import("@workspace/db");
     const turnos = await db.select({ id: turnosTable.id, nome: turnosTable.nome }).from(turnosTable);
     const turnoMap = new Map(turnos.map((t) => [t.nome.toLowerCase(), t.id]));
 
@@ -114,20 +114,31 @@ router.post("/turmas", requirePermissao("import:execute"), async (req: Request, 
       const sigla  = norm(row.data["sigla"] ?? row.data["Sigla"] ?? row.data["Turma"]);
       const desc   = norm(row.data["descricao"] ?? row.data["Descrição"] ?? row.data["Descricao"] ?? sigla);
       const curso  = norm(row.data["cursoNome"] ?? row.data["curso"] ?? row.data["Curso"]);
-      const turno  = norm(row.data["turnoNome"] ?? row.data["turno"] ?? row.data["Turno"]);
-      const ano    = normInt(row.data["ano"] ?? row.data["Ano"]);
+      // turnoNomes aceita múltiplos separados por | ou ,
+      const turnoNomesRaw = norm(row.data["turnoNomes"] ?? row.data["turnoNome"] ?? row.data["turno"] ?? row.data["Turno"]);
+      const turnoNomes = turnoNomesRaw.split(/[|,]/).map((s) => s.trim()).filter(Boolean);
+      const ano      = normInt(row.data["ano"] ?? row.data["Ano"]);
       const semestre = normInt(row.data["semestre"] ?? row.data["Semestre"]);
 
       if (!sigla) { errors.push("Sigla é obrigatória"); continue; }
+      if (turnoNomes.length === 0) { errors.push(`"${sigla}": ao menos um turno é obrigatório`); continue; }
 
       const cursoId = cursoMap.get(curso.toLowerCase());
-      const turnoId = turnoMap.get(turno.toLowerCase());
-
       if (!cursoId) { errors.push(`Sigla "${sigla}": curso "${curso}" não encontrado`); continue; }
-      if (!turnoId) { errors.push(`Sigla "${sigla}": turno "${turno}" não encontrado`); continue; }
+
+      const turnoIds: string[] = [];
+      for (const nome of turnoNomes) {
+        const tid = turnoMap.get(nome.toLowerCase());
+        if (!tid) { errors.push(`Sigla "${sigla}": turno "${nome}" não encontrado`); }
+        else turnoIds.push(tid);
+      }
+      if (turnoIds.length === 0) continue;
 
       try {
-        await db.insert(t2).values({ sigla, descricao: desc, cursoId, turnoId, ano, semestre }).onConflictDoNothing();
+        const [turma] = await db.insert(t2).values({ sigla, descricao: desc, cursoId, ano, semestre }).onConflictDoNothing().returning();
+        if (turma) {
+          await db.insert(turmaTurnosTable).values(turnoIds.map((turnoId) => ({ turmaId: turma.id, turnoId }))).onConflictDoNothing();
+        }
         imported++;
       } catch (err) {
         errors.push(`"${sigla}": ${err instanceof Error ? err.message : "erro"}`);

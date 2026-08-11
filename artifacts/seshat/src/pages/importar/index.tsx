@@ -285,8 +285,9 @@ export default function ImportarPage() {
           title="4. Importar Turmas"
           description="Requer cursos e turnos já cadastrados."
           templateName="template_turmas.csv"
-          templateContent="sigla,descricao,cursoNome,turnoNome,ano,semestre\nINF1A,Informática 1º Ano A,Técnico em Informática,Manhã,2025,1"
-          headers={["sigla", "descricao", "cursoNome", "turnoNome", "ano", "semestre"]}
+          templateContent="sigla,descricao,cursoNome,turnoNomes,ano,semestre\nINF1A,Informática 1º Ano A,Técnico em Informática,Manhã,2025,1\nINF1B,Informática 1º Ano B,Técnico em Informática,Manhã|Tarde,2025,1"
+          headers={["sigla", "descricao", "cursoNome", "turnoNomes", "ano", "semestre"]}
+          note="turnoNomes aceita múltiplos turnos separados por | (ex: Manhã|Tarde)"
           onImport={handleImportTurmas}
           isPending={importTurmas.isPending}
           result={turmasResult}
