@@ -154,8 +154,10 @@ volumes:
     driver: local
     name: seshat-pnpm-store
 
+  # Volume do banco declarado como EXTERNO — nunca removido por "docker compose down -v"
+  # Para recriar do zero: docker volume rm seshat-pg-dev && docker compose up --build
   pg_data_dev:
-    driver: local
+    external: true
     name: seshat-pg-dev
 
   pg_data_split:

@@ -1,14 +1,23 @@
 #!/bin/bash
 # =============================================================================
-# entrypoint.sh — ambiente de desenvolvimento Carômetro
+# entrypoint.sh — ambiente de desenvolvimento Seshat
 #
 # Ciclo de vida do banco:
-#   1. Se PGDATA não tiver PG_VERSION → inicializa o cluster (primeiro uso)
-#   2. Inicia PostgreSQL
-#   3. Cria role/banco seshat (idempotente)
+#   1. Se PGDATA não tiver PG_VERSION → inicializa cluster (somente 1ª vez)
+#   2. Inicia PostgreSQL (rápido se já estiver rodando)
+#   3. Cria role/banco seshat idempotente
 #   4. Aplica extensões necessárias
 #   5. Se hash do schema mudou → drizzle-kit push (só quando necessário)
-#   6. Se banco nunca foi inicializado → seed-admin (somente primeira vez)
+#   6. Se banco nunca foi inicializado → seed-admin (somente 1ª vez)
+#
+# Persistência: volume externo seshat-pg-dev
+#   → nunca removido por "docker compose down -v"
+#   → para recriar: bash scripts/recriar-banco.sh --confirmar
+#
+# Migrations ao alterar schema:
+#   bash scripts/gerar-migration.sh "descricao-da-mudanca"
+#   psql $DATABASE_URL -f scripts/migrations/<arquivo>.sql
+#   pnpm --filter @workspace/db run push-force
 # =============================================================================
 
 BOLD='\033[1m'
@@ -234,13 +243,16 @@ CMD_ARG="${1:-shell}"
 case "$CMD_ARG" in
   shell)
     echo ""
-    echo -e "${BOLD}Carômetro Dev — shell interativo${NC}"
-    echo -e "${CYAN}Comandos disponíveis:${NC}"
-    echo -e "  ${YELLOW}pnpm install${NC}                                            instalar dependências"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/db run push-force${NC}              forçar reaplicação do schema"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/api-server run seed-admin${NC}      recriar/verificar admin"
-    echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}   subir API"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/seshat run dev${NC}              subir frontend"
+    echo -e "${BOLD}Seshat Dev — shell interativo${NC}"
+    echo -e "${CYAN}Banco de dados:${NC}"
+    echo -e "  ${YELLOW}db:push${NC}          forçar reaplicação do schema (drizzle-kit push --force)"
+    echo -e "  ${YELLOW}db:migrate DESC${NC}  gerar script SQL de migração para mudanças de schema"
+    echo -e "  ${YELLOW}db:seed${NC}          recriar/verificar usuário administrador"
+    echo -e "  ${YELLOW}db:hash-reset${NC}    forçar re-execução do push-force no próximo start"
+    echo -e "${CYAN}Desenvolvimento:${NC}"
+    echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}  subir API"
+    echo -e "  ${YELLOW}pnpm --filter @workspace/seshat run dev${NC}                subir frontend"
+    echo -e "  ${YELLOW}pnpm install${NC}                                           instalar dependências"
     echo ""
     exec /bin/bash
     ;;
@@ -253,17 +265,22 @@ case "$CMD_ARG" in
   db:push)
     exec pnpm --filter @workspace/db run push-force
     ;;
+  db:migrate)
+    exec bash /workspace/scripts/gerar-migration.sh "${@:2}"
+    ;;
   db:seed)
     exec pnpm --filter @workspace/api-server run seed-admin "${@:2}"
     ;;
   seed)
-    # Alias legado
     exec pnpm --filter @workspace/api-server run seed-admin "${@:2}"
     ;;
   db:hash-reset)
-    echo -e "${YELLOW}[db] Removendo marcadores de hash e init para forçar re-setup...${NC}"
+    echo -e "${YELLOW}[db] Removendo marcadores — próximo start reaplicará schema e seed...${NC}"
     rm -f "$SCHEMA_HASH_FILE" "$INIT_MARKER"
-    echo -e "${GREEN}[db] Marcadores removidos. Reinicie o container.${NC}"
+    echo -e "${GREEN}[db] Marcadores removidos.${NC}"
+    ;;
+  db:recriar)
+    exec bash /workspace/scripts/recriar-banco.sh "${@:2}"
     ;;
   *)
     exec "$@"
