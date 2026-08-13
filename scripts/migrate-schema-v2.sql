@@ -1,10 +1,13 @@
 -- =============================================================================
 -- migrate-schema-v2.sql
 --
+-- Idempotente: pode ser executado múltiplas vezes sem efeito colateral.
+--
 -- Aplica as mudanças de schema sem perda de dados:
---   1. cursos    → adiciona coluna sigla (varchar 4, NOT NULL, UNIQUE)
---   2. turmas    → adiciona colunas ano e semestre (nullable)
---   3. turma_turnos → cria tabela e migra turno_id existente
+--   1. cursos      → coluna sigla (varchar 4, NOT NULL, UNIQUE)
+--   2. turmas      → colunas ano e semestre (nullable)
+--   3. turma_turnos → cria tabela; migra turno_id se a coluna ainda existir
+--   4. turmas      → remove turno_id (somente se ainda existir)
 --
 -- Execute ANTES de: pnpm --filter @workspace/db run push-force
 --
@@ -50,7 +53,7 @@ ALTER TABLE turmas ADD COLUMN IF NOT EXISTS ano      integer;
 ALTER TABLE turmas ADD COLUMN IF NOT EXISTS semestre smallint;
 
 -- ============================================================
--- PASSO 3: turma_turnos — criar tabela e migrar dados
+-- PASSO 3: turma_turnos — criar tabela
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS turma_turnos (
@@ -60,16 +63,27 @@ CREATE TABLE IF NOT EXISTS turma_turnos (
   CONSTRAINT uq_turma_turno UNIQUE (turma_id, turno_id)
 );
 
--- Migrar vínculos existentes de turmas.turno_id → turma_turnos
-INSERT INTO turma_turnos (turma_id, turno_id)
-SELECT id, turno_id
-FROM   turmas
-WHERE  turno_id   IS NOT NULL
-  AND  deletado_em IS NULL
-ON CONFLICT DO NOTHING;
+-- Migrar vínculos existentes somente se turmas.turno_id ainda existir
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE  table_name = 'turmas' AND column_name = 'turno_id'
+  ) THEN
+    INSERT INTO turma_turnos (turma_id, turno_id)
+    SELECT id, turno_id
+    FROM   turmas
+    WHERE  turno_id   IS NOT NULL
+      AND  deletado_em IS NULL
+    ON CONFLICT DO NOTHING;
+    RAISE NOTICE 'turno_id migrado para turma_turnos.';
+  ELSE
+    RAISE NOTICE 'turno_id já não existe em turmas — migração pulada.';
+  END IF;
+END $$;
 
 -- ============================================================
--- PASSO 4: turmas — remover turno_id (já migrado para turma_turnos)
+-- PASSO 4: turmas — remover turno_id (somente se ainda existir)
 -- ============================================================
 
 ALTER TABLE turmas DROP COLUMN IF EXISTS turno_id;
@@ -78,18 +92,17 @@ ALTER TABLE turmas DROP COLUMN IF EXISTS turno_id;
 -- VERIFICAÇÃO FINAL
 -- ============================================================
 
-SELECT '--- CURSOS ---' AS resultado, '' AS detalhe
-UNION ALL
-SELECT sigla, nome FROM cursos ORDER BY sigla
-UNION ALL
-SELECT '--- TURMAS COM ANO/SEMESTRE ---', ''
-UNION ALL
-SELECT sigla, coalesce(ano::text, 'sem ano') || ' / sem ' || coalesce(semestre::text, '?')
-FROM   turmas WHERE deletado_em IS NULL ORDER BY sigla
-UNION ALL
-SELECT '--- VÍNCULOS MIGRADOS (turma_turnos) ---', ''
-UNION ALL
-SELECT t.sigla, tn.nome
+SELECT 'cursos' AS tabela, sigla, nome, '' AS detalhe
+FROM   cursos
+ORDER  BY sigla;
+
+SELECT 'turmas' AS tabela, sigla, '' AS nome,
+       coalesce(ano::text, '-') || ' / sem ' || coalesce(semestre::text, '-') AS detalhe
+FROM   turmas
+WHERE  deletado_em IS NULL
+ORDER  BY sigla;
+
+SELECT 'turma_turnos' AS tabela, t.sigla, tn.nome, '' AS detalhe
 FROM   turma_turnos tt
 JOIN   turmas t  ON t.id  = tt.turma_id
 JOIN   turnos tn ON tn.id = tt.turno_id

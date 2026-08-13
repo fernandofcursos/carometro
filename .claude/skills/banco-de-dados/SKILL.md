@@ -84,6 +84,13 @@ docker compose up --build
 ```
 > Para bancos vazios (sem dados), pode pular os passos 2-4 e ir direto ao push-force.
 
+### Regras do script de migração SQL
+
+- **Sempre idempotente**: use `ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, `DROP COLUMN IF EXISTS`, `DROP CONSTRAINT IF EXISTS`.
+- **Remoção de coluna com dados**: envolva qualquer `INSERT ... SELECT coluna_removida` em bloco `DO $$ IF EXISTS (information_schema.columns ...) THEN ... END IF $$` para verificar se a coluna ainda existe antes de ler.
+- **Verificação final**: use SELECTs separados por tabela (não UNION ALL entre literais e dados) para evitar erros de tipo/arity.
+- O script pode ser re-executado sem efeito colateral — NOTICEs são esperados em execuções subsequentes.
+
 ## Arquivos principais
 
 | Arquivo | Responsabilidade |
