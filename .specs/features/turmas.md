@@ -86,11 +86,27 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 - Mesma sigla pode existir em cursos diferentes
 - Soft delete não impede estudantes de manter `turmaId` para histórico
 
+## Erros e Mensagens
+
+| Situação | Status | Mensagem ao usuário |
+|---|---|---|
+| `turnoIds` vazio ou ausente | 400 | "Selecione ao menos um turno para a turma." |
+| `cursoId` inválido (Zod) | 400 | "Selecione um curso válido." |
+| `sigla` inválida | 400 | "Sigla inválida (máx. 10 caracteres)." |
+| `descricao` ausente | 400 | "Informe a descrição da turma." |
+| Sigla duplicada no mesmo curso (23505) | 409 | "Já existe uma turma com esta sigla neste curso." |
+| turnoId inexistente (23503) | 400 | "Um dos turnos selecionados não existe. Atualize a página e tente novamente." |
+| cursoId inexistente (23503) | 400 | "O curso selecionado não existe. Atualize a página e tente novamente." |
+| Erro interno | 500 | "Erro interno ao salvar a turma. Tente novamente." |
+
+O frontend exibe a mensagem do campo `error` do JSON de resposta diretamente no toast, sem texto fixo.
+
 ## Casos de Teste
 
 - GET retorna `turnos: []` para turmas sem vínculo de turno
-- POST sem `turnoIds` ou array vazio → 400
+- POST sem `turnoIds` ou array vazio → 400 com mensagem amigável
 - POST com turnoIds válidos → 201 com turnos vinculados
+- POST com sigla duplicada no mesmo curso → 409 com mensagem amigável
 - PUT substitui turnos completamente (não acumula)
 - DELETE seta `deletadoEm`; `turma_turnos` removidos em cascade
 - GET não retorna turmas com `deletadoEm` preenchido

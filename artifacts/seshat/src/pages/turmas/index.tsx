@@ -3,7 +3,16 @@ import {
   useListTurmas, useListTurnos, useListCursos,
   useCreateTurma, useUpdateTurma, useDeleteTurma,
   getListTurmasQueryKey,
+  ApiError,
 } from "@workspace/api-client-react";
+
+function apiMsg(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    const data = err.data as { error?: string } | null;
+    return data?.error ?? fallback;
+  }
+  return fallback;
+}
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +76,7 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
           setEditing(false);
           toast({ title: "Turma atualizada" });
         },
-        onError: () => toast({ title: "Erro ao atualizar turma", variant: "destructive" }),
+        onError: (err) => toast({ title: "Erro ao atualizar turma", description: apiMsg(err, "Verifique os dados e tente novamente."), variant: "destructive" }),
       }
     );
   };
@@ -179,7 +188,7 @@ export default function TurmasList() {
           queryClient.invalidateQueries({ queryKey: getListTurmasQueryKey() });
           toast({ title: "Turma criada com sucesso" });
         },
-        onError: () => toast({ title: "Erro ao criar turma", variant: "destructive" }),
+        onError: (err) => toast({ title: "Erro ao criar turma", description: apiMsg(err, "Verifique os dados e tente novamente."), variant: "destructive" }),
       }
     );
   };
@@ -187,7 +196,7 @@ export default function TurmasList() {
   const handleDelete = (id: string) => {
     deleteTurma.mutate({ id }, {
       onSuccess: () => { queryClient.invalidateQueries({ queryKey: getListTurmasQueryKey() }); toast({ title: "Turma excluída" }); },
-      onError: () => toast({ title: "Erro ao excluir turma", description: "Verifique se há estudantes nesta turma.", variant: "destructive" }),
+      onError: (err) => toast({ title: "Erro ao excluir turma", description: apiMsg(err, "Verifique se há estudantes vinculados a esta turma."), variant: "destructive" }),
     });
   };
 

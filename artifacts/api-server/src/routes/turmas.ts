@@ -1,9 +1,31 @@
 import { Router, Request, Response } from "express";
+import { ZodError } from "zod";
 import { db, turmasTable, turmaTurnosTable, cursosTable, turnosTable, eq, isNull, inArray } from "@workspace/db";
 import { insertTurmaSchema } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
+
+function turmaErrorMessage(err: unknown): { status: number; error: string } {
+  if (err instanceof ZodError) {
+    const first = err.errors[0];
+    if (first?.path[0] === "turnoIds") return { status: 400, error: "Selecione ao menos um turno para a turma." };
+    if (first?.path[0] === "cursoId") return { status: 400, error: "Selecione um curso válido." };
+    if (first?.path[0] === "sigla") return { status: 400, error: "Sigla inválida (máx. 10 caracteres)." };
+    if (first?.path[0] === "descricao") return { status: 400, error: "Informe a descrição da turma." };
+    return { status: 400, error: first?.message ?? "Dados inválidos." };
+  }
+  const msg = err instanceof Error ? err.message : "";
+  if (msg.includes("23505") || msg.includes("uq_turmas_sigla_curso")) {
+    return { status: 409, error: "Já existe uma turma com esta sigla neste curso." };
+  }
+  if (msg.includes("23503")) {
+    if (msg.includes("turno")) return { status: 400, error: "Um dos turnos selecionados não existe. Atualize a página e tente novamente." };
+    if (msg.includes("curso")) return { status: 400, error: "O curso selecionado não existe. Atualize a página e tente novamente." };
+    return { status: 400, error: "Referência inválida: verifique curso e turnos selecionados." };
+  }
+  return { status: 500, error: "Erro interno ao salvar a turma. Tente novamente." };
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -91,7 +113,8 @@ router.post("/", requirePermissao("turmas:manage"), async (req: Request, res: Re
     });
     res.status(201).json({ ...turma, turnoIds });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const { status, error } = turmaErrorMessage(err);
+    res.status(status).json({ error });
   }
 });
 
@@ -122,7 +145,8 @@ router.put("/:id", requirePermissao("turmas:manage"), async (req: Request, res: 
     });
     res.json({ ...turma, turnoIds });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const { status, error } = turmaErrorMessage(err);
+    res.status(status).json({ error });
   }
 });
 
