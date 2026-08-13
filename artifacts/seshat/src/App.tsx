@@ -38,6 +38,7 @@ import TiposOcorrenciasPage from "@/pages/tipos-ocorrencias/index";
 import UsuariosPage from "@/pages/usuarios/index";
 import RolesPage from "@/pages/roles/index";
 import DisciplinasPage from "@/pages/disciplinas/index";
+import EnturmacaoPage from "@/pages/enturmacao/index";
 import LgpdPage from "@/pages/lgpd";
 import PermissoesPage from "@/pages/permissoes";
 import AuditoriaPage from "@/pages/auditoria";
@@ -93,6 +94,7 @@ function AppRoutes() {
           <Route path="/usuarios" component={UsuariosPage} />
           <Route path="/roles" component={RolesPage} />
           <Route path="/disciplinas" component={DisciplinasPage} />
+          <Route path="/enturmacao" component={EnturmacaoPage} />
           <Route path="/lgpd" component={LgpdPage} />
           <Route path="/permissoes" component={PermissoesPage} />
           <Route path="/auditoria" component={AuditoriaPage} />

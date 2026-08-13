@@ -59,6 +59,7 @@ export function AppSidebar() {
   const canManageDisciplinas = hasAny("disciplinas:manage");
   const canViewCarometro = hasAny("carometro:view");
   const canViewEstudantes = hasAny("estudantes:view", "estudantes:manage");
+  const canManageEstudantes = hasAny("estudantes:manage");
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
 
@@ -104,12 +105,13 @@ export function AppSidebar() {
       ],
     }] : []),
     ...(canViewEstudantes ? [{
-      label: "Enturação",
+      label: "Enturmação",
       icon: School,
       color: "#10b981",
       bgColor: "#ecfdf5",
       items: [
         nav("Estudantes", "/estudantes", Users),
+        ...(canManageEstudantes ? [nav("Enturmação", "/enturmacao", GraduationCap)] : []),
       ],
     }] : []),
     ...((canViewOcorrencias || canManageTiposOcorrencias) ? [{

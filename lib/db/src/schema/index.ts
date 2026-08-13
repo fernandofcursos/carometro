@@ -9,6 +9,7 @@ export * from "./ocorrencias";
 export * from "./disciplinas";
 export * from "./disciplina-ofertas";
 export * from "./usuario-disciplinas";
+export * from "./matriculas";
 export * from "./usuarios";
 export * from "./roles";
 export * from "./permissoes";
