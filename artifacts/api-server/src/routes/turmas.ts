@@ -11,7 +11,7 @@ function turmaErrorMessage(err: unknown): { status: number; error: string } {
     const first = err.errors[0];
     if (first?.path[0] === "turnoIds") return { status: 400, error: "Selecione ao menos um turno para a turma." };
     if (first?.path[0] === "cursoId") return { status: 400, error: "Selecione um curso válido." };
-    if (first?.path[0] === "sigla") return { status: 400, error: "Sigla inválida (máx. 10 caracteres)." };
+    if (first?.path[0] === "sigla") return { status: 400, error: "Sigla inválida (máx. 30 caracteres)." };
     if (first?.path[0] === "descricao") return { status: 400, error: "Informe a descrição da turma." };
     return { status: 400, error: first?.message ?? "Dados inválidos." };
   }

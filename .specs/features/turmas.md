@@ -16,7 +16,7 @@ turmas (N) >── cursos (1)
 | Campo | Tipo | Regra |
 |---|---|---|
 | `id` | uuid | PK |
-| `sigla` | varchar(10) | NOT NULL, único por curso |
+| `sigla` | varchar(30) | NOT NULL, único por curso |
 | `descricao` | text | NOT NULL |
 | `curso_id` | uuid FK | NOT NULL → cursos |
 | `ano` | integer | opcional |
@@ -92,7 +92,7 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 |---|---|---|
 | `turnoIds` vazio ou ausente | 400 | "Selecione ao menos um turno para a turma." |
 | `cursoId` inválido (Zod) | 400 | "Selecione um curso válido." |
-| `sigla` inválida | 400 | "Sigla inválida (máx. 10 caracteres)." |
+| `sigla` inválida | 400 | "Sigla inválida (máx. 30 caracteres)." |
 | `descricao` ausente | 400 | "Informe a descrição da turma." |
 | Sigla duplicada no mesmo curso (23505) | 409 | "Já existe uma turma com esta sigla neste curso." |
 | turnoId inexistente (23503) | 400 | "Um dos turnos selecionados não existe. Atualize a página e tente novamente." |

@@ -5,7 +5,7 @@ import { cursosTable } from "./cursos";
 
 export const turmasTable = pgTable("turmas", {
   id: uuid("id").primaryKey().defaultRandom(),
-  sigla: varchar("sigla", { length: 10 }).notNull(),
+  sigla: varchar("sigla", { length: 30 }).notNull(),
   descricao: text("descricao").notNull(),
   cursoId: uuid("curso_id").notNull().references(() => cursosTable.id, { onDelete: "restrict" }),
   ano: integer("ano"),

@@ -13,7 +13,7 @@ turmas (N) >── cursos (1)
 
 ```typescript
 turmasTable: {
-  id, sigla (varchar 10, NOT NULL, único por curso),
+  id, sigla (varchar 30, NOT NULL, único por curso),
   descricao (text, NOT NULL), cursoId (FK → cursos),
   ano (integer, nullable), semestre (smallint, nullable),
   ativo (boolean, default true), criadoEm, atualizadoEm, deletadoEm
@@ -53,7 +53,7 @@ Substitui os turnos completamente: `DELETE turma_turnos WHERE turmaId = id` → 
 |---|---|
 | ZodError em `turnoIds` | "Selecione ao menos um turno para a turma." |
 | ZodError em `cursoId` | "Selecione um curso válido." |
-| ZodError em `sigla` | "Sigla inválida (máx. 10 caracteres)." |
+| ZodError em `sigla` | "Sigla inválida (máx. 30 caracteres)." |
 | ZodError em `descricao` | "Informe a descrição da turma." |
 | 23505 / `uq_turmas_sigla_curso` | "Já existe uma turma com esta sigla neste curso." |
 | 23503 + `turno` | "Um dos turnos selecionados não existe. Atualize a página e tente novamente." |
