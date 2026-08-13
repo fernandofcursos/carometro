@@ -82,7 +82,8 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
+        type: "module",
       },
     }),
   ],
@@ -111,6 +112,9 @@ export default defineConfig({
         target: `http://localhost:${process.env.API_PORT ?? 8080}`,
         changeOrigin: true,
       },
+    },
+    hmr: {
+      clientPort: port,
     },
   },
   preview: {

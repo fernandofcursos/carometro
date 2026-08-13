@@ -362,6 +362,40 @@ router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Reques
   }
 });
 
+// POST /api/usuarios/:id/resetar-senha — gera nova senha temporária
+router.post("/:id/resetar-senha", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const senhaGerada = randomBytes(8).toString("base64url").slice(0, 10);
+    const senhaHash = await bcrypt.hash(senhaGerada, 12);
+
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+    const [u] = await db
+      .update(usuariosTable)
+      .set({ senhaHash, primeiroAcesso: true, atualizadoEm: new Date() })
+      .where(and(eq(usuariosTable.id, String(req.params.id)), isNull(usuariosTable.deletadoEm)))
+      .returning();
+
+    if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    const email = decryptEmail(u.emailEncrypted, secret);
+
+    await registrarAuditoria({
+      tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: `POST /api/usuarios/${String(req.params.id)}/resetar-senha`, metodoHttp: "POST", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, senhaGerada });
+
+    enviarEmailBoasVindas(email, u.codigoAcesso ?? "", senhaGerada, u.nome).catch((err) => {
+      console.error("[usuarios] falha ao enviar e-mail de reset de senha:", err);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao resetar senha" });
+  }
+});
+
 // DELETE /api/usuarios/:id — soft delete
 router.delete("/:id", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
