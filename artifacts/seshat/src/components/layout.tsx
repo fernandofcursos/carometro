@@ -104,14 +104,13 @@ export function AppSidebar() {
         ...(canManageDisciplinas ? [nav("Disciplinas", "/disciplinas", GraduationCap)] : []),
       ],
     }] : []),
-    ...(canViewEstudantes ? [{
+    ...(canManageEstudantes ? [{
       label: "Enturmação",
       icon: School,
       color: "#10b981",
       bgColor: "#ecfdf5",
       items: [
-        nav("Estudantes", "/estudantes", Users),
-        ...(canManageEstudantes ? [nav("Enturmação", "/enturmacao", GraduationCap)] : []),
+        nav("Estudantes", "/enturmacao", Users),
       ],
     }] : []),
     ...((canViewOcorrencias || canManageTiposOcorrencias) ? [{

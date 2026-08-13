@@ -2,115 +2,81 @@
 
 ## Conceito
 
-Enturmação = vincular um `usuario` (role `estudante`) a uma `turma` por semestre.
+Enturmação = vincular um `usuario` (role `estudante`) a uma `turma` (curso + período).
 Cada vínculo é uma **matrícula** na tabela `matriculas`.
 
-## Regras de Negócio (críticas)
+## Menu
 
-1. **Um curso por período**: estudante não pode estar em 2 cursos diferentes no mesmo semestre.
-2. **Máximo 2 turmas/semestre**: mesmo curso → 1 principal + 1 complementar.
-3. **Registro**: varchar(20), numérico, fornecido externamente — não é calculado.
-4. **`principal`**: definido automaticamente pela API (true se primeira matrícula no período; false se já existe principal).
+```
+Grupo: "Enturmação"  (canManageEstudantes = hasAny("estudantes:manage"))
+└── "Estudantes" → /enturmacao
+```
+
+Não há item "Estudantes" separado neste grupo — a página de enturmação É a tela de estudantes.
+
+## Regras de Negócio
+
+| Regra | Detalhe |
+|---|---|
+| **Um curso** | Estudante só pode estar em **um único curso**. Validado em `POST /api/matriculas` |
+| **Sem dois cursos simultâneos** | Bloqueia enturmação em curso diferente do atual → 422 |
+| **Disciplinas do semestre atual** | Pode cursar uma ou mais; sem restrição adicional |
+| **Disciplina de semestre anterior** | Uma única, em **turno contrário** ao da turma principal; validada em `usuario_disciplinas` |
+| **Registro** | varchar(20), somente dígitos, fornecido externamente |
 
 ## Schema (`lib/db/src/schema/matriculas.ts`)
 
 ```typescript
 matriculasTable: {
-  id, usuarioId (FK → usuarios, restrict), turmaId (FK → turmas, restrict),
-  registro (varchar 20, NOT NULL), ano (integer NOT NULL),
-  semestre (smallint NOT NULL, CHECK IN (1,2)),
-  principal (boolean, default true), ativo (boolean, default true),
+  id, usuarioId (FK → usuarios, restrict),
+  turmaId (FK → turmas, restrict),
+  registro (varchar 20, NOT NULL),
+  ano (integer NOT NULL), semestre (smallint NOT NULL, CHECK IN (1,2)),
+  ativo (boolean, default true),
   criadoEm, atualizadoEm, deletadoEm
   UNIQUE (usuarioId, turmaId, ano, semestre)
 }
 ```
 
-## GET /api/matriculas — resposta
-
-```typescript
-Array<{
-  id, nome, criadoEm,           // usuário estudante
-  matriculas: [{
-    id, usuarioId, turmaId, turmaSigla,
-    cursoId, cursoNome, registro,
-    ano, semestre, principal, ativo, criadoEm
-  }]
-}>
-```
-
-Implementado com: buscar role "estudante" → listar usuarios → `inArray(usuarioIds)` na tabela `matriculas` com JOIN em turmas e cursos.
-
-## POST /api/matriculas — fluxo de validação
+## POST /api/matriculas — fluxo
 
 ```
 1. insertMatriculaSchema.parse(req.body)
-2. Buscar matriculas ativas do estudante no mesmo (ano, semestre)
-3. JOIN turmasTable → cursosTable para obter cursoId da turmaAlvo
-4. Se cursosNoSemestre contém cursoId diferente → 422 (1 curso por período)
-5. Se matriculasNoSemestre.length >= 2 && mesmo curso → 422 (max 2 turmas)
-6. principal = !jaPrincipal (automático)
-7. db.insert(matriculasTable).values({ ...data, principal })
+2. Busca cursoId da turmaAlvo (JOIN turmas → cursos)
+3. Busca matrículas ativas do estudante (WHERE deletadoEm IS NULL)
+4. Extrai cursos distintos das matrículas ativas
+5. Se cursosAtivos contém curso diferente → 422
+6. db.insert(matriculasTable).values({ ...data, principal: true })
 ```
 
-## Tratamento de Erros
-
-Função `matriculaErrorMessage(err)` → `{ status, error }`:
+## Tratamento de Erros — `matriculaErrorMessage(err)`
 
 | Trigger | Status | Mensagem |
 |---|---|---|
-| ZodError registro | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
-| ZodError semestre | 400 | "Semestre deve ser 1 ou 2." |
-| Segundo curso no período | 422 | "Este estudante já está matriculado em outro curso neste semestre..." |
-| 3ª matrícula no mesmo curso | 422 | "Limite de 2 turmas por semestre atingido..." |
-| 23505 / uq_matricula | 409 | "Este estudante já está matriculado nesta turma neste semestre." |
-| 23503 turma | 400 | "Turma não encontrada." |
-| Outros | 500 | "Erro interno ao salvar a matrícula." |
+| ZodError `registro` | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
+| ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
+| Turma não encontrada | 400 | "Turma não encontrada." |
+| Outro curso ativo | 422 | "Este estudante já está enturmado em '...'." |
+| 23505 / uq_matricula | 409 | "Este estudante já está enturmado nesta turma neste semestre." |
+| Outros | 500 | "Erro interno ao salvar a enturmação." |
 
 ## Frontend (`artifacts/seshat/src/pages/enturmacao/index.tsx`)
 
-- `EnturmacaoPage`: lista de estudantes com busca
-- `EstudanteCard`: accordion — expande para mostrar matrículas ativas e `MatriculaForm`
-- `MatriculaForm`: Turma + Registro + Ano/Semestre → `POST /api/matriculas` via `fetch`
-- Badge `principal` / `complementar` nos vínculos
+- `EnturmacaoPage`: lista de estudantes com busca local
+- `EstudanteCard`: accordion — matrículas ativas + `MatriculaForm`
+- `MatriculaForm`: Turma + Registro (somente dígitos) + Ano + Semestre
 - Remoção via AlertDialog → `DELETE /api/matriculas/:id`
 - `apiMsg(err, fallback)`: extrai `err.data?.error` para exibir no toast
-
-## Menu (layout.tsx)
-
-```typescript
-canManageEstudantes = hasAny("estudantes:manage")
-// Grupo "Enturmação" visível para canViewEstudantes
-// Item "Enturmação" → /enturmacao visível para canManageEstudantes
-```
 
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |
 |---|---|
 | `lib/db/src/schema/matriculas.ts` | Schema + insertMatriculaSchema |
-| `artifacts/api-server/src/routes/matriculas.ts` | GET, POST, DELETE + validações |
+| `artifacts/api-server/src/routes/matriculas.ts` | Lógica de negócio + erros |
 | `artifacts/api-server/src/index.ts` | Registra `/api/matriculas` |
 | `artifacts/seshat/src/pages/enturmacao/index.tsx` | UI accordion |
 | `artifacts/seshat/src/App.tsx` | Rota `/enturmacao` |
 | `artifacts/seshat/src/components/layout.tsx` | Menu |
+| `scripts/migrate-matriculas.sql` | DDL da tabela |
 | `.specs/features/enturmacao.md` | Spec completa |
-
-## Migration SQL
-
-```sql
-CREATE TABLE IF NOT EXISTS matriculas (
-  id           uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  usuario_id   uuid        NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
-  turma_id     uuid        NOT NULL REFERENCES turmas(id)   ON DELETE RESTRICT,
-  registro     varchar(20) NOT NULL,
-  ano          integer     NOT NULL,
-  semestre     smallint    NOT NULL,
-  principal    boolean     NOT NULL DEFAULT true,
-  ativo        boolean     NOT NULL DEFAULT true,
-  criado_em    timestamptz NOT NULL DEFAULT now(),
-  atualizado_em timestamptz NOT NULL DEFAULT now(),
-  deletado_em  timestamptz,
-  CONSTRAINT uq_matricula UNIQUE (usuario_id, turma_id, ano, semestre),
-  CONSTRAINT ck_semestre  CHECK  (semestre IN (1, 2))
-);
-```

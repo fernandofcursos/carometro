@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { ZodError } from "zod";
 import {
-  db, matriculasTable, turmasTable, cursosTable, turnosTable, turmaTurnosTable,
+  db, matriculasTable, turmasTable, cursosTable, turmaTurnosTable, turnosTable,
   rolesTable, usuariosRolesTable, usuariosTable,
   eq, isNull, inArray, and,
 } from "@workspace/db";
@@ -25,25 +25,21 @@ function matriculaErrorMessage(err: unknown): { status: number; error: string } 
   }
   const msg = err instanceof Error ? err.message : "";
   if (msg.includes("uq_matricula") || msg.includes("23505")) {
-    return { status: 409, error: "Este estudante já está matriculado nesta turma neste semestre." };
+    return { status: 409, error: "Este estudante já está enturmado nesta turma neste semestre." };
   }
   if (msg.includes("23503")) {
     if (msg.includes("turma")) return { status: 400, error: "Turma não encontrada. Atualize a página e tente novamente." };
     return { status: 400, error: "Estudante ou turma inválidos." };
   }
-  if (msg.includes("ck_semestre")) {
-    return { status: 400, error: "Semestre deve ser 1 ou 2." };
-  }
-  return { status: 500, error: "Erro interno ao salvar a matrícula. Tente novamente." };
+  return { status: 500, error: "Erro interno ao salvar a enturmação. Tente novamente." };
 }
 
-// Buscar IDs dos estudantes (usuarios com role "estudante")
 async function getEstudanteRoleId(): Promise<string | null> {
   const [r] = await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.nome, "estudante")).limit(1);
   return r?.id ?? null;
 }
 
-// GET /api/matriculas — listar estudantes (usuarios com role estudante) com suas matrículas
+// GET /api/matriculas — estudantes (role estudante) com suas enturmações ativas
 router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res: Response) => {
   try {
     const roleId = await getEstudanteRoleId();
@@ -71,7 +67,6 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
         registro:    matriculasTable.registro,
         ano:         matriculasTable.ano,
         semestre:    matriculasTable.semestre,
-        principal:   matriculasTable.principal,
         ativo:       matriculasTable.ativo,
         criadoEm:    matriculasTable.criadoEm,
       })
@@ -92,64 +87,47 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
       matriculas: matriculasByUsuario[u.id] ?? [],
     })));
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar matrículas" });
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar enturmações" });
   }
 });
 
-// POST /api/matriculas — enturmar estudante
+// POST /api/matriculas — enturmar estudante em uma turma
 router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
     const data = insertMatriculaSchema.parse(req.body);
 
-    // Validar: um estudante só pode estar em um curso por período
-    const matriculasNoSemestre = await db
-      .select({
-        turmaId:  matriculasTable.turmaId,
-        cursoId:  cursosTable.id,
-        principal: matriculasTable.principal,
-      })
-      .from(matriculasTable)
-      .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
-      .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .where(and(
-        eq(matriculasTable.usuarioId, data.usuarioId),
-        eq(matriculasTable.ano, data.ano),
-        eq(matriculasTable.semestre, data.semestre),
-        isNull(matriculasTable.deletadoEm),
-      ));
-
-    // Verificar curso do turma alvo
+    // Buscar curso da turma alvo
     const [turmaAlvo] = await db
-      .select({ cursoId: cursosTable.id, cursoCome: cursosTable.nome })
+      .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome })
       .from(turmasTable)
       .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
       .where(eq(turmasTable.id, data.turmaId));
 
     if (!turmaAlvo) return res.status(400).json({ error: "Turma não encontrada." });
 
-    const cursosNoSemestre = [...new Set(matriculasNoSemestre.map((m) => m.cursoId))];
+    // Regra: um estudante não pode estar enturmado em dois cursos ao mesmo tempo
+    const matriculasAtivas = await db
+      .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome })
+      .from(matriculasTable)
+      .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
+      .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+      .where(and(
+        eq(matriculasTable.usuarioId, data.usuarioId),
+        isNull(matriculasTable.deletadoEm),
+      ));
 
-    // Regra: só um curso por período
-    if (cursosNoSemestre.length > 0 && !cursosNoSemestre.includes(turmaAlvo.cursoId)) {
+    const cursosAtivos = [...new Set(matriculasAtivas.map((m) => m.cursoId))];
+
+    if (cursosAtivos.length > 0 && !cursosAtivos.includes(turmaAlvo.cursoId)) {
+      const outro = matriculasAtivas[0]?.cursoNome ?? "outro curso";
       return res.status(422).json({
-        error: `Este estudante já está matriculado em outro curso neste semestre. Um estudante só pode cursar um curso por período.`,
+        error: `Este estudante já está enturmado em "${outro}". Um estudante só pode estar enturmado em um curso.`,
       });
     }
-
-    // Regra: máximo 2 turnos no mesmo curso (1 principal + 1 complementar)
-    if (cursosNoSemestre.includes(turmaAlvo.cursoId) && matriculasNoSemestre.length >= 2) {
-      return res.status(422).json({
-        error: "Limite de 2 turmas por semestre atingido. O estudante pode estar em no máximo 2 turnos do mesmo curso por período (1 principal + 1 complementar).",
-      });
-    }
-
-    // Se já tem 1 matrícula no mesmo curso, a nova é complementar
-    const jaPrincipal = matriculasNoSemestre.some((m) => m.cursoId === turmaAlvo.cursoId && m.principal);
-    const novaPrincipal = !jaPrincipal;
 
     const [matricula] = await db
       .insert(matriculasTable)
-      .values({ ...data, principal: novaPrincipal })
+      .values({ ...data, principal: true })
       .returning();
 
     await registrarAuditoria({
@@ -166,7 +144,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
   }
 });
 
-// DELETE /api/matriculas/:id — soft delete (desfazer enturmação)
+// DELETE /api/matriculas/:id — desfazer enturmação (soft delete)
 router.delete("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
     const [m] = await db
@@ -175,7 +153,7 @@ router.delete("/:id", requirePermissao("estudantes:manage"), async (req: Request
       .where(and(eq(matriculasTable.id, String(req.params.id)), isNull(matriculasTable.deletadoEm)))
       .returning();
 
-    if (!m) return res.status(404).json({ error: "Matrícula não encontrada." });
+    if (!m) return res.status(404).json({ error: "Enturmação não encontrada." });
 
     await registrarAuditoria({
       tabela: "matriculas", operacao: "DELETE", registroId: m.id,
@@ -186,7 +164,7 @@ router.delete("/:id", requirePermissao("estudantes:manage"), async (req: Request
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao desfazer matrícula." });
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao desfazer enturmação." });
   }
 });
 

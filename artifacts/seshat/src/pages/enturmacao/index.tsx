@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useListTurmas, useListTurnos } from "@workspace/api-client-react";
+import { useListTurmas } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch } from "@workspace/api-client-react";
+import { ApiError } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ApiError } from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -28,7 +27,6 @@ type Matricula = {
   registro: string;
   ano: number;
   semestre: number;
-  principal: boolean;
   ativo: boolean;
   criadoEm: string;
 };
@@ -45,15 +43,18 @@ function apiMsg(err: unknown, fallback: string): string {
     const data = err.data as { error?: string } | null;
     return data?.error ?? fallback;
   }
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) return (err as { data?: { error?: string } }).data?.error ?? err.message;
   return fallback;
 }
 
 const anoAtual = new Date().getFullYear();
-const semestresOptions = [1, 2];
 const anosOptions = Array.from({ length: 6 }, (_, i) => anoAtual - 1 + i);
 
-function MatriculaForm({ estudante, onSuccess }: { estudante: Estudante; onSuccess: () => void }) {
+function MatriculaForm({ estudante, temMatriculaAtiva, onSuccess }: {
+  estudante: Estudante;
+  temMatriculaAtiva: boolean;
+  onSuccess: () => void;
+}) {
   const [turmaId, setTurmaId]   = useState("");
   const [registro, setRegistro] = useState("");
   const [ano, setAno]           = useState(String(anoAtual));
@@ -75,54 +76,75 @@ function MatriculaForm({ estudante, onSuccess }: { estudante: Estudante; onSucce
           semestre: Number(semestre),
         }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw Object.assign(new Error(body.error ?? "Erro"), { data: body, status: res.status });
-      }
-      return res.json();
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(body.error ?? "Erro"), { data: body, status: res.status });
+      return body;
     },
     onSuccess: () => {
       setTurmaId(""); setRegistro(""); setAno(String(anoAtual)); setSemestre("1");
       toast({ title: "Estudante enturmado com sucesso" });
       onSuccess();
     },
-    onError: (err) => toast({ title: "Erro ao enturmar", description: apiMsg(err, "Verifique os dados e tente novamente."), variant: "destructive" }),
+    onError: (err) => toast({
+      title: "Erro ao enturmar",
+      description: apiMsg(err, "Verifique os dados e tente novamente."),
+      variant: "destructive",
+    }),
   });
 
-  const valid = turmaId && registro.trim() && /^\d+$/.test(registro.trim()) && ano && semestre;
+  const valid = turmaId && registro.trim() && /^\d+$/.test(registro.trim());
 
   return (
     <form
-      className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end pt-3 border-t"
+      className="space-y-3 pt-3 border-t"
       onSubmit={(e) => { e.preventDefault(); if (valid) criar.mutate(); }}
     >
-      <div className="space-y-1 col-span-2 sm:col-span-1">
-        <Label className="text-xs">Turma</Label>
-        <Select value={turmaId} onValueChange={setTurmaId}>
-          <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="Selecione…" /></SelectTrigger>
-          <SelectContent>
-            {turmas?.map((t) => (
-              <SelectItem key={t.id} value={t.id} className="text-xs">
-                {t.sigla} — {(t as { cursoNome?: string }).cursoNome ?? ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Registro</Label>
-        <Input value={registro} onChange={(e) => setRegistro(e.target.value)} placeholder="Ex: 12345" className="h-8 text-xs bg-background" />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Ano / Semestre</Label>
-        <div className="flex gap-1">
-          <Select value={ano} onValueChange={setAno}>
-            <SelectTrigger className="h-8 text-xs bg-background w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>{anosOptions.map((a) => <SelectItem key={a} value={String(a)} className="text-xs">{a}</SelectItem>)}</SelectContent>
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        {temMatriculaAtiva ? "Nova enturmação" : "Enturmar estudante"}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Turma</Label>
+          <Select value={turmaId} onValueChange={setTurmaId}>
+            <SelectTrigger className="h-8 text-xs bg-background">
+              <SelectValue placeholder="Selecione a turma…" />
+            </SelectTrigger>
+            <SelectContent>
+              {turmas?.map((t) => (
+                <SelectItem key={t.id} value={t.id} className="text-xs">
+                  {t.sigla} — {(t as { cursoNome?: string }).cursoNome ?? ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Registro do estudante</Label>
+          <Input
+            value={registro}
+            onChange={(e) => setRegistro(e.target.value.replace(/\D/g, ""))}
+            placeholder="Número (somente dígitos)"
+            className="h-8 text-xs bg-background"
+            maxLength={20}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Ano</Label>
+          <Select value={ano} onValueChange={setAno}>
+            <SelectTrigger className="h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {anosOptions.map((a) => <SelectItem key={a} value={String(a)} className="text-xs">{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Semestre</Label>
           <Select value={semestre} onValueChange={setSemestre}>
-            <SelectTrigger className="h-8 text-xs bg-background w-16"><SelectValue /></SelectTrigger>
-            <SelectContent>{semestresOptions.map((s) => <SelectItem key={s} value={String(s)} className="text-xs">{s}º</SelectItem>)}</SelectContent>
+            <SelectTrigger className="h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1" className="text-xs">1º semestre</SelectItem>
+              <SelectItem value="2" className="text-xs">2º semestre</SelectItem>
+            </SelectContent>
           </Select>
         </div>
       </div>
@@ -140,16 +162,19 @@ function EstudanteCard({ estudante, onRefresh }: { estudante: Estudante; onRefre
   const excluir = useMutation({
     mutationFn: async (matriculaId: string) => {
       const res = await fetch(`${BASE}/api/matriculas/${matriculaId}`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw Object.assign(new Error(body.error ?? "Erro"), { data: body });
-      }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(body.error ?? "Erro"), { data: body });
     },
-    onSuccess: () => { toast({ title: "Matrícula removida" }); onRefresh(); },
-    onError: (err) => toast({ title: "Erro ao remover matrícula", description: apiMsg(err, "Tente novamente."), variant: "destructive" }),
+    onSuccess: () => { toast({ title: "Enturmação removida" }); onRefresh(); },
+    onError: (err) => toast({
+      title: "Erro ao remover enturmação",
+      description: apiMsg(err, "Tente novamente."),
+      variant: "destructive",
+    }),
   });
 
   const ativas = estudante.matriculas.filter((m) => m.ativo);
+  const cursoAtual = ativas[0]?.cursoNome ?? null;
 
   return (
     <div className="border rounded-lg bg-card shadow-sm overflow-hidden">
@@ -166,14 +191,13 @@ function EstudanteCard({ estudante, onRefresh }: { estudante: Estudante; onRefre
           <p className="text-xs text-muted-foreground">
             {ativas.length === 0
               ? "Sem enturmação ativa"
-              : `${ativas.length} enturmação${ativas.length > 1 ? "ões" : ""} ativa${ativas.length > 1 ? "s" : ""}`}
+              : `${cursoAtual} · ${ativas.length} turma${ativas.length > 1 ? "s" : ""}`}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {ativas.map((m) => (
             <Badge key={m.id} variant="secondary" className="text-xs hidden sm:flex">
               {m.turmaSigla} · {m.ano}/{m.semestre}º
-              {!m.principal && <span className="ml-1 text-amber-600">(comp.)</span>}
             </Badge>
           ))}
           {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
@@ -184,20 +208,14 @@ function EstudanteCard({ estudante, onRefresh }: { estudante: Estudante; onRefre
         <div className="px-4 pb-4 space-y-3">
           {ativas.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Matrículas ativas</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enturmações ativas</p>
               {ativas.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 p-3 rounded-md border bg-muted/20 text-sm">
+                <div key={m.id} className="flex items-center gap-3 p-3 rounded-md border bg-muted/20">
                   <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     <span><span className="text-muted-foreground">Turma:</span> <strong>{m.turmaSigla}</strong></span>
                     <span><span className="text-muted-foreground">Curso:</span> {m.cursoNome}</span>
-                    <span><span className="text-muted-foreground">Período:</span> {m.ano}/{m.semestre}º sem.</span>
-                    <span>
-                      <span className="text-muted-foreground">Registro:</span> {m.registro}
-                      {m.principal
-                        ? <Badge variant="outline" className="ml-1 text-[10px] py-0 h-4">principal</Badge>
-                        : <Badge variant="outline" className="ml-1 text-[10px] py-0 h-4 text-amber-600 border-amber-300">complementar</Badge>
-                      }
-                    </span>
+                    <span><span className="text-muted-foreground">Período:</span> {m.ano} / {m.semestre}º sem.</span>
+                    <span><span className="text-muted-foreground">Registro:</span> {m.registro}</span>
                   </div>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -207,14 +225,16 @@ function EstudanteCard({ estudante, onRefresh }: { estudante: Estudante; onRefre
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Remover matrícula?</AlertDialogTitle>
+                        <AlertDialogTitle>Remover enturmação?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          O estudante <strong>{estudante.nome}</strong> será desenturmado da turma <strong>{m.turmaSigla}</strong> no {m.semestre}º semestre de {m.ano}.
+                          <strong>{estudante.nome}</strong> será removido da turma <strong>{m.turmaSigla}</strong> ({m.ano}/{m.semestre}º semestre).
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => excluir.mutate(m.id)} className="bg-destructive hover:bg-destructive/90">Remover</AlertDialogAction>
+                        <AlertDialogAction onClick={() => excluir.mutate(m.id)} className="bg-destructive hover:bg-destructive/90">
+                          Remover
+                        </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
@@ -223,7 +243,7 @@ function EstudanteCard({ estudante, onRefresh }: { estudante: Estudante; onRefre
             </div>
           )}
 
-          <MatriculaForm estudante={estudante} onSuccess={onRefresh} />
+          <MatriculaForm estudante={estudante} temMatriculaAtiva={ativas.length > 0} onSuccess={onRefresh} />
         </div>
       )}
     </div>
@@ -232,6 +252,7 @@ function EstudanteCard({ estudante, onRefresh }: { estudante: Estudante; onRefre
 
 export default function EnturmacaoPage() {
   const queryClient = useQueryClient();
+  const [busca, setBusca] = useState("");
 
   const { data: estudantes, isLoading } = useQuery<Estudante[]>({
     queryKey: ["matriculas"],
@@ -244,7 +265,6 @@ export default function EnturmacaoPage() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["matriculas"] });
 
-  const [busca, setBusca] = useState("");
   const filtrados = (estudantes ?? []).filter((e) =>
     !busca || (e.nome ?? "").toLowerCase().includes(busca.toLowerCase())
   );
@@ -252,20 +272,19 @@ export default function EnturmacaoPage() {
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Enturmação</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">Enturmação — Estudantes</h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie a enturmação dos estudantes. Cada estudante pode ter até 2 turmas por semestre no mesmo curso (1 principal + 1 complementar).
+          Gerencie a enturmação dos estudantes. Cada estudante é enturmado em um único curso.
+          Pode cursar disciplinas do semestre atual e uma disciplina de semestre anterior (em turno diferente).
         </p>
       </div>
 
-      <div className="flex gap-3">
-        <Input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar estudante…"
-          className="max-w-sm bg-background"
-        />
-      </div>
+      <Input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar estudante…"
+        className="max-w-sm bg-background"
+      />
 
       <div className="space-y-3">
         {isLoading ? (
