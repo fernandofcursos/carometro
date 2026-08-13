@@ -69,6 +69,12 @@ WHERE  turno_id   IS NOT NULL
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
+-- PASSO 4: turmas — remover turno_id (já migrado para turma_turnos)
+-- ============================================================
+
+ALTER TABLE turmas DROP COLUMN IF EXISTS turno_id;
+
+-- ============================================================
 -- VERIFICAÇÃO FINAL
 -- ============================================================
 
