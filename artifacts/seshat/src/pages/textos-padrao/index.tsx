@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
+import { customFetch, useListTiposOcorrencias } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,12 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, FileText, Info } from "lucide-react";
-
-interface TipOcorrencia {
-  id: string;
-  descricao: string;
-  status: string;
-}
 
 interface TextoPadrao {
   id: string;
@@ -39,6 +33,13 @@ interface Placeholder {
   descricao: string;
 }
 
+interface TextoPadraoInput {
+  tipoOcorrenciaId: string;
+  titulo: string;
+  corpo: string;
+  ativo: boolean;
+}
+
 const CORPO_MAX = 5000;
 
 function TextoForm({
@@ -47,21 +48,21 @@ function TextoForm({
   inicial,
   onSalvar,
   onCancelar,
+  salvando,
 }: {
-  tipos: TipOcorrencia[];
+  tipos: { id: string; descricao: string; status: string }[];
   placeholders: Placeholder[];
   inicial?: Partial<TextoPadrao>;
-  onSalvar: (dados: Omit<TextoPadrao, "id" | "tipoDescricao" | "criadoEm" | "atualizadoEm">) => void;
+  onSalvar: (dados: TextoPadraoInput) => void;
   onCancelar: () => void;
+  salvando: boolean;
 }) {
   const [tipoOcorrenciaId, setTipoOcorrenciaId] = useState(inicial?.tipoOcorrenciaId ?? "");
   const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
   const [corpo, setCorpo] = useState(inicial?.corpo ?? "");
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true);
 
-  const inserirPlaceholder = (ph: string) => {
-    setCorpo((prev) => prev + ph);
-  };
+  const inserirPlaceholder = (ph: string) => setCorpo((prev) => prev + ph);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,22 +139,22 @@ function TextoForm({
       </div>
 
       <div className="flex items-center gap-2">
-        <Switch
-          id="ativo"
-          checked={ativo}
-          onCheckedChange={setAtivo}
-        />
+        <Switch id="ativo" checked={ativo} onCheckedChange={setAtivo} />
         <Label htmlFor="ativo">Texto ativo</Label>
         {ativo && (
           <span className="text-xs text-muted-foreground">
-            (somente um texto ativo por tipo de ocorrência)
+            (somente um texto ativo por tipo)
           </span>
         )}
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancelar}>Cancelar</Button>
-        <Button type="submit">Salvar</Button>
+        <Button type="button" variant="outline" onClick={onCancelar} disabled={salvando}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={salvando}>
+          {salvando ? "Salvando…" : "Salvar"}
+        </Button>
       </DialogFooter>
     </form>
   );
@@ -169,76 +170,69 @@ export default function TextosPadraoPage() {
 
   const { data: textos = [], isLoading } = useQuery<TextoPadrao[]>({
     queryKey: ["textos-padrao"],
-    queryFn: () => apiClient.get("/api/textos-padrao").then((r) => r.data),
+    queryFn: () => customFetch<TextoPadrao[]>("/api/textos-padrao"),
   });
 
-  const { data: tipos = [] } = useQuery<TipOcorrencia[]>({
-    queryKey: ["tipos-ocorrencias"],
-    queryFn: () => apiClient.get("/api/tipos-ocorrencias").then((r) => r.data),
-  });
+  const { data: tiposRaw } = useListTiposOcorrencias();
+  const tipos = (tiposRaw as { id: string; descricao: string; status: string }[] | undefined) ?? [];
 
   const { data: placeholders = [] } = useQuery<Placeholder[]>({
     queryKey: ["textos-padrao-placeholders"],
-    queryFn: () => apiClient.get("/api/textos-padrao/placeholders").then((r) => r.data),
+    queryFn: () => customFetch<Placeholder[]>("/api/textos-padrao/placeholders"),
   });
 
+  const invalidar = () => qc.invalidateQueries({ queryKey: ["textos-padrao"] });
+
   const criarMutation = useMutation({
-    mutationFn: (dados: unknown) => apiClient.post("/api/textos-padrao", dados),
+    mutationFn: (dados: TextoPadraoInput) =>
+      customFetch("/api/textos-padrao", {
+        method: "POST",
+        body: JSON.stringify(dados),
+      }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["textos-padrao"] });
+      invalidar();
       setDialogAberto(false);
       toast({ title: "Texto padrão criado com sucesso." });
     },
     onError: (err: any) => {
       toast({
         title: "Erro ao criar texto padrão",
-        description: err?.response?.data?.error ?? "Erro inesperado.",
+        description: err?.data?.error ?? err?.message ?? "Erro inesperado.",
         variant: "destructive",
       });
     },
   });
 
   const editarMutation = useMutation({
-    mutationFn: ({ id, dados }: { id: string; dados: unknown }) =>
-      apiClient.put(`/api/textos-padrao/${id}`, dados),
+    mutationFn: ({ id, dados }: { id: string; dados: Partial<TextoPadraoInput> }) =>
+      customFetch(`/api/textos-padrao/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(dados),
+      }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["textos-padrao"] });
+      invalidar();
       setEditando(null);
       toast({ title: "Texto padrão atualizado com sucesso." });
     },
     onError: (err: any) => {
       toast({
         title: "Erro ao atualizar texto padrão",
-        description: err?.response?.data?.error ?? "Erro inesperado.",
+        description: err?.data?.error ?? err?.message ?? "Erro inesperado.",
         variant: "destructive",
       });
     },
   });
 
   const removerMutation = useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/api/textos-padrao/${id}`),
+    mutationFn: (id: string) =>
+      customFetch(`/api/textos-padrao/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["textos-padrao"] });
+      invalidar();
       setRemovendoId(null);
       toast({ title: "Texto padrão removido." });
     },
     onError: () => {
       toast({ title: "Erro ao remover texto padrão.", variant: "destructive" });
-    },
-  });
-
-  const alternarAtivoMutation = useMutation({
-    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) =>
-      apiClient.put(`/api/textos-padrao/${id}`, { ativo }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["textos-padrao"] });
-    },
-    onError: (err: any) => {
-      toast({
-        title: "Erro ao alterar status",
-        description: err?.response?.data?.error ?? "Erro inesperado.",
-        variant: "destructive",
-      });
     },
   });
 
@@ -268,7 +262,7 @@ export default function TextosPadraoPage() {
         </Button>
       </div>
 
-      <div className="flex gap-3">
+      <div>
         <Input
           placeholder="Buscar por título, tipo ou conteúdo…"
           value={busca}
@@ -290,24 +284,16 @@ export default function TextosPadraoPage() {
           {textosFiltrados.map((texto) => (
             <div
               key={texto.id}
-              className={`rounded-lg border bg-card p-4 shadow-sm transition-opacity ${
-                !texto.ativo ? "opacity-60" : ""
-              }`}
+              className={`rounded-lg border bg-card p-4 shadow-sm transition-opacity ${!texto.ativo ? "opacity-60" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-base truncate">{texto.titulo}</span>
-                    <Badge
-                      variant="outline"
-                      className="text-xs shrink-0 bg-amber-50 border-amber-200 text-amber-800"
-                    >
+                    <Badge variant="outline" className="text-xs shrink-0 bg-amber-50 border-amber-200 text-amber-800">
                       {texto.tipoDescricao ?? "—"}
                     </Badge>
-                    <Badge
-                      variant={texto.ativo ? "default" : "secondary"}
-                      className="text-xs shrink-0"
-                    >
+                    <Badge variant={texto.ativo ? "default" : "secondary"} className="text-xs shrink-0">
                       {texto.ativo ? "Ativo" : "Inativo"}
                     </Badge>
                   </div>
@@ -318,17 +304,10 @@ export default function TextosPadraoPage() {
                 <div className="flex items-center gap-2 shrink-0">
                   <Switch
                     checked={texto.ativo}
-                    onCheckedChange={(val) =>
-                      alternarAtivoMutation.mutate({ id: texto.id, ativo: val })
-                    }
+                    onCheckedChange={(val) => editarMutation.mutate({ id: texto.id, dados: { ativo: val } })}
                     title={texto.ativo ? "Desativar" : "Ativar"}
                   />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setEditando(texto)}
-                    title="Editar"
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => setEditando(texto)} title="Editar">
                     <Pencil className="w-4 h-4" />
                   </Button>
                   <Button
@@ -347,7 +326,6 @@ export default function TextosPadraoPage() {
         </div>
       )}
 
-      {/* Dialog: Novo */}
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -358,11 +336,11 @@ export default function TextosPadraoPage() {
             placeholders={placeholders}
             onSalvar={(dados) => criarMutation.mutate(dados)}
             onCancelar={() => setDialogAberto(false)}
+            salvando={criarMutation.isPending}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Editar */}
       <Dialog open={!!editando} onOpenChange={(open) => !open && setEditando(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -375,12 +353,12 @@ export default function TextosPadraoPage() {
               inicial={editando}
               onSalvar={(dados) => editarMutation.mutate({ id: editando.id, dados })}
               onCancelar={() => setEditando(null)}
+              salvando={editarMutation.isPending}
             />
           )}
         </DialogContent>
       </Dialog>
 
-      {/* AlertDialog: Remover */}
       <AlertDialog open={!!removendoId} onOpenChange={(open) => !open && setRemovendoId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
