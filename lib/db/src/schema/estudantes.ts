@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, date, integer, varchar, char, customType } from "drizzle-orm/pg-core";
 import { turmasTable } from "./turmas";
+import { usuariosTable } from "./usuarios";
 
 // Fase 5: customType para armazenar bytes (foto criptografada AES-256) diretamente no PostgreSQL
 const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
@@ -21,6 +22,7 @@ export const estudantesTable = pgTable("estudantes", {
   fotoHashIntegridade: char("foto_hash_integridade", { length: 64 }),
   fotoDados: bytesAsBuffer("foto_dados"),
   dataNascimento: date("data_nascimento"),
+  usuarioId: uuid("usuario_id").references(() => usuariosTable.id, { onDelete: "set null" }).unique(),
   criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
   deletadoEm: timestamp("deletado_em", { withTimezone: true }),

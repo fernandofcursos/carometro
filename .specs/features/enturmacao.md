@@ -93,11 +93,16 @@ Array<{
 ```
 
 **Validações:**
-1. `insertMatriculaSchema.parse(req.body)` — valida tipos e formato de registro
+1. `enturmarSchema.parse(req.body)` — valida tipos e formato de registro
 2. Busca o cursoId da turmaAlvo via JOIN
-3. Busca matrículas ativas do estudante (sem `deletadoEm`)
-4. Se há matrícula em curso **diferente** → 422 com nome do curso atual
+3. Se `email` fornecido: busca usuário por `emailHash`; cria se não existir (com bcrypt hash, codigoAcesso, e-mail de boas-vindas); atribui role `estudante`
+4. Verifica unicidade `(usuarioId, ano, semestre)` → 422 se duplicado
 5. `INSERT matriculas`
+6. **Sincroniza `estudantes`** (necessário para o carômetro e para registro de ocorrências):
+   - Se já existe registro em `estudantes` com este `usuarioId` → atualiza `turmaId`
+   - Se existe registro com mesmo `registro` mas sem `usuarioId` → vincula `usuarioId`
+   - Se não existe nenhum → cria registro em `estudantes` com nome, registro, turmaId, usuarioId, dataNascimento
+   - Falha na sincronização não cancela a matrícula (tolerância a falha, apenas loga)
 
 ### DELETE /api/matriculas/:id
 **Requer:** `estudantes:manage`

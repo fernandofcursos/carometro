@@ -70,7 +70,39 @@ A permissão `carometro:view` é necessária para acessar a página.
 
 ---
 
+## Vínculo Enturmação → Carômetro
+
+Ao enturmar um estudante via `POST /api/matriculas`, o sistema **cria ou vincula** automaticamente um registro na tabela `estudantes` para que o aluno apareça no carômetro e possa ter ocorrências registradas:
+
+| Situação | Ação |
+|---|---|
+| Nenhum registro `estudantes` para este `usuarioId` + nenhum para este `registro` | Cria novo registro em `estudantes` com nome, turmaId, registro, usuarioId, dataNascimento |
+| Registro `estudantes` existe para este `registro` mas sem `usuarioId` | Vincula: define `usuarioId` no registro legado |
+| Registro `estudantes` já existe para este `usuarioId` | Atualiza `turmaId` para a turma atual |
+| Falha na sincronização | Loga erro; a matrícula é salva mesmo assim (tolerância a falha) |
+
+O campo `usuarioId` na tabela `estudantes` é único (índice parcial: `WHERE usuario_id IS NOT NULL`).
+
+---
+
+## Menor de Idade — Regras de Ciência e Notificação
+
+| Regra | Comportamento |
+|---|---|
+| Estudante < 18 anos registra ocorrência | E-mail automático enviado aos e-mails responsável (`estudante_emails` tipo "responsavel") **sem** exigir marcar `enviarEmailPais` |
+| Estudante < 18 anos tenta marcar "Ciente" | API retorna 403; frontend exibe mensagem "A ciência deve ser registrada pelo responsável" |
+| Pai/Responsável marca "Ciente" | Sempre permitido, independentemente da idade |
+| Estudante maior de 18 anos | Pode marcar "Ciente" por conta própria |
+
+---
+
 ## Modelo de Dados
+
+### `estudantes` — coluna adicionada (v2)
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `usuario_id` | `uuid FK usuarios NULL UNIQUE` | Vincula ao usuário enturmado |
 
 ### `ocorrencias` — colunas adicionadas
 

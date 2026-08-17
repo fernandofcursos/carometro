@@ -94,6 +94,8 @@ type Ocorrencia = {
 function OcorrenciaItem({
   ocorrencia,
   isPaiResponsavel,
+  isEstudante,
+  estudanteMenor,
   onCiente,
   onNotificar,
   canCreate,
@@ -101,6 +103,8 @@ function OcorrenciaItem({
 }: {
   ocorrencia: Ocorrencia;
   isPaiResponsavel: boolean;
+  isEstudante: boolean;
+  estudanteMenor: boolean;
   onCiente: (id: string) => void;
   onNotificar: (id: string) => void;
   canCreate: boolean;
@@ -108,6 +112,8 @@ function OcorrenciaItem({
 }) {
   const [expandido, setExpandido] = useState(false);
   const jaTemCiencia = !!ocorrencia.cienteEm;
+  // Menor de idade: somente pai/responsável pode dar ciência
+  const podeMarcarCiente = isPaiResponsavel || (isEstudante && !estudanteMenor);
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
@@ -157,7 +163,7 @@ function OcorrenciaItem({
           )}
 
           <div className="flex gap-2 flex-wrap">
-            {isPaiResponsavel && !jaTemCiencia && (
+            {podeMarcarCiente && !jaTemCiencia && (
               <Button
                 size="sm"
                 className="h-7 text-xs bg-green-600 hover:bg-green-700"
@@ -165,6 +171,9 @@ function OcorrenciaItem({
               >
                 <CheckCircle2 className="w-3 h-3 mr-1" />Marcar como Ciente
               </Button>
+            )}
+            {isEstudante && estudanteMenor && !jaTemCiencia && (
+              <p className="text-xs text-orange-600">A ciência deve ser registrada pelo responsável.</p>
             )}
             {canCreate && !ocorrencia.notificacaoPaisEnviadaEm && (
               <Button
@@ -205,8 +214,10 @@ function EstudanteModal({
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const canCreate     = useHasPermission("ocorrencias:create");
-  const isPaiResp     = useHasRole("pai_responsavel");
+  const canCreate    = useHasPermission("ocorrencias:create");
+  const isPaiResp    = useHasRole("pai_responsavel");
+  const isEstudante  = useHasRole("estudante");
+  const estudanteMenor = isMenor(estudante.dataNascimento);
 
   // Form state
   const [dataOcorrencia, setDataOcorrencia] = useState(hoje);
@@ -508,6 +519,8 @@ function EstudanteModal({
                 <OcorrenciasList
                   ocorrencias={ocorrencias}
                   isPaiResponsavel={isPaiResp}
+                  isEstudante={isEstudante}
+                  estudanteMenor={estudanteMenor}
                   canCreate={canCreate}
                   onCiente={(id) => cienteMutation.mutate(id)}
                   onNotificar={(id) => notificarMutation.mutate(id)}
@@ -522,6 +535,8 @@ function EstudanteModal({
               <OcorrenciasList
                 ocorrencias={ocorrencias}
                 isPaiResponsavel={isPaiResp}
+                isEstudante={isEstudante}
+                estudanteMenor={estudanteMenor}
                 canCreate={false}
                 onCiente={(id) => cienteMutation.mutate(id)}
                 onNotificar={() => {}}
@@ -543,10 +558,13 @@ function EstudanteModal({
 }
 
 function OcorrenciasList({
-  ocorrencias, isPaiResponsavel, canCreate, onCiente, onNotificar, onDelete,
+  ocorrencias, isPaiResponsavel, isEstudante, estudanteMenor, canCreate,
+  onCiente, onNotificar, onDelete,
 }: {
   ocorrencias: Ocorrencia[];
   isPaiResponsavel: boolean;
+  isEstudante: boolean;
+  estudanteMenor: boolean;
   canCreate: boolean;
   onCiente: (id: string) => void;
   onNotificar: (id: string) => void;
@@ -567,6 +585,8 @@ function OcorrenciasList({
           key={o.id}
           ocorrencia={o}
           isPaiResponsavel={isPaiResponsavel}
+          isEstudante={isEstudante}
+          estudanteMenor={estudanteMenor}
           canCreate={canCreate}
           onCiente={onCiente}
           onNotificar={onNotificar}

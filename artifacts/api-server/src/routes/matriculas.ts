@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import {
   db, matriculasTable, turmasTable, cursosTable,
   rolesTable, usuariosRolesTable, usuariosTable,
+  estudantesTable,
   eq, isNull, inArray, and,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
@@ -254,6 +255,63 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
         semestre: body.semestre,
       })
       .returning();
+
+    // ── Sincronizar registro em estudantes (necessário para o carômetro) ──────
+    // O carômetro lê a tabela `estudantes`; a enturmação usa `matriculas`.
+    // Aqui criamos ou vinculamos o registro estudante para que o aluno apareça
+    // na galeria fotográfica e possa ter ocorrências registradas.
+    try {
+      const [usuarioData] = await db
+        .select({ nome: usuariosTable.nome, dataNascimento: usuariosTable.dataNascimento })
+        .from(usuariosTable)
+        .where(eq(usuariosTable.id, usuarioId))
+        .limit(1);
+
+      const nomeEstudante = usuarioData?.nome ?? body.nome ?? "Estudante";
+      const dataNascimento = usuarioData?.dataNascimento ?? null;
+
+      // Verifica se já existe um registro em estudantes para este usuário
+      const [porUsuario] = await db
+        .select({ id: estudantesTable.id })
+        .from(estudantesTable)
+        .where(eq(estudantesTable.usuarioId, usuarioId))
+        .limit(1);
+
+      if (porUsuario) {
+        // Atualiza turmaId para refletir a enturmação mais recente
+        await db.update(estudantesTable)
+          .set({ turmaId: body.turmaId, atualizadoEm: new Date() })
+          .where(eq(estudantesTable.id, porUsuario.id));
+      } else {
+        // Verifica se o registro numérico já existe (importação legada)
+        const [porRegistro] = await db
+          .select({ id: estudantesTable.id, usuarioId: estudantesTable.usuarioId })
+          .from(estudantesTable)
+          .where(eq(estudantesTable.registro, body.registro))
+          .limit(1);
+
+        if (porRegistro && !porRegistro.usuarioId) {
+          // Vincula o estudante legado ao novo usuário
+          await db.update(estudantesTable)
+            .set({ usuarioId, turmaId: body.turmaId, atualizadoEm: new Date() })
+            .where(eq(estudantesTable.id, porRegistro.id));
+        } else if (!porRegistro) {
+          // Cria novo registro em estudantes
+          await db.insert(estudantesTable).values({
+            nome:           nomeEstudante,
+            registro:       body.registro,
+            turmaId:        body.turmaId,
+            usuarioId,
+            dataNascimento,
+          });
+        }
+        // Se porRegistro existe mas já tem outro usuarioId → conflito de registro,
+        // não faz nada (a matrícula foi criada; o admin resolve manualmente).
+      }
+    } catch (syncErr) {
+      // Falha na sincronização não cancela a matrícula — apenas loga
+      console.error("[matriculas] falha ao sincronizar estudantes:", syncErr);
+    }
 
     await registrarAuditoria({
       tabela: "matriculas", operacao: "INSERT", registroId: matricula.id,

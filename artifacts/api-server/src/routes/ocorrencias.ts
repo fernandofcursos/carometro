@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   db, ocorrenciasTable, tiposOcorrenciasTable, estudantesTable,
   disciplinasTable, turnosTable, usuariosTable, estudanteEmailsTable,
+  rolesTable, usuariosRolesTable,
   eq, isNull, and,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
@@ -24,6 +25,55 @@ const criarSchema = z.object({
   observacao:       z.string().max(300, "Descrição deve ter no máximo 300 caracteres.").optional().nullable(),
   enviarEmailPais:  z.boolean().optional().default(false),
 });
+
+// ── Helpers de domínio ────────────────────────────────────────────────────────
+
+function calcularIdade(dataNascimento: string): number {
+  const nasc = new Date(dataNascimento);
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const m = hoje.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade;
+}
+
+async function getEstudanteMenorDeIdade(estudanteId: string): Promise<boolean> {
+  const [est] = await db
+    .select({ dataNascimento: estudantesTable.dataNascimento, usuarioId: estudantesTable.usuarioId })
+    .from(estudantesTable)
+    .where(eq(estudantesTable.id, estudanteId))
+    .limit(1);
+  if (!est) return false;
+
+  // Verifica dataNascimento no registro estudante
+  if (est.dataNascimento) return calcularIdade(est.dataNascimento) < 18;
+
+  // Fallback: verifica no usuário vinculado
+  if (est.usuarioId) {
+    const [u] = await db
+      .select({ dataNascimento: usuariosTable.dataNascimento })
+      .from(usuariosTable)
+      .where(eq(usuariosTable.id, est.usuarioId))
+      .limit(1);
+    if (u?.dataNascimento) return calcularIdade(u.dataNascimento) < 18;
+  }
+  return false;
+}
+
+async function usuarioTemRole(usuarioId: string, roleName: string): Promise<boolean> {
+  const [role] = await db
+    .select({ id: rolesTable.id })
+    .from(rolesTable)
+    .where(eq(rolesTable.nome, roleName))
+    .limit(1);
+  if (!role) return false;
+  const [ur] = await db
+    .select({ usuarioId: usuariosRolesTable.usuarioId })
+    .from(usuariosRolesTable)
+    .where(and(eq(usuariosRolesTable.usuarioId, usuarioId), eq(usuariosRolesTable.roleId, role.id)))
+    .limit(1);
+  return !!ur;
+}
 
 // ── Helper: busca campos completos de uma ocorrência ─────────────────────────
 
@@ -214,7 +264,9 @@ router.post("/", requirePermissao("ocorrencias:create"), async (req: Request, re
       registradoPorId: req.usuarioId,
     }).returning();
 
-    if (enviarEmailPais) {
+    // Notifica responsáveis: sempre para menores de idade, ou quando solicitado
+    const menor = await getEstudanteMenorDeIdade(data.estudanteId);
+    if (menor || enviarEmailPais) {
       await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
     }
 
@@ -281,13 +333,24 @@ router.delete("/:id", requirePermissao("ocorrencias:create"), async (req: Reques
 router.post("/:id/ciente", async (req: Request, res: Response) => {
   try {
     const [existente] = await db
-      .select({ id: ocorrenciasTable.id, cienteEm: ocorrenciasTable.cienteEm })
+      .select({ id: ocorrenciasTable.id, cienteEm: ocorrenciasTable.cienteEm, estudanteId: ocorrenciasTable.estudanteId })
       .from(ocorrenciasTable)
       .where(and(eq(ocorrenciasTable.id, String(req.params.id)), isNull(ocorrenciasTable.deletadoEm)))
       .limit(1);
 
     if (!existente) return res.status(404).json({ error: "Ocorrência não encontrada." });
     if (existente.cienteEm) return res.status(409).json({ error: "Ciência já registrada." });
+
+    // Estudante menor de idade não pode dar ciência — deve ser o pai/responsável
+    const isEstudante = await usuarioTemRole(req.usuarioId!, "estudante");
+    if (isEstudante) {
+      const menor = await getEstudanteMenorDeIdade(existente.estudanteId);
+      if (menor) {
+        return res.status(403).json({
+          error: "Estudante menor de idade não pode registrar ciência. A ciência deve ser feita pelo pai ou responsável.",
+        });
+      }
+    }
 
     const [updated] = await db
       .update(ocorrenciasTable)

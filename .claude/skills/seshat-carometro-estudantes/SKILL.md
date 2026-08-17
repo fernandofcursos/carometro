@@ -122,9 +122,43 @@ await enviarEmailOcorrencia({
 });
 ```
 
+## Vínculo Enturmação → Carômetro
+
+`POST /api/matriculas` — após criar a matrícula, sincroniza `estudantes`:
+
+```typescript
+// Busca usuário: nome + dataNascimento
+// Tenta encontrar estudante por usuarioId → atualiza turmaId
+// Senão, tenta por registro → vincula usuarioId (se sem vínculo)
+// Senão → INSERT estudantes (nome, registro, turmaId, usuarioId, dataNascimento)
+// Falha é tolerada (log + continua)
+```
+
+Campo adicionado: `estudantes.usuario_id uuid FK usuarios NULL UNIQUE`
+
+## Menor de Idade — Ciência e Notificação
+
+```typescript
+// POST /api/ocorrencias — auto-notifica se menor de idade OU enviarEmailPais=true
+const menor = await getEstudanteMenorDeIdade(data.estudanteId);
+if (menor || enviarEmailPais) await notificarPais(...);
+
+// POST /api/ocorrencias/:id/ciente — bloqueia estudante menor
+const isEstudante = await usuarioTemRole(req.usuarioId, "estudante");
+if (isEstudante && menor) return res.status(403).json({ error: "..." });
+```
+
+Frontend:
+```typescript
+// OcorrenciaItem — botão visível somente se:
+const podeMarcarCiente = isPaiResponsavel || (isEstudante && !estudanteMenor);
+// Para menor: exibe aviso "A ciência deve ser registrada pelo responsável"
+```
+
 ## Migration
 
 ```bash
+psql $DATABASE_URL -f scripts/migrate-estudantes-v2.sql
 psql $DATABASE_URL -f scripts/migrate-ocorrencias-v2.sql
 pnpm --filter @workspace/db run push-force
 ```
