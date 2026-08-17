@@ -328,11 +328,11 @@ export default function EstudantesDetail() {
                         <p className="text-sm font-medium text-muted-foreground mb-1">Registro</p>
                         <p className="font-mono text-base">{estudante.registro}</p>
                       </div>
-                      {estudante.emails.length > 0 && (
+                      {(estudante.emails ?? []).length > 0 && (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground mb-2">E-mails</p>
                           <div className="space-y-1.5">
-                            {estudante.emails.map((em) => (
+                            {(estudante.emails ?? []).map((em) => (
                               <div key={em.id} className="flex items-center gap-2">
                                 <span className="text-sm">{em.email}</span>
                                 {em.tipo === "proprio" ? (
