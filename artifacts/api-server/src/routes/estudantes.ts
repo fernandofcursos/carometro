@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { db, estudantesTable, estudanteEmailsTable, turmasTable, cursosTable, turnosTable, eq, isNull, and, inArray, ilike, or } from "@workspace/db";
+import { db, estudantesTable, estudanteEmailsTable, turmasTable, turmaTurnosTable, cursosTable, turnosTable, eq, isNull, and, inArray, ilike, or } from "@workspace/db";
 import {
   criptografarFoto,
   descriptografarFoto,
@@ -74,7 +74,8 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
       .from(estudantesTable)
       .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
+      .leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
+      .leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
       .where(and(...condicoes))
       .orderBy(estudantesTable.nome);
 
@@ -119,7 +120,8 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       .from(estudantesTable)
       .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
+      .leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
+      .leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
       .where(eq(estudantesTable.id, String(req.params.id)));
 
     if (!e || e.deletadoEm) return res.status(404).json({ error: "Estudante não encontrado" });
