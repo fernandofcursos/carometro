@@ -3,6 +3,7 @@ import {
   db,
   estudantesTable,
   turmasTable,
+  turmaTurnosTable,
   cursosTable,
   turnosTable,
   eq,
@@ -242,18 +243,21 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
     const condicoes = [isNull(estudantesTable.deletadoEm)];
     if (turmaId) condicoes.push(eq(estudantesTable.turmaId, turmaId as string));
     if (cursoId) condicoes.push(eq(turmasTable.cursoId, cursoId as string));
-    if (turnoId) condicoes.push(eq(turmasTable.turnoId, turnoId as string));
+    if (turnoId) condicoes.push(eq(turmaTurnosTable.turnoId, turnoId as string));
 
     const rows = await db
       .select({
-        id:            estudantesTable.id,
-        nome:          estudantesTable.nome,
-        registro:      estudantesTable.registro,
-        turmaId:       estudantesTable.turmaId,
-        turmaSigla:    turmasTable.sigla,
-        turmaDescricao: turmasTable.descricao,
-        cursoNome:     cursosTable.nome,
-        turnoNome:     turnosTable.nome,
+        id:              estudantesTable.id,
+        nome:            estudantesTable.nome,
+        registro:        estudantesTable.registro,
+        dataNascimento:  estudantesTable.dataNascimento,
+        turmaId:         estudantesTable.turmaId,
+        turmaSigla:      turmasTable.sigla,
+        turmaDescricao:  turmasTable.descricao,
+        cursoId:         cursosTable.id,
+        cursoNome:       cursosTable.nome,
+        turnoId:         turnosTable.id,
+        turnoNome:       turnosTable.nome,
         fotoDados:           estudantesTable.fotoDados,
         fotoIv:              estudantesTable.fotoIv,
         fotoMimeType:        estudantesTable.fotoMimeType,
@@ -261,11 +265,12 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
         fotoStorageKey:      estudantesTable.fotoStorageKey,
       })
       .from(estudantesTable)
-      .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
-      .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
+      .leftJoin(turmasTable,      eq(estudantesTable.turmaId,  turmasTable.id))
+      .leftJoin(cursosTable,      eq(turmasTable.cursoId,      cursosTable.id))
+      .leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
+      .leftJoin(turnosTable,      eq(turmaTurnosTable.turnoId, turnosTable.id))
       .where(and(...condicoes))
-      .orderBy(turmasTable.sigla, estudantesTable.nome);
+      .orderBy(turnosTable.nome, cursosTable.nome, turmasTable.sigla, estudantesTable.nome);
 
     // Filtro de busca em memória
     const filtrados = busca
@@ -276,10 +281,12 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
       : rows;
 
     // Descriptografar fotos e agrupar por turma
+    // (JOIN com turmaTurnosTable pode gerar linhas duplicadas por estudante se turma tiver N turnos)
     const turmaMap = new Map<string, {
       turmaId: string; turmaSigla: string; turmaDescricao: string;
-      turnoNome: string; cursoNome: string;
-      estudantes: { id: string; nome: string; registro: string; fotoUrl: string | null }[];
+      cursoId: string; cursoNome: string;
+      turnoId: string; turnoNome: string;
+      estudantes: Map<string, { id: string; nome: string; registro: string; dataNascimento: string | null; fotoUrl: string | null }>;
     }>();
 
     for (const r of filtrados) {
@@ -289,29 +296,36 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
           turmaId:        tid,
           turmaSigla:     r.turmaSigla ?? "",
           turmaDescricao: r.turmaDescricao ?? "",
-          turnoNome:      r.turnoNome ?? "",
+          cursoId:        r.cursoId ?? "",
           cursoNome:      r.cursoNome ?? "",
-          estudantes:     [],
+          turnoId:        r.turnoId ?? "",
+          turnoNome:      r.turnoNome ?? "",
+          estudantes:     new Map(),
         });
       }
 
-      let fotoUrl: string | null = null;
-      if (r.fotoDados && r.fotoIv) {
-        try {
-          const dadosBrutos = descriptografarFoto(r.fotoDados, r.fotoIv);
-          if (!r.fotoHashIntegridade || verificarIntegridade(dadosBrutos, r.fotoHashIntegridade)) {
-            fotoUrl = `data:${r.fotoMimeType ?? "image/jpeg"};base64,${dadosBrutos.toString("base64")}`;
-          }
-        } catch {
-          // foto corrompida — incluir estudante sem foto
-        }
-      }
+      const grupo = turmaMap.get(tid)!;
 
-      turmaMap.get(tid)!.estudantes.push({ id: r.id, nome: r.nome, registro: r.registro, fotoUrl });
+      // Deduplica estudante por id (pode aparecer N vezes se turma tem N turnos)
+      if (!grupo.estudantes.has(r.id)) {
+        let fotoUrl: string | null = null;
+        if (r.fotoDados && r.fotoIv) {
+          try {
+            const dadosBrutos = descriptografarFoto(r.fotoDados, r.fotoIv);
+            if (!r.fotoHashIntegridade || verificarIntegridade(dadosBrutos, r.fotoHashIntegridade)) {
+              fotoUrl = `data:${r.fotoMimeType ?? "image/jpeg"};base64,${dadosBrutos.toString("base64")}`;
+            }
+          } catch {
+            // foto corrompida — incluir estudante sem foto
+          }
+        }
+        grupo.estudantes.set(r.id, { id: r.id, nome: r.nome, registro: r.registro, dataNascimento: r.dataNascimento, fotoUrl });
+      }
     }
 
-    // Retorna CarometroGroup[] ordenado pela sigla da turma
-    const groups = [...turmaMap.values()].sort((a, b) => a.turmaSigla.localeCompare(b.turmaSigla));
+    const groups = [...turmaMap.values()]
+      .sort((a, b) => a.turnoNome.localeCompare(b.turnoNome) || a.cursoNome.localeCompare(b.cursoNome) || a.turmaSigla.localeCompare(b.turmaSigla))
+      .map((g) => ({ ...g, estudantes: [...g.estudantes.values()] }));
     res.json(groups);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao carregar carômetro" });

@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Link } from "wouter";
 import {
   useGetCarometro, useListTurnos, useListTurmas, useListCursos,
-  useListTiposOcorrencias, useCreateOcorrencia,
-  getListOcorrenciasQueryKey,
+  useListTiposOcorrencias,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,18 +13,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Camera, Filter, AlertTriangle, Save } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Camera, Filter, AlertTriangle, Save, CheckCircle2, Clock, Send, ChevronDown, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/auth";
+import { useAuth, useHasPermission, useHasRole } from "@/contexts/auth";
 
-type CarometroEstudante = {
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const hoje = new Date().toISOString().slice(0, 10);
+
+// ── Funções utilitárias ───────────────────────────────────────────────────────
+
+function calcularIdade(dataNascimento: string): number {
+  const nasc = new Date(dataNascimento);
+  const hoje_ = new Date();
+  let idade = hoje_.getFullYear() - nasc.getFullYear();
+  const m = hoje_.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje_.getDate() < nasc.getDate())) idade--;
+  return idade;
+}
+
+function isMenor(dataNascimento: string | null): boolean {
+  if (!dataNascimento) return false;
+  return calcularIdade(dataNascimento) < 18;
+}
+
+function formatarData(iso: string): string {
+  return new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "long", year: "numeric",
+  });
+}
+
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
+type EstudanteCard = {
   id: string;
   nome: string;
   registro: string;
+  dataNascimento: string | null;
   fotoUrl: string | null;
   turmaId: string;
   turmaSigla: string;
@@ -36,325 +65,734 @@ type CarometroEstudante = {
   turnoNome: string;
 };
 
-const hoje = new Date().toISOString().slice(0, 10);
-const hojeFormatado = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+type CarometroGroup = {
+  turmaId: string;
+  turmaSigla: string;
+  turmaDescricao: string;
+  cursoId: string;
+  cursoNome: string;
+  turnoId: string;
+  turnoNome: string;
+  estudantes: EstudanteCard[];
+};
 
-function OcorrenciaModal({
+type Ocorrencia = {
+  id: string;
+  dataOcorrencia: string;
+  criadoEm: string;
+  observacao: string | null;
+  tipoDescricao: string | null;
+  disciplinaNome: string | null;
+  turnoNome: string | null;
+  cienteEm: string | null;
+  cientePorId: string | null;
+  notificacaoPaisEnviadaEm: string | null;
+};
+
+// ── Lista de ocorrências ──────────────────────────────────────────────────────
+
+function OcorrenciaItem({
+  ocorrencia,
+  isPaiResponsavel,
+  onCiente,
+  onNotificar,
+  canCreate,
+  onDelete,
+}: {
+  ocorrencia: Ocorrencia;
+  isPaiResponsavel: boolean;
+  onCiente: (id: string) => void;
+  onNotificar: (id: string) => void;
+  canCreate: boolean;
+  onDelete: (id: string) => void;
+}) {
+  const [expandido, setExpandido] = useState(false);
+  const jaTemCiencia = !!ocorrencia.cienteEm;
+
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <button
+        type="button"
+        className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30 transition-colors"
+        onClick={() => setExpandido((v) => !v)}
+      >
+        <div className="shrink-0 mt-0.5">
+          <AlertTriangle className="w-4 h-4 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{ocorrencia.tipoDescricao ?? "Ocorrência"}</p>
+          <p className="text-xs text-muted-foreground">
+            {formatarData(ocorrencia.dataOcorrencia)}
+            {ocorrencia.turnoNome && ` · ${ocorrencia.turnoNome}`}
+            {ocorrencia.disciplinaNome && ` · ${ocorrencia.disciplinaNome}`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {jaTemCiencia ? (
+            <Badge variant="outline" className="text-xs border-green-600 text-green-700 gap-1">
+              <CheckCircle2 className="w-3 h-3" />Ciente
+            </Badge>
+          ) : isPaiResponsavel ? (
+            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700">Pendente</Badge>
+          ) : null}
+          {expandido ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {expandido && (
+        <div className="px-3 pb-3 space-y-3 border-t pt-3 bg-muted/10">
+          {ocorrencia.observacao && (
+            <p className="text-sm text-foreground/80 leading-relaxed">{ocorrencia.observacao}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Registrada em {new Date(ocorrencia.criadoEm).toLocaleString("pt-BR")}
+            {ocorrencia.notificacaoPaisEnviadaEm && (
+              <span className="ml-2 text-blue-600">· Responsáveis notificados</span>
+            )}
+          </p>
+          {jaTemCiencia && (
+            <p className="text-xs text-green-700">
+              Ciência registrada em {new Date(ocorrencia.cienteEm!).toLocaleString("pt-BR")}
+            </p>
+          )}
+
+          <div className="flex gap-2 flex-wrap">
+            {isPaiResponsavel && !jaTemCiencia && (
+              <Button
+                size="sm"
+                className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                onClick={() => onCiente(ocorrencia.id)}
+              >
+                <CheckCircle2 className="w-3 h-3 mr-1" />Marcar como Ciente
+              </Button>
+            )}
+            {canCreate && !ocorrencia.notificacaoPaisEnviadaEm && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onNotificar(ocorrencia.id)}
+              >
+                <Send className="w-3 h-3 mr-1" />Notificar responsáveis
+              </Button>
+            )}
+            {canCreate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                onClick={() => onDelete(ocorrencia.id)}
+              >
+                Excluir
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Modal do estudante (ocorrências + formulário) ─────────────────────────────
+
+function EstudanteModal({
   estudante,
   onClose,
 }: {
-  estudante: CarometroEstudante;
+  estudante: EstudanteCard;
   onClose: () => void;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const canCreate     = useHasPermission("ocorrencias:create");
+  const isPaiResp     = useHasRole("pai_responsavel");
 
+  // Form state
   const [dataOcorrencia, setDataOcorrencia] = useState(hoje);
-  const [tipoId, setTipoId] = useState("");
-  const [disciplinaOfertaId, setDisciplinaOfertaId] = useState("");
+  const [tipoId, setTipoId]     = useState("");
+  const [disciplinaOfertaId, setDisciplinaOfertaId] = useState("__none__");
   const [observacao, setObservacao] = useState("");
   const [enviarEmail, setEnviarEmail] = useState(false);
 
-  const { data: tipos } = useListTiposOcorrencias({ status: "ativo" });
-  const createOcorrencia = useCreateOcorrencia();
+  const { data: tipos } = useListTiposOcorrencias({ status: "ativo" } as Parameters<typeof useListTiposOcorrencias>[0]);
+  const { data: turnos } = useListTurnos();
 
   const disciplinasUsuario = user?.disciplinas ?? [];
 
-  const disciplinasFiltradas = disciplinasUsuario.length > 0 ? disciplinasUsuario : [];
+  // Fetch existing occurrences for this student
+  const ocorrenciasKey = ["ocorrencias", "estudante", estudante.id];
+  const { data: ocorrencias = [], refetch: refetchOcorrencias } = useQuery<Ocorrencia[]>({
+    queryKey: ocorrenciasKey,
+    queryFn: async () => {
+      const endpoint = canCreate
+        ? `${BASE}/api/ocorrencias?estudanteId=${estudante.id}`
+        : `${BASE}/api/ocorrencias/estudante/${estudante.id}`;
+      const res = await fetch(endpoint, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
-  const disciplinaSelecionada = disciplinasFiltradas.find((d) => d.ofertaId === disciplinaOfertaId);
+  // Derived discipline info
+  const disciplinaSelecionada = disciplinasUsuario.find((d) => d.ofertaId === disciplinaOfertaId);
+  const turnoIdDerived = disciplinaSelecionada?.turnoId ?? null;
+  const turnoNomeDerived = disciplinaSelecionada?.turnoNome ?? null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tipoId || !dataOcorrencia) return;
+  const hojeFormatado = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  const menor = isMenor(estudante.dataNascimento);
 
-    createOcorrencia.mutate(
-      {
-        data: {
-          estudanteId: estudante.id,
-          tipoOcorrenciaId: tipoId,
-          disciplinaId: disciplinaSelecionada?.disciplinaId ?? undefined,
-          registradoPorId: user?.id ?? undefined,
-          dataOcorrencia,
-          observacao: observacao.trim() || undefined,
-          enviarEmail: enviarEmail || undefined,
-        },
-      },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListOcorrenciasQueryKey() });
-          toast({ title: "Ocorrência registrada com sucesso" });
-          onClose();
-        },
-        onError: () => {
-          toast({ title: "Erro ao registrar ocorrência", variant: "destructive" });
-        },
-      }
-    );
-  };
+  // Registrar ocorrência
+  const criarMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        estudanteId: estudante.id,
+        tipoOcorrenciaId: tipoId,
+        disciplinaId: disciplinaSelecionada?.disciplinaId ?? null,
+        turnoId: turnoIdDerived,
+        dataOcorrencia,
+        observacao: observacao.trim() || null,
+        enviarEmailPais: menor && enviarEmail,
+      };
+      const res = await fetch(`${BASE}/api/ocorrencias`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Erro ao registrar");
+      return body;
+    },
+    onSuccess: () => {
+      setTipoId(""); setDisciplinaOfertaId("__none__"); setObservacao(""); setEnviarEmail(false);
+      toast({ title: "Ocorrência registrada com sucesso" });
+      refetchOcorrencias();
+      queryClient.invalidateQueries({ queryKey: ["ocorrencias"] });
+    },
+    onError: (err) => toast({
+      title: "Erro ao registrar ocorrência",
+      description: err instanceof Error ? err.message : "Tente novamente.",
+      variant: "destructive",
+    }),
+  });
+
+  // Marcar ciência
+  const cienteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${BASE}/api/ocorrencias/${id}/ciente`, {
+        method: "POST", credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Erro");
+      return body;
+    },
+    onSuccess: () => { toast({ title: "Ciência registrada" }); refetchOcorrencias(); },
+    onError: (err) => toast({
+      title: "Erro ao registrar ciência",
+      description: err instanceof Error ? err.message : "Tente novamente.",
+      variant: "destructive",
+    }),
+  });
+
+  // Notificar responsáveis
+  const notificarMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${BASE}/api/ocorrencias/${id}/notificar-pais`, {
+        method: "POST", credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Erro");
+      return body;
+    },
+    onSuccess: () => { toast({ title: "Responsáveis notificados por e-mail" }); refetchOcorrencias(); },
+    onError: (err) => toast({
+      title: "Erro ao notificar",
+      description: err instanceof Error ? err.message : "Tente novamente.",
+      variant: "destructive",
+    }),
+  });
+
+  // Excluir ocorrência
+  const excluirMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${BASE}/api/ocorrencias/${id}`, {
+        method: "DELETE", credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Erro");
+      return body;
+    },
+    onSuccess: () => { toast({ title: "Ocorrência excluída" }); refetchOcorrencias(); },
+    onError: (err) => toast({
+      title: "Erro ao excluir",
+      description: err instanceof Error ? err.message : "Tente novamente.",
+      variant: "destructive",
+    }),
+  });
+
+  const formValido = !!tipoId && !!dataOcorrencia && (!observacao || observacao.length <= 300);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-amber-700">
-            <AlertTriangle className="w-5 h-5" />
-            Registrar Ocorrência
-          </DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4 pt-1">
-          <div className="rounded-lg bg-muted/40 border px-4 py-3 space-y-2">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Estudante</p>
-              <p className="font-semibold text-foreground">{estudante.nome}</p>
-              <p className="text-xs text-muted-foreground font-mono">{estudante.registro} · {estudante.turmaSigla}</p>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
+        {/* Header fixo */}
+        <div className="px-6 pt-6 pb-4 border-b">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-lg overflow-hidden bg-muted shrink-0 flex items-center justify-center">
+              {estudante.fotoUrl ? (
+                <img src={estudante.fotoUrl} alt={estudante.nome} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl font-semibold text-muted-foreground">
+                  {estudante.nome.substring(0, 2).toUpperCase()}
+                </span>
+              )}
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Data de Registro</p>
-              <p className="text-sm text-foreground">{hojeFormatado}</p>
-            </div>
-            {user && (
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Professor(a)</p>
-                <p className="text-sm text-foreground">{user.nome ?? user.email}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold truncate">{estudante.nome}</h2>
+              <p className="text-sm text-muted-foreground font-mono">{estudante.registro}</p>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                <Badge variant="secondary" className="text-xs">{estudante.turmaSigla}</Badge>
+                <Badge variant="outline" className="text-xs">{estudante.turnoNome}</Badge>
+                <Badge variant="outline" className="text-xs text-violet-700 border-violet-300">{estudante.cursoNome}</Badge>
+                {menor && (
+                  <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-300">Menor de idade</Badge>
+                )}
               </div>
-            )}
+            </div>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="data-ocorrencia">Data da Ocorrência *</Label>
-            <Input
-              id="data-ocorrencia"
-              type="date"
-              value={dataOcorrencia}
-              onChange={(e) => setDataOcorrencia(e.target.value)}
-              max={hoje}
-              required
-            />
-          </div>
+        {/* Conteúdo com scroll */}
+        <div className="flex-1 overflow-y-auto">
+          {canCreate ? (
+            <Tabs defaultValue="registrar" className="h-full">
+              <TabsList className="w-full rounded-none border-b h-10">
+                <TabsTrigger value="registrar" className="flex-1 text-xs">Registrar Ocorrência</TabsTrigger>
+                <TabsTrigger value="historico" className="flex-1 text-xs">
+                  Histórico {ocorrencias.length > 0 && `(${ocorrencias.length})`}
+                </TabsTrigger>
+              </TabsList>
 
-          {disciplinasFiltradas.length > 0 && (
-            <div className="space-y-2">
-              <Label>Disciplina</Label>
-              <Select value={disciplinaOfertaId} onValueChange={setDisciplinaOfertaId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a disciplina (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhuma disciplina</SelectItem>
-                  {disciplinasFiltradas.map((d) => (
-                    <SelectItem key={d.ofertaId} value={d.ofertaId}>
-                      {d.disciplinaNome}
-                      {disciplinasFiltradas.filter((x) => x.disciplinaNome === d.disciplinaNome).length > 1 && (
-                        <span className="text-muted-foreground ml-1 text-xs">({d.turnoNome} · {d.cursoNome})</span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Tab: Registrar */}
+              <TabsContent value="registrar" className="px-6 py-4 space-y-4 mt-0">
+                <div className="rounded-md bg-muted/40 border px-4 py-3 grid grid-cols-2 gap-y-1 text-xs">
+                  <span className="text-muted-foreground font-medium">Data de Registro (servidor)</span>
+                  <span className="font-medium">{hojeFormatado}</span>
+                  {user && (
+                    <>
+                      <span className="text-muted-foreground font-medium">Registrado por</span>
+                      <span>{user.nome ?? user.email}</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Data da Ocorrência *</Label>
+                  <Input
+                    type="date"
+                    value={dataOcorrencia}
+                    onChange={(e) => setDataOcorrencia(e.target.value)}
+                    max={hoje}
+                    required
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                {disciplinasUsuario.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Disciplina — Turno</Label>
+                    <Select value={disciplinaOfertaId} onValueChange={setDisciplinaOfertaId}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Selecione a disciplina (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__" className="text-xs">Nenhuma disciplina</SelectItem>
+                        {disciplinasUsuario.map((d) => (
+                          <SelectItem key={d.ofertaId} value={d.ofertaId} className="text-xs">
+                            {d.disciplinaNome}
+                            <span className="text-muted-foreground ml-1 text-xs">— {d.turnoNome}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {turnoNomeDerived && (
+                      <p className="text-xs text-muted-foreground">Turno: <strong>{turnoNomeDerived}</strong></p>
+                    )}
+                  </div>
+                )}
+
+                {disciplinasUsuario.length === 0 && turnos && turnos.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Turno</Label>
+                    <Select
+                      value={disciplinaOfertaId}
+                      onValueChange={setDisciplinaOfertaId}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Selecione o turno (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__" className="text-xs">Não especificado</SelectItem>
+                        {turnos.map((t) => (
+                          <SelectItem key={t.id} value={t.id} className="text-xs">{t.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Tipo de Ocorrência *</Label>
+                  <Select value={tipoId} onValueChange={setTipoId}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {!tipos?.length
+                        ? <SelectItem value="__empty__" disabled className="text-xs">Nenhum tipo cadastrado</SelectItem>
+                        : tipos.map((t) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.descricao}</SelectItem>)
+                      }
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Descrição da Ocorrência</Label>
+                    <span className={`text-xs ${observacao.length > 280 ? "text-amber-600" : "text-muted-foreground"}`}>
+                      {observacao.length}/300
+                    </span>
+                  </div>
+                  <Textarea
+                    value={observacao}
+                    onChange={(e) => setObservacao(e.target.value.slice(0, 300))}
+                    placeholder="Descreva detalhadamente o ocorrido..."
+                    rows={3}
+                    className="resize-none text-xs"
+                    maxLength={300}
+                  />
+                </div>
+
+                {menor && (
+                  <div className="flex items-start gap-3 rounded-lg border border-orange-200 px-4 py-3 bg-orange-50">
+                    <Checkbox
+                      id="enviar-email"
+                      checked={enviarEmail}
+                      onCheckedChange={(v) => setEnviarEmail(!!v)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <Label htmlFor="enviar-email" className="font-medium cursor-pointer text-xs">
+                        Notificar responsável por e-mail
+                      </Label>
+                      <p className="text-xs text-orange-700 mt-0.5">
+                        Estudante menor de idade. Envia a ocorrência para os e-mails de responsável cadastrados.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <Button
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white h-9 text-sm"
+                  disabled={!formValido || criarMutation.isPending}
+                  onClick={() => criarMutation.mutate()}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {criarMutation.isPending ? "Registrando..." : "Registrar Ocorrência"}
+                </Button>
+              </TabsContent>
+
+              {/* Tab: Histórico */}
+              <TabsContent value="historico" className="px-6 py-4 mt-0">
+                <OcorrenciasList
+                  ocorrencias={ocorrencias}
+                  isPaiResponsavel={isPaiResp}
+                  canCreate={canCreate}
+                  onCiente={(id) => cienteMutation.mutate(id)}
+                  onNotificar={(id) => notificarMutation.mutate(id)}
+                  onDelete={(id) => excluirMutation.mutate(id)}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            /* Sem permissão de criação — mostra só histórico */
+            <div className="px-6 py-4">
+              <h3 className="text-sm font-semibold mb-3">Ocorrências</h3>
+              <OcorrenciasList
+                ocorrencias={ocorrencias}
+                isPaiResponsavel={isPaiResp}
+                canCreate={false}
+                onCiente={(id) => cienteMutation.mutate(id)}
+                onNotificar={() => {}}
+                onDelete={() => {}}
+              />
             </div>
           )}
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="tipo">Tipo de Ocorrência *</Label>
-            <Select value={tipoId} onValueChange={setTipoId} required>
-              <SelectTrigger id="tipo">
-                <SelectValue placeholder="Selecione o tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                {tipos?.length === 0
-                  ? <SelectItem value="__empty__" disabled>Nenhum tipo cadastrado</SelectItem>
-                  : tipos?.map((t) => <SelectItem key={t.id} value={t.id}>{t.descricao}</SelectItem>)
-                }
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="observacao">Descrição da Ocorrência</Label>
-            <Textarea
-              id="observacao"
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-              placeholder="Descreva detalhadamente o ocorrido..."
-              rows={4}
-              className="resize-none"
-            />
-          </div>
-
-          <div className="flex items-start gap-3 rounded-lg border px-4 py-3 bg-muted/10">
-            <Checkbox
-              id="enviar-email"
-              checked={enviarEmail}
-              onCheckedChange={(v) => setEnviarEmail(!!v)}
-              className="mt-0.5"
-            />
-            <div>
-              <Label htmlFor="enviar-email" className="font-medium cursor-pointer">
-                Notificar responsável por e-mail
-              </Label>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Envia esta ocorrência para os e-mails de responsável cadastrados para o estudante.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button
-              type="submit"
-              disabled={createOcorrencia.isPending || !tipoId || !dataOcorrencia}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {createOcorrencia.isPending ? "Registrando..." : "Registrar Ocorrência"}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter className="px-6 py-4 border-t">
+          <Button variant="ghost" onClick={onClose} className="h-8 text-xs">Fechar</Button>
+          <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+            <Link href={`/estudantes/${estudante.id}`}>Ver perfil completo</Link>
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
+function OcorrenciasList({
+  ocorrencias, isPaiResponsavel, canCreate, onCiente, onNotificar, onDelete,
+}: {
+  ocorrencias: Ocorrencia[];
+  isPaiResponsavel: boolean;
+  canCreate: boolean;
+  onCiente: (id: string) => void;
+  onNotificar: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (!ocorrencias.length) {
+    return (
+      <div className="text-center py-8 text-muted-foreground text-sm">
+        <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+        Nenhuma ocorrência registrada.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {[...ocorrencias].reverse().map((o) => (
+        <OcorrenciaItem
+          key={o.id}
+          ocorrencia={o}
+          isPaiResponsavel={isPaiResponsavel}
+          canCreate={canCreate}
+          onCiente={onCiente}
+          onNotificar={onNotificar}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
+
 export default function Carometro() {
-  const [turnoId, setTurnoId] = useState<string>("all");
-  const [cursoId, setCursoId] = useState<string>("all");
-  const [turmaId, setTurmaId] = useState<string>("all");
-  const [selectedEstudante, setSelectedEstudante] = useState<CarometroEstudante | null>(null);
+  const [turnoFiltro, setTurnoFiltro]   = useState<string>("all");
+  const [cursoFiltro, setCursoFiltro]   = useState<string>("all");
+  const [turmaFiltro, setTurmaFiltro]   = useState<string>("all");
+  const [busca, setBusca]               = useState("");
+  const [selectedEstudante, setSelectedEstudante] = useState<EstudanteCard | null>(null);
+
+  const canCreate  = useHasPermission("ocorrencias:create");
+  const isPaiResp  = useHasRole("pai_responsavel");
+  const isEstudante = useHasRole("estudante");
+  const showOcorrenciaBtn = canCreate || isPaiResp || isEstudante;
 
   const { data: turnos } = useListTurnos();
   const { data: cursos } = useListCursos();
   const { data: turmas } = useListTurmas(
-    turnoId !== "all" || cursoId !== "all"
-      ? { ...(turnoId !== "all" && { turnoId }), ...(cursoId !== "all" && { cursoId }) }
+    (turnoFiltro !== "all" || cursoFiltro !== "all")
+      ? { ...(turnoFiltro !== "all" && { turnoId: turnoFiltro }), ...(cursoFiltro !== "all" && { cursoId: cursoFiltro }) }
       : undefined
   );
 
   const params = {
-    ...(turnoId !== "all" && { turnoId }),
-    ...(cursoId !== "all" && { cursoId }),
-    ...(turmaId !== "all" && { turmaId }),
+    ...(turnoFiltro !== "all" && { turnoId: turnoFiltro }),
+    ...(cursoFiltro !== "all" && { cursoId: cursoFiltro }),
+    ...(turmaFiltro !== "all" && { turmaId: turmaFiltro }),
+    ...(busca && { busca }),
   };
 
-  const { data: groups, isLoading } = useGetCarometro(
+  const { data: rawGroups, isLoading } = useGetCarometro(
     Object.keys(params).length > 0 ? params : undefined,
     { query: { queryKey: ["/api/carometro", params] } }
   );
 
-  const handleTurnoChange = (val: string) => { setTurnoId(val); setTurmaId("all"); };
-  const handleCursoChange = (val: string) => { setCursoId(val); setTurmaId("all"); };
+  const handleTurnoChange = (val: string) => { setTurnoFiltro(val); setTurmaFiltro("all"); };
+  const handleCursoChange = (val: string) => { setCursoFiltro(val); setTurmaFiltro("all"); };
+
+  // Agrupar por turno → curso
+  const groups = (rawGroups ?? []) as CarometroGroup[];
+  const byTurno: Record<string, Record<string, CarometroGroup[]>> = {};
+  for (const g of groups) {
+    const t = g.turnoNome || "Sem turno";
+    const c = g.cursoNome || "Sem curso";
+    if (!byTurno[t]) byTurno[t] = {};
+    if (!byTurno[t][c]) byTurno[t][c] = [];
+    byTurno[t][c].push(g);
+  }
+  const turnoNomes = Object.keys(byTurno).sort();
 
   return (
     <div className="space-y-8">
+      {/* Cabeçalho + filtros */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Carômetro de Estudantes</h1>
-          <p className="text-muted-foreground mt-2">Visualize os registros fotográficos por curso e turma.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Carômetro — Estudantes</h1>
+          <p className="text-muted-foreground mt-2">Registro fotográfico por turno e curso.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Filter className="w-4 h-4 text-muted-foreground hidden sm:block" />
-          <Select value={turnoId} onValueChange={handleTurnoChange}>
-            <SelectTrigger className="w-[150px] bg-background"><SelectValue placeholder="Turno" /></SelectTrigger>
+          <Select value={turnoFiltro} onValueChange={handleTurnoChange}>
+            <SelectTrigger className="w-[150px] bg-background h-8 text-xs"><SelectValue placeholder="Turno" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os turnos</SelectItem>
-              {turnos?.map((t) => <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>)}
+              <SelectItem value="all" className="text-xs">Todos os turnos</SelectItem>
+              {turnos?.map((t) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.nome}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={cursoId} onValueChange={handleCursoChange}>
-            <SelectTrigger className="w-[150px] bg-background"><SelectValue placeholder="Curso" /></SelectTrigger>
+          <Select value={cursoFiltro} onValueChange={handleCursoChange}>
+            <SelectTrigger className="w-[160px] bg-background h-8 text-xs"><SelectValue placeholder="Curso" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os cursos</SelectItem>
-              {cursos?.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+              <SelectItem value="all" className="text-xs">Todos os cursos</SelectItem>
+              {cursos?.map((c) => <SelectItem key={c.id} value={c.id} className="text-xs">{c.nome}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={turmaId} onValueChange={setTurmaId}>
-            <SelectTrigger className="w-[150px] bg-background"><SelectValue placeholder="Turma" /></SelectTrigger>
+          <Select value={turmaFiltro} onValueChange={setTurmaFiltro}>
+            <SelectTrigger className="w-[140px] bg-background h-8 text-xs"><SelectValue placeholder="Turma" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas as turmas</SelectItem>
-              {turmas?.map((t) => <SelectItem key={t.id} value={t.id}>{t.sigla}</SelectItem>)}
+              <SelectItem value="all" className="text-xs">Todas as turmas</SelectItem>
+              {turmas?.map((t) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.sigla}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar estudante..."
+            className="w-[180px] h-8 text-xs bg-background"
+          />
         </div>
       </div>
 
+      {/* Conteúdo */}
       {isLoading ? (
         <div className="space-y-8">
           {[1, 2].map((i) => (
             <div key={i} className="space-y-4">
-              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-8 w-48" />
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {[1, 2, 3, 4, 5, 6].map((j) => <Skeleton key={j} className="aspect-[3/4] rounded-xl" />)}
               </div>
             </div>
           ))}
         </div>
-      ) : groups?.length === 0 ? (
+      ) : turnoNomes.length === 0 ? (
         <div className="py-20 text-center flex flex-col items-center border rounded-xl bg-card border-dashed">
           <Camera className="w-12 h-12 text-muted-foreground opacity-30 mb-4" />
-          <h3 className="text-lg font-semibold">Nenhum registro encontrado</h3>
+          <h3 className="text-lg font-semibold">Nenhum estudante encontrado</h3>
           <p className="text-muted-foreground max-w-sm mt-1">Não há estudantes para os filtros selecionados.</p>
         </div>
       ) : (
         <div className="space-y-12">
-          {groups?.map((group) => (
-            <div key={group.turmaId} className="space-y-4">
-              <div className="flex items-center gap-3 border-b pb-2">
-                <h2 className="text-2xl font-bold text-foreground">{group.turmaSigla}</h2>
-                <span className="text-base text-muted-foreground">{group.turmaDescricao}</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold">{group.turnoNome}</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs font-semibold">{group.cursoNome}</span>
-                <span className="text-sm text-muted-foreground ml-auto">{group.estudantes.length} estudante{group.estudantes.length !== 1 && "s"}</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {group.estudantes.map((est) => (
-                  <Card
-                    key={est.id}
-                    className="overflow-hidden border-border/60 bg-card flex flex-col"
-                  >
-                    <Link href={`/estudantes/${est.id}`} className="block">
-                      <div className="aspect-[3/4] relative bg-secondary/30 flex items-center justify-center overflow-hidden group cursor-pointer hover:opacity-90 transition-opacity">
-                        {est.fotoUrl ? (
-                          <img src={est.fotoUrl} alt={est.nome} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                        ) : (
-                          <Avatar className="w-20 h-20 shadow-sm border-2 border-background">
-                            <AvatarFallback className="text-xl font-medium bg-primary/10 text-primary">
-                              {est.nome.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
-                      <div className="px-2 pt-2">
-                        <p className="text-xs font-semibold truncate hover:text-primary transition-colors">{est.nome}</p>
-                        <p className="text-xs text-muted-foreground truncate">{est.registro}</p>
-                      </div>
-                    </Link>
-                    <div className="px-2 pb-2 pt-1.5 mt-auto">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full h-7 text-xs gap-1 border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
-                        onClick={() => setSelectedEstudante(est as CarometroEstudante)}
-                      >
-                        <AlertTriangle className="w-3 h-3" />
-                        Ocorrência
-                      </Button>
+          {turnoNomes.map((turnoNome) => {
+            const cursoNomes = Object.keys(byTurno[turnoNome]).sort();
+            return (
+              <div key={turnoNome} className="space-y-8">
+                {/* Cabeçalho do turno */}
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold">{turnoNome}</h2>
+                  <Badge variant="outline" className="text-sm">{
+                    cursoNomes.reduce((acc, c) => acc + byTurno[turnoNome][c].reduce((s, g) => s + g.estudantes.length, 0), 0)
+                  } estudantes</Badge>
+                </div>
+
+                {cursoNomes.map((cursoNome) => {
+                  const turmaGroups = byTurno[turnoNome][cursoNome];
+                  return (
+                    <div key={cursoNome} className="space-y-4 pl-4 border-l-2 border-violet-200">
+                      <h3 className="text-lg font-semibold text-violet-800">{cursoNome}</h3>
+                      {turmaGroups.map((group) => (
+                        <div key={group.turmaId} className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base font-semibold">{group.turmaSigla}</span>
+                            {group.turmaDescricao && (
+                              <span className="text-sm text-muted-foreground">{group.turmaDescricao}</span>
+                            )}
+                            <span className="text-sm text-muted-foreground ml-auto">
+                              {group.estudantes.length} estudante{group.estudantes.length !== 1 && "s"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                            {group.estudantes.map((est) => (
+                              <EstudanteCardItem
+                                key={est.id}
+                                estudante={{ ...est, turmaSigla: group.turmaSigla, turmaDescricao: group.turmaDescricao, turmaId: group.turmaId, cursoId: group.cursoId, cursoNome: group.cursoNome, turnoId: group.turnoId, turnoNome }}
+                                showOcorrenciaBtn={showOcorrenciaBtn}
+                                canCreate={canCreate}
+                                onOcorrencia={setSelectedEstudante}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </Card>
-                ))}
+                  );
+                })}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {selectedEstudante && (
-        <OcorrenciaModal
+        <EstudanteModal
           estudante={selectedEstudante}
           onClose={() => setSelectedEstudante(null)}
         />
       )}
     </div>
+  );
+}
+
+function EstudanteCardItem({
+  estudante, showOcorrenciaBtn, canCreate, onOcorrencia,
+}: {
+  estudante: EstudanteCard;
+  showOcorrenciaBtn: boolean;
+  canCreate: boolean;
+  onOcorrencia: (e: EstudanteCard) => void;
+}) {
+  const menor = isMenor(estudante.dataNascimento);
+
+  return (
+    <Card className="overflow-hidden border-border/60 bg-card flex flex-col">
+      <Link href={`/estudantes/${estudante.id}`} className="block">
+        <div className="aspect-[3/4] relative bg-secondary/30 flex items-center justify-center overflow-hidden group cursor-pointer hover:opacity-90 transition-opacity">
+          {estudante.fotoUrl ? (
+            <img src={estudante.fotoUrl} alt={estudante.nome} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          ) : (
+            <Avatar className="w-20 h-20 shadow-sm border-2 border-background">
+              <AvatarFallback className="text-xl font-medium bg-primary/10 text-primary">
+                {estudante.nome.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          {menor && (
+            <span className="absolute top-1 right-1 bg-orange-500/90 text-white text-[9px] px-1.5 py-0.5 rounded-full font-medium">
+              Menor
+            </span>
+          )}
+        </div>
+        <div className="px-2 pt-2">
+          <p className="text-xs font-semibold truncate hover:text-primary transition-colors">{estudante.nome}</p>
+          <p className="text-xs text-muted-foreground truncate">{estudante.registro}</p>
+        </div>
+      </Link>
+      {showOcorrenciaBtn && (
+        <div className="px-2 pb-2 pt-1.5 mt-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            className={`w-full h-7 text-xs gap-1 ${canCreate ? "border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400" : "border-muted-foreground/30 text-muted-foreground hover:bg-muted"}`}
+            onClick={() => onOcorrencia(estudante)}
+          >
+            <AlertTriangle className="w-3 h-3" />
+            {canCreate ? "Ocorrência" : "Ver ocorrências"}
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }

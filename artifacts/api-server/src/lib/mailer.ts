@@ -128,3 +128,68 @@ export async function enviarEmailBoasVindas(
     console.log(`[mailer] e-mail de boas-vindas enviado para ${para} (messageId: ${info.messageId})`);
   }
 }
+
+async function ensureTransport() {
+  if (!transport) {
+    const conta = await nodemailer.createTestAccount();
+    transport = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: { user: conta.user, pass: conta.pass },
+    });
+    console.log(`[mailer] usando Ethereal: ${conta.user} / ${conta.pass}`);
+  }
+  return transport;
+}
+
+export async function enviarEmailOcorrencia({
+  para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome, disciplinaNome, observacao,
+}: {
+  para: string;
+  estudanteNome: string;
+  tipoOcorrencia: string;
+  dataOcorrencia: string;
+  turnoNome?: string | null;
+  disciplinaNome?: string | null;
+  observacao?: string | null;
+}): Promise<void> {
+  const remetente = process.env.SMTP_FROM ?? "Seshat <noreply@seshat.local>";
+  const dataFormatada = new Date(dataOcorrencia + "T12:00:00").toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "long", year: "numeric",
+  });
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+      <h2 style="color:#b45309">Registro de Ocorrência</h2>
+      <p>Foi registrada uma ocorrência para o(a) estudante <strong>${estudanteNome}</strong>.</p>
+      <table style="border-collapse:collapse;margin:16px 0;width:100%">
+        <tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600;width:35%">Tipo</td>
+            <td style="padding:8px 12px;background:#fffbeb">${tipoOcorrencia}</td></tr>
+        <tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Data</td>
+            <td style="padding:8px 12px;background:#fffbeb">${dataFormatada}</td></tr>
+        ${turnoNome ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Turno</td>
+            <td style="padding:8px 12px;background:#fffbeb">${turnoNome}</td></tr>` : ""}
+        ${disciplinaNome ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Disciplina</td>
+            <td style="padding:8px 12px;background:#fffbeb">${disciplinaNome}</td></tr>` : ""}
+        ${observacao ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Descrição</td>
+            <td style="padding:8px 12px;background:#fffbeb">${observacao}</td></tr>` : ""}
+      </table>
+      <p>Acesse o sistema para visualizar os detalhes e registrar sua ciência da ocorrência.</p>
+      <p style="color:#6b7280;font-size:0.85em">Este é um comunicado automático da instituição. Não responda este e-mail.</p>
+    </div>
+  `;
+  const text = `Ocorrência registrada para ${estudanteNome}\nTipo: ${tipoOcorrencia}\nData: ${dataFormatada}${turnoNome ? `\nTurno: ${turnoNome}` : ""}${disciplinaNome ? `\nDisciplina: ${disciplinaNome}` : ""}${observacao ? `\nDescrição: ${observacao}` : ""}`;
+
+  const t = await ensureTransport();
+  const info = await t.sendMail({
+    from: remetente,
+    to: para,
+    subject: `Ocorrência: ${estudanteNome} — ${tipoOcorrencia}`,
+    text,
+    html,
+  });
+  const previewUrl = nodemailer.getTestMessageUrl(info);
+  if (previewUrl) console.log(`[mailer] e-mail de ocorrência enviado → ${previewUrl}`);
+  else console.log(`[mailer] e-mail de ocorrência enviado para ${para} (messageId: ${info.messageId})`);
+}
