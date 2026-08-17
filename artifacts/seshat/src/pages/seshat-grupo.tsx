@@ -61,30 +61,30 @@ function UserPhotoCard({
       : [];
 
   return (
-    <div className={`flex flex-col items-center gap-1.5 ${small ? "w-24" : "w-28"}`}>
+    <div className={`flex flex-col items-center gap-1 ${small ? "w-16" : "w-20"}`}>
       <div
-        className={`relative rounded-xl overflow-hidden bg-secondary/30 border border-border/60 shadow-sm ${
-          small ? "w-24 h-32" : "w-28 h-36"
+        className={`relative rounded-lg overflow-hidden bg-secondary/30 border border-border/60 shadow-sm ${
+          small ? "w-16 h-[85px]" : "w-20 h-[107px]"
         }`}
       >
         {u.fotoUrl ? (
           <img src={u.fotoUrl} alt={displayName} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <Avatar className={small ? "w-14 h-14" : "w-16 h-16"}>
-              <AvatarFallback className="text-lg font-semibold bg-primary/10 text-primary">
+            <Avatar className={small ? "w-9 h-9" : "w-11 h-11"}>
+              <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
                 {getInitials(u)}
               </AvatarFallback>
             </Avatar>
           </div>
         )}
       </div>
-      <p className="text-xs font-medium text-center leading-tight line-clamp-2 w-full" title={displayName}>
+      <p className={`font-medium text-center leading-tight line-clamp-2 w-full ${small ? "text-[9px]" : "text-[10px]"}`} title={displayName}>
         {displayName}
       </p>
       {disciplinas.length > 0 && (
         <p
-          className="text-[10px] text-muted-foreground text-center leading-tight line-clamp-2 w-full -mt-0.5"
+          className="text-[8px] text-muted-foreground text-center leading-tight line-clamp-2 w-full -mt-0.5"
           title={disciplinas.join(", ")}
         >
           {disciplinas.join(" · ")}
@@ -111,7 +111,7 @@ function UserGrid({
     );
   }
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2">
       {usuarios.map((u) => (
         <UserPhotoCard key={u.id} u={u} small={small} cursoId={cursoId} turnoId={turnoId} />
       ))}
@@ -247,9 +247,9 @@ function CarometroGrupoPage({ endpoint, titulo, descricao }: CarometroGrupoPageP
           {[1, 2, 3].map((i) => (
             <div key={i} className="space-y-4">
               <Skeleton className="h-8 w-56" />
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {[1, 2, 3, 4, 5].map((j) => (
-                  <Skeleton key={j} className="w-28 h-44 rounded-xl" />
+                  <Skeleton key={j} className="w-20 h-[130px] rounded-lg" />
                 ))}
               </div>
             </div>

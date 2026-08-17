@@ -692,7 +692,7 @@ export default function Carometro() {
           {[1, 2].map((i) => (
             <div key={i} className="space-y-4">
               <Skeleton className="h-8 w-48" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
                 {[1, 2, 3, 4, 5, 6].map((j) => <Skeleton key={j} className="aspect-[3/4] rounded-xl" />)}
               </div>
             </div>
@@ -734,7 +734,7 @@ export default function Carometro() {
                               {group.estudantes.length} estudante{group.estudantes.length !== 1 && "s"}
                             </span>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
                             {group.estudantes.map((est) => (
                               <EstudanteCardItem
                                 key={est.id}
@@ -783,33 +783,33 @@ function EstudanteCardItem({
           {estudante.fotoUrl ? (
             <img src={estudante.fotoUrl} alt={estudante.nome} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
-            <Avatar className="w-20 h-20 shadow-sm border-2 border-background">
-              <AvatarFallback className="text-xl font-medium bg-primary/10 text-primary">
+            <Avatar className="w-10 h-10 shadow-sm border border-background">
+              <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
                 {estudante.nome.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           )}
           {menor && (
-            <span className="absolute top-1 right-1 bg-orange-500/90 text-white text-[9px] px-1.5 py-0.5 rounded-full font-medium">
-              Menor
+            <span className="absolute top-0.5 right-0.5 bg-orange-500/90 text-white text-[8px] px-1 py-0 rounded-full font-medium leading-4">
+              M
             </span>
           )}
         </div>
-        <div className="px-2 pt-2">
-          <p className="text-xs font-semibold truncate hover:text-primary transition-colors">{estudante.nome}</p>
-          <p className="text-xs text-muted-foreground truncate">{estudante.registro}</p>
+        <div className="px-1 pt-1 pb-0.5">
+          <p className="text-[10px] font-semibold truncate hover:text-primary transition-colors leading-tight">{estudante.nome}</p>
+          <p className="text-[9px] text-muted-foreground truncate leading-tight">{estudante.registro}</p>
         </div>
       </Link>
       {showOcorrenciaBtn && (
-        <div className="px-2 pb-2 pt-1.5 mt-auto">
+        <div className="px-1 pb-1 pt-0.5 mt-auto">
           <Button
             size="sm"
             variant="outline"
-            className={`w-full h-7 text-xs gap-1 ${canCreate ? "border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400" : "border-muted-foreground/30 text-muted-foreground hover:bg-muted"}`}
+            className={`w-full h-5 text-[9px] gap-0.5 px-1 ${canCreate ? "border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400" : "border-muted-foreground/30 text-muted-foreground hover:bg-muted"}`}
             onClick={() => onOcorrencia(estudante)}
           >
-            <AlertTriangle className="w-3 h-3" />
-            {canCreate ? "Ocorrência" : "Ver ocorrências"}
+            <AlertTriangle className="w-2.5 h-2.5" />
+            {canCreate ? "Ocorrência" : "Ver"}
           </Button>
         </div>
       )}

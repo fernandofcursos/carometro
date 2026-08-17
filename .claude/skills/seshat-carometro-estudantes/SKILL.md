@@ -12,6 +12,47 @@ Grupo: "Carômetro"  (carometro:view)
 └── "Estudantes" → /carometro
 ```
 
+## Padrão Visual — Cards Fotográficos (3×4)
+
+Todos os carômetros usam proporção **3:4** (retrato) para maximizar fotos por linha.
+
+### Grade de estudantes (`seshat.tsx`)
+
+```tsx
+// Grade: muitas colunas, gap pequeno
+<div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
+  <EstudanteCardItem ... />
+</div>
+
+// Card
+<div className="aspect-[3/4] ...">          {/* proporção 3:4 */}
+  <img className="w-full h-full object-cover" />
+  {/* sem foto: Avatar w-10 h-10 */}
+</div>
+<div className="px-1 pt-1 pb-0.5">
+  <p className="text-[10px] font-semibold truncate">nome</p>
+  <p className="text-[9px] text-muted-foreground truncate">registro</p>
+</div>
+// Botão ocorrência: h-5 text-[9px]
+```
+
+### Cards de equipe (`seshat-grupo.tsx`)
+
+```tsx
+// Tamanho: small=w-16 h-[85px] | normal=w-20 h-[107px]  (proporção 3:4)
+// Avatar sem foto: small=w-9 h-9 | normal=w-11 h-11
+// Grade: flex flex-wrap gap-2
+
+<div className={`flex flex-col items-center gap-1 ${small ? "w-16" : "w-20"}`}>
+  <div className={`... ${small ? "w-16 h-[85px]" : "w-20 h-[107px]"}`}>
+    <img className="w-full h-full object-cover" />
+  </div>
+  <p className={small ? "text-[9px]" : "text-[10px]"}>nome</p>
+</div>
+```
+
+**Regra:** nunca usar `w-24`/`w-28`/`h-32`/`h-36` nos cards de carômetro — esses tamanhos foram descontinuados. Sempre usar as medidas acima para manter consistência e densidade visual.
+
 ## Agrupamento (frontend)
 
 ```typescript

@@ -66,3 +66,9 @@ Retorna pais/responsáveis e estudantes da instituição. Os dados são exibidos
 - Um responsável pode estar vinculado a mais de um estudante
 - Um estudante pode ter mais de um responsável vinculado
 - Apenas usuários ativos devem ser retornados
+
+## Padrão Visual dos Cards
+
+Ver skill `seshat-carometro-estudantes` — seção "Padrão Visual — Cards Fotográficos (3×4)".
+
+Cards usam proporção 3:4 (retrato), tamanhos `w-16 h-[85px]` (small) / `w-20 h-[107px]` (normal), grade `flex flex-wrap gap-2`. Nunca usar `w-24`/`w-28` nos cards de carômetro.

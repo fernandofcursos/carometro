@@ -12,6 +12,26 @@ Cada cartão de estudante dá acesso ao histórico de ocorrências e, conforme o
 
 ---
 
+## Padrão Visual — Cards 3×4
+
+Todos os carômetros usam proporção **3:4 (retrato)** para maximizar o número de fotos visíveis por página.
+
+| Elemento | Valor |
+|---|---|
+| Proporção do card | `aspect-[3/4]` |
+| Grade estudantes | `grid-cols-3 sm:4 md:6 lg:8 xl:10`, `gap-2` |
+| Cards equipe (normal) | `w-20 h-[107px]` (≈ 3:4) |
+| Cards equipe (small) | `w-16 h-[85px]` (≈ 3:4) |
+| Gap entre cards equipe | `flex flex-wrap gap-2` |
+| Avatar sem foto | estudantes: `w-10 h-10` · equipe: `w-11/w-9` |
+| Nome | `text-[10px]` (estudantes) · `text-[9px/10px]` (equipe) |
+| Registro | `text-[9px]` |
+| Botão ocorrência | `h-5 text-[9px]` |
+
+Nunca usar `w-24`/`w-28`/`h-32`/`h-36`/`gap-3`/`gap-4` nos cards — descontinuado.
+
+---
+
 ## Regras de Agrupamento
 
 - Ordem: Turno (alfabético) → Curso (alfabético) → Turma (sigla)

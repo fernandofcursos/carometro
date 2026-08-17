@@ -49,3 +49,9 @@ Retorna os professores e educadores da instituição. Os dados são exibidos em 
 - Um mesmo professor pode aparecer em múltiplos grupos caso ministre aulas em mais de um turno/curso
 - As disciplinas exibidas devem corresponder apenas às disciplinas do turno/curso do grupo em questão
 - Apenas usuários ativos devem ser retornados
+
+## Padrão Visual dos Cards
+
+Ver skill `seshat-carometro-estudantes` — seção "Padrão Visual — Cards Fotográficos (3×4)".
+
+Cards usam proporção 3:4 (retrato), tamanhos `w-16 h-[85px]` (small) / `w-20 h-[107px]` (normal), grade `flex flex-wrap gap-2`. Nunca usar `w-24`/`w-28` nos cards de carômetro.
