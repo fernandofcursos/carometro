@@ -68,6 +68,24 @@ O backend usa `turmaErrorMessage(err)` que retorna `{ status, error }` — todos
 - `ApiError` importada de `@workspace/api-client-react`
 - Toast exibe `title` + `description` com a mensagem da API
 
+## Join de turno em outras rotas — padrão obrigatório
+
+`turmasTable` **não tem** coluna `turnoId`. Toda rota que precisa do nome do turno de uma turma deve fazer JOIN via `turmaTurnosTable`:
+
+```typescript
+import { turmaTurnosTable } from "@workspace/db";
+
+// CORRETO
+.leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, algumaColunaComTurmaId))
+.leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
+
+// ERRADO — coluna não existe
+.leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
+```
+
+Rotas que já usam o padrão correto: `seshat.ts`, `estudantes.ts`, `matriculas.ts`.  
+Ao criar novas rotas que precisam de `turnoNome`, sempre usar `turmaTurnosTable` como intermediário.
+
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |

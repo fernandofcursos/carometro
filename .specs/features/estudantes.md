@@ -25,6 +25,22 @@
 
 > `temFoto: boolean` — `fotoDados` nunca é retornado no listing. Usar `GET /:id/foto` para imagem.
 
+### Join de turno (ATENÇÃO)
+
+`turmasTable` **não possui** coluna `turnoId` direta. O turno é obtido via `turmaTurnosTable` (N:N):
+
+```typescript
+.leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
+.leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
+```
+
+Nunca usar `eq(turmasTable.turnoId, turnosTable.id)` — coluna removida em migration anterior.
+
+### GET /api/estudantes/:id
+
+Retorna shape com campo `emails: Array<{ email, tipo }> | []`.  
+No frontend, sempre usar `estudante.emails ?? []` para evitar crash quando o campo chega `undefined`.
+
 ### GET /api/estudantes/:id/foto
 
 Retorna a imagem binária descriptografada (AES-256-CBC).  
