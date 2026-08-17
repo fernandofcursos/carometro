@@ -1,0 +1,82 @@
+# Skill: Mailer — Envio de E-mails
+
+## Transport Singleton
+
+```typescript
+// lib/mailer.ts — _transport criado uma única vez
+let _transport: nodemailer.Transporter | null = null;
+let _etherealUser: string | null = null;
+
+async function ensureTransport(): Promise<nodemailer.Transporter> {
+  if (_transport) return _transport;
+  // SMTP_HOST + SMTP_USER + SMTP_PASS → SMTP real
+  // Senão → Ethereal (captura sem entrega)
+}
+```
+
+## Adicionar nova função de envio
+
+```typescript
+export async function enviarEmailXxx(para: string, dados: ...): Promise<void> {
+  await enviar({
+    to: para,
+    subject: "Assunto",
+    text: "versão texto",
+    html: `<div>...html...</div>`,
+  });
+}
+// enviar() chama ensureTransport() + sendMail() + loga preview URL
+```
+
+## Variáveis de Ambiente
+
+| Var | Uso |
+|---|---|
+| `SMTP_HOST` | Servidor SMTP; sem ela → Ethereal |
+| `SMTP_PORT` | Padrão 587; 465 = SSL |
+| `SMTP_USER` | Usuário SMTP |
+| `SMTP_PASS` | Senha SMTP |
+| `SMTP_FROM` | Remetente; padrão `Seshat <noreply@seshat.local>` |
+
+## Testar sem SMTP (Ethereal)
+
+1. Não definir variáveis SMTP
+2. `POST /api/mailer/teste { "para": "qualquer@email.com" }`
+3. Log: `[mailer] "Teste de envio..." → https://ethereal.email/message/...`
+4. Abrir URL para ver o e-mail
+
+## Diagnóstico via API
+
+```bash
+# Status do mailer
+GET /api/mailer/status
+# → { modo, smtpHost, smtpUser, etherealUser, from }
+
+# Enviar e-mail de teste
+POST /api/mailer/teste
+{ "para": "destino@email.com" }
+# → { ok, mensagem, modo, dica }
+```
+
+Requer permissão `usuarios:manage`.
+
+## Funções disponíveis
+
+| Função | Quando usar |
+|---|---|
+| `enviarEmailRecuperacao(para, token, expiresAt)` | Recuperação de senha |
+| `enviarEmailBoasVindas(para, codigo, senha, nome?)` | Novo usuário criado |
+| `enviarEmailOcorrencia({para, estudanteNome, tipo, data, turno?, disciplina?, obs?})` | Ocorrência registrada para menor ou pai/responsável |
+| `enviarEmailTeste(para)` | Diagnóstico manual |
+| `diagnosticoMailer()` | Estado atual (modo, credenciais) |
+
+## Gmail como SMTP
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=conta@gmail.com
+SMTP_PASS=xxxx-xxxx-xxxx-xxxx   # App Password (não a senha normal)
+SMTP_FROM=Seshat <conta@gmail.com>
+```
+Gerar App Password: myaccount.google.com → Segurança → Senhas de app

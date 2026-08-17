@@ -12,6 +12,7 @@ import turmasRouter from "./routes/turmas.js";
 // SDD Dia 2: ocorrências, roles e usuários
 import tiposOcorrenciasRouter from "./routes/tipos-ocorrencias.js";
 import textosPadraoRouter from "./routes/textos-padrao.js";
+import mailerTestRouter from "./routes/mailer-test.js";
 import ocorrenciasRouter from "./routes/ocorrencias.js";
 import rolesRouter from "./routes/roles.js";
 import usuariosRouter from "./routes/usuarios.js";
@@ -48,6 +49,7 @@ app.use("/api/disciplinas", disciplinasRouter);
 app.use("/api/turmas", turmasRouter);
 // SDD Dia 2: rotas implementadas
 app.use("/api/tipos-ocorrencias", tiposOcorrenciasRouter);
+app.use("/api/mailer", mailerTestRouter);
 app.use("/api/textos-padrao", textosPadraoRouter);
 app.use("/api/ocorrencias", ocorrenciasRouter);
 app.use("/api/roles", rolesRouter);
