@@ -1,15 +1,17 @@
 import { Router } from "express";
-import { db } from "@workspace/db/src/client.js";
 import {
+  db,
   textosPadraoOcorrenciasTable,
   insertTextoPadraoSchema,
   ocorrenciasTable,
   tiposOcorrenciasTable,
   estudantesTable,
-} from "@workspace/db/src/schema/index.js";
-import { eq, isNull, and } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth.js";
-import { requirePermissao } from "../middleware/permissoes.js";
+  eq,
+  isNull,
+  and,
+} from "@workspace/db";
+import { requireAuth } from "../lib/auth.js";
+import { requirePermissao } from "../lib/permissions.js";
 
 const router = Router();
 
