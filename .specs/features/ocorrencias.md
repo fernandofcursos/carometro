@@ -62,6 +62,47 @@ Entidade independente com CRUD completo.
 **Requer:** `tipos-ocorrencias:manage`  
 Status: `"ativo"` | `"inativo"` (enum `status_ocorrencia`)
 
+## Notificação de Responsáveis
+
+### POST /api/ocorrencias/:id/notificar-pais
+
+Envia e-mail aos responsáveis do estudante via `enviarEmailOcorrencia()`.  
+**Requer:** `ocorrencias:create`
+
+**Comportamento:**
+- Busca emails de responsáveis na tabela `estudante_emails` onde `tipo = 'responsavel'`
+- Envia para todos os responsáveis encontrados; falhas individuais são logadas mas não interrompem os demais
+- Permite reenvio a qualquer momento (sem bloqueio após primeiro envio)
+- Atualiza `ocorrencias.notificacao_pais_enviada_em` apenas se ao menos 1 e-mail for enviado com sucesso
+
+**Respostas:**
+```typescript
+// 200 — sucesso (≥ 1 e-mail enviado)
+{ ok: true, enviados: number, mensagem: string }
+
+// 422 — nenhum responsável com e-mail cadastrado
+{ error: "Nenhum responsável com e-mail cadastrado para este estudante." }
+
+// 404 — ocorrência não encontrada
+{ error: "Ocorrência não encontrada." }
+```
+
+### Campo `notificacaoPaisEnviadaEm`
+
+Incluído no GET `/api/ocorrencias` como `notificacaoPaisEnviadaEm: string | null`.  
+Usado no frontend para exibir data do último envio e alterar label do botão.
+
+---
+
+## Comportamento no Carômetro (seshat.tsx)
+
+- Botão **"Notificar responsáveis"** aparece para usuários com `ocorrencias:create`
+- Após primeiro envio, exibe **"Reenviar e-mail"** com tooltip mostrando data do último envio
+- Toast exibe `data.mensagem` retornado pela API
+- Erro 422 → toast destrutivo "Nenhum responsável com e-mail"
+
+---
+
 ## Casos de Teste
 
 - [ ] POST sem `estudanteId` → 400
@@ -70,3 +111,6 @@ Status: `"ativo"` | `"inativo"` (enum `status_ocorrencia`)
 - [ ] GET filtra por `?estudanteId=uuid` corretamente
 - [ ] GET sem permissão `ocorrencias:view` → 403
 - [ ] POST sem permissão `ocorrencias:create` → 403
+- [ ] POST `/notificar-pais` sem responsáveis → 422
+- [ ] POST `/notificar-pais` com responsáveis → 200, `notificacaoPaisEnviadaEm` atualizado
+- [ ] POST `/notificar-pais` segunda vez → 200 (reenvio permitido)

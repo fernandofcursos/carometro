@@ -70,6 +70,44 @@ Requer permissão `usuarios:manage`.
 | `enviarEmailTeste(para)` | Diagnóstico manual |
 | `diagnosticoMailer()` | Estado atual (modo, credenciais) |
 
+## Página de Diagnóstico UI
+
+**Rota:** `/mailer-diagnostico`  
+**Menu:** Administração → Diagnóstico de E-mail (visível para `usuarios:manage`)
+
+Usa `useQuery` + `useMutation` do TanStack Query com `fetch` nativo:
+
+```typescript
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+// GET /api/mailer/status
+const { data: status, refetch } = useQuery<MailerStatus>({
+  queryKey: ["mailer-status"],
+  queryFn: async () => {
+    const res = await fetch(`${BASE}/api/mailer/status`, { credentials: "include" });
+    if (!res.ok) throw new Error("Sem acesso");
+    return res.json();
+  },
+});
+// POST /api/mailer/teste
+const testeMutation = useMutation({
+  mutationFn: async (destino: string): Promise<TesteResult> => {
+    const res = await fetch(`${BASE}/api/mailer/teste`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ para: destino }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? "Erro ao enviar");
+    return body;
+  },
+});
+```
+
+**IMPORTANTE:** NÃO usar `apiClient` ou `customFetch` de `@workspace/api-client-react` —
+`dist/index.d.ts` pode estar desatualizado e não exportar esses símbolos.
+Sempre usar `fetch` nativo com `credentials: "include"` e prefixo `BASE`.
+
 ## Gmail como SMTP
 
 ```env

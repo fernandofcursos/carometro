@@ -115,9 +115,45 @@ Verificar status: `GET /api/mailer/status` → `"modo": "smtp"`
 
 ---
 
+---
+
+## Página de Diagnóstico UI
+
+**Rota:** `/mailer-diagnostico`  
+**Arquivo:** `artifacts/seshat/src/pages/mailer-diagnostico/index.tsx`  
+**Permissão:** `usuarios:manage` (verificada pela API; menu só aparece para quem tem a permissão)  
+**Menu:** Administração → Diagnóstico de E-mail
+
+### Painéis
+
+**Status do Servidor:**
+- Badge colorido: verde (smtp) / âmbar (ethereal) / cinza (não iniciado)
+- Campos: Modo, Remetente, Servidor SMTP, Usuário SMTP
+- Aviso âmbar em modo Ethereal com link para `https://ethereal.email/messages` e login
+- Aviso verde em modo SMTP
+
+**Enviar E-mail de Teste:**
+- Campo `para` (email) + botão "Enviar teste"
+- Enter no campo dispara o envio
+- Toast com resultado; segundo toast com link Ethereal se aplicável
+
+**E-mails por Funcionalidade:**
+- Lista informativa: Recuperação de senha, Boas-vindas, Ocorrência menor, Notificação de responsáveis
+- Exibe quando cada e-mail é disparado e a rota responsável
+
+### Padrão de fetch usado na página
+
+```typescript
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const res = await fetch(`${BASE}/api/mailer/status`, { credentials: "include" });
+```
+
+---
+
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |
 |---|---|
 | `artifacts/api-server/src/lib/mailer.ts` | Transport singleton + todas as funções de envio |
 | `artifacts/api-server/src/routes/mailer-test.ts` | GET /status + POST /teste |
+| `artifacts/seshat/src/pages/mailer-diagnostico/index.tsx` | Página de diagnóstico UI |
