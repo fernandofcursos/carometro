@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, useListTiposOcorrencias } from "@workspace/api-client-react";
+import { useListTiposOcorrencias } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, FileText, Info } from "lucide-react";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    ...init,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error ?? `Erro ${res.status}`);
+  }
+  if (res.status === 204) return undefined as unknown as T;
+  return res.json();
+}
 
 interface TextoPadrao {
   id: string;
@@ -170,7 +186,7 @@ export default function TextosPadraoPage() {
 
   const { data: textos = [], isLoading } = useQuery<TextoPadrao[]>({
     queryKey: ["textos-padrao"],
-    queryFn: () => customFetch<TextoPadrao[]>("/api/textos-padrao"),
+    queryFn: () => apiFetch<TextoPadrao[]>("/api/textos-padrao"),
   });
 
   const { data: tiposRaw } = useListTiposOcorrencias();
@@ -178,54 +194,40 @@ export default function TextosPadraoPage() {
 
   const { data: placeholders = [] } = useQuery<Placeholder[]>({
     queryKey: ["textos-padrao-placeholders"],
-    queryFn: () => customFetch<Placeholder[]>("/api/textos-padrao/placeholders"),
+    queryFn: () => apiFetch<Placeholder[]>("/api/textos-padrao/placeholders"),
   });
 
   const invalidar = () => qc.invalidateQueries({ queryKey: ["textos-padrao"] });
 
   const criarMutation = useMutation({
     mutationFn: (dados: TextoPadraoInput) =>
-      customFetch("/api/textos-padrao", {
-        method: "POST",
-        body: JSON.stringify(dados),
-      }),
+      apiFetch("/api/textos-padrao", { method: "POST", body: JSON.stringify(dados) }),
     onSuccess: () => {
       invalidar();
       setDialogAberto(false);
       toast({ title: "Texto padrão criado com sucesso." });
     },
-    onError: (err: any) => {
-      toast({
-        title: "Erro ao criar texto padrão",
-        description: err?.data?.error ?? err?.message ?? "Erro inesperado.",
-        variant: "destructive",
-      });
+    onError: (err: Error) => {
+      toast({ title: "Erro ao criar texto padrão", description: err.message, variant: "destructive" });
     },
   });
 
   const editarMutation = useMutation({
     mutationFn: ({ id, dados }: { id: string; dados: Partial<TextoPadraoInput> }) =>
-      customFetch(`/api/textos-padrao/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(dados),
-      }),
+      apiFetch(`/api/textos-padrao/${id}`, { method: "PUT", body: JSON.stringify(dados) }),
     onSuccess: () => {
       invalidar();
       setEditando(null);
       toast({ title: "Texto padrão atualizado com sucesso." });
     },
-    onError: (err: any) => {
-      toast({
-        title: "Erro ao atualizar texto padrão",
-        description: err?.data?.error ?? err?.message ?? "Erro inesperado.",
-        variant: "destructive",
-      });
+    onError: (err: Error) => {
+      toast({ title: "Erro ao atualizar texto padrão", description: err.message, variant: "destructive" });
     },
   });
 
   const removerMutation = useMutation({
     mutationFn: (id: string) =>
-      customFetch(`/api/textos-padrao/${id}`, { method: "DELETE" }),
+      apiFetch(`/api/textos-padrao/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       invalidar();
       setRemovendoId(null);
