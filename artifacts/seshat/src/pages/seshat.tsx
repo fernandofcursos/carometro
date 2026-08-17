@@ -739,8 +739,6 @@ export default function Carometro() {
                               <EstudanteCardItem
                                 key={est.id}
                                 estudante={{ ...est, turmaSigla: group.turmaSigla, turmaDescricao: group.turmaDescricao, turmaId: group.turmaId, cursoId: group.cursoId, cursoNome: group.cursoNome, turnoId: group.turnoId, turnoNome }}
-                                showOcorrenciaBtn={showOcorrenciaBtn}
-                                canCreate={canCreate}
                                 onOcorrencia={setSelectedEstudante}
                               />
                             ))}
@@ -767,18 +765,21 @@ export default function Carometro() {
 }
 
 function EstudanteCardItem({
-  estudante, showOcorrenciaBtn, canCreate, onOcorrencia,
+  estudante, onOcorrencia,
 }: {
   estudante: EstudanteCard;
-  showOcorrenciaBtn: boolean;
-  canCreate: boolean;
   onOcorrencia: (e: EstudanteCard) => void;
 }) {
   const menor = isMenor(estudante.dataNascimento);
 
   return (
     <Card className="overflow-hidden border-border/60 bg-card flex flex-col">
-      <Link href={`/estudantes/${estudante.id}`} className="block">
+      <button
+        type="button"
+        className="block text-left w-full focus:outline-none"
+        onClick={() => onOcorrencia(estudante)}
+        title={estudante.nome}
+      >
         <div className="aspect-[3/4] relative bg-secondary/30 flex items-center justify-center overflow-hidden group cursor-pointer hover:opacity-90 transition-opacity">
           {estudante.fotoUrl ? (
             <img src={estudante.fotoUrl} alt={estudante.nome} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -799,20 +800,7 @@ function EstudanteCardItem({
           <p className="text-[10px] font-semibold truncate hover:text-primary transition-colors leading-tight">{estudante.nome}</p>
           <p className="text-[9px] text-muted-foreground truncate leading-tight">{estudante.registro}</p>
         </div>
-      </Link>
-      {showOcorrenciaBtn && (
-        <div className="px-1 pb-1 pt-0.5 mt-auto">
-          <Button
-            size="sm"
-            variant="outline"
-            className={`w-full h-5 text-[9px] gap-0.5 px-1 ${canCreate ? "border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-400" : "border-muted-foreground/30 text-muted-foreground hover:bg-muted"}`}
-            onClick={() => onOcorrencia(estudante)}
-          >
-            <AlertTriangle className="w-2.5 h-2.5" />
-            {canCreate ? "Ocorrência" : "Ver"}
-          </Button>
-        </div>
-      )}
+      </button>
     </Card>
   );
 }
