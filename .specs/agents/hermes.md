@@ -32,6 +32,17 @@
 - Usar componentes shadcn/ui — nunca criar componentes UI do zero sem necessidade
 - Tratar estados: loading, erro, vazio, sucesso
 
+**ATENÇÃO — padrão de fetch em páginas novas:**  
+`@workspace/api-client-react` pode ter `dist/index.d.ts` desatualizado — não exporta `customFetch`.  
+Usar sempre `fetch` nativo com `credentials: "include"` e prefixo `BASE`:
+
+```typescript
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const res = await fetch(`${BASE}/api/<rota>`, { credentials: "include" });
+```
+
+Nunca importar `apiClient` ou `customFetch` de `@workspace/api-client-react` em páginas novas — só os hooks gerados (`useListXxx`, etc.) são seguros.
+
 ### Banco de Dados
 - Aplicar schema com `pnpm --filter @workspace/db run push-force` após toda mudança
 - Nunca usar `db.execute(sql\`...\`)` raw para DML — sempre usar o query builder Drizzle
@@ -81,6 +92,9 @@ artifacts/seshat/src/pages/<recurso>/index.tsx — página React
 | Estudantes | `features/estudantes.md` | ✅ Implementado |
 | Turmas | `features/turmas.md` | ✅ Implementado |
 | Ocorrências | `features/ocorrencias.md` | ✅ Implementado |
+| Mailer | `features/mailer.md` | ✅ Implementado |
+| Textos Padrão de Ocorrências | `features/textos-padrao-ocorrencias.md` | ✅ Implementado |
+| Carômetro — Estudantes | `features/carometro-estudantes.md` | ✅ Implementado |
 | Importação XLSX | `features/import.md` | ✅ Implementado |
 | LGPD | `features/lgpd.md` | ✅ Implementado |
 | Auditoria | `features/auditoria.md` | ✅ Implementado |

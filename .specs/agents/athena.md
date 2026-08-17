@@ -66,6 +66,9 @@
 | Importação XLSX | `features/import.md` | ✅ Aprovado e implementado |
 | LGPD | `features/lgpd.md` | ✅ Aprovado e implementado |
 | Auditoria | `features/auditoria.md` | ✅ Aprovado e implementado |
+| Mailer | `features/mailer.md` | ✅ Aprovado e implementado |
+| Textos Padrão de Ocorrências | `features/textos-padrao-ocorrencias.md` | ✅ Aprovado e implementado |
+| Carômetro — Estudantes | `features/carometro-estudantes.md` | ✅ Aprovado e implementado |
 
 ---
 
