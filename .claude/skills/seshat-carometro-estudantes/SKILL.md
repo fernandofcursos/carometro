@@ -12,6 +12,23 @@ Grupo: "Carômetro"  (carometro:view)
 └── "Estudantes" → /carometro
 ```
 
+## Navegação — Clique na Foto
+
+Clicar na foto (ou nome) do estudante **abre o modal** de ocorrências diretamente no carômetro. Não navega para `/estudantes/:id`.
+
+```tsx
+// EstudanteCardItem — toda a área da foto é um botão
+<button type="button" onClick={() => onOcorrencia(estudante)}>
+  <div className="aspect-[3/4] ...">
+    <img ... />
+  </div>
+  <p>nome</p>
+</button>
+// Sem botão "Ocorrência" separado no card
+```
+
+O link `/estudantes/:id` (perfil completo) está disponível **dentro do modal** como "Ver perfil completo". A página de detalhes é preservada para uso em outras funcionalidades.
+
 ## Padrão Visual — Cards Fotográficos (3×4)
 
 Todos os carômetros usam proporção **3:4** (retrato) para maximizar fotos por linha.

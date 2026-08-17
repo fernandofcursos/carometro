@@ -41,6 +41,21 @@ Nunca usar `w-24`/`w-28`/`h-32`/`h-36`/`gap-3`/`gap-4` nos cards — descontinua
 
 ---
 
+## Navegação — Fluxo do Carômetro
+
+Clicar na **foto ou nome** do estudante abre o **modal de dados cadastrais e ocorrências** diretamente no carômetro — sem navegar para outra página.
+
+O modal contém:
+- Cabeçalho com foto, nome, registro, turma, botão "Ver perfil completo" → `/estudantes/:id`
+- Aba **Registrar** (visível para `ocorrencias:create`): formulário de nova ocorrência
+- Aba **Histórico**: lista de ocorrências com ações por role
+
+O botão separado "Ocorrência" / "Ver ocorrências" foi removido do card — o clique na foto já abre o modal para todos os perfis com `carometro:view`.
+
+A página `/estudantes/:id` (Dados Cadastrais completos) permanece acessível pelo link "Ver perfil completo" dentro do modal, e pode ser usada em outras funcionalidades.
+
+---
+
 ## Acesso por Perfil
 
 | Perfil | Ação disponível |
