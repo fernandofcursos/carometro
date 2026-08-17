@@ -120,7 +120,8 @@ export function AppSidebar() {
       bgColor: "#fffbeb",
       items: [
         ...(canManageTiposOcorrencias ? [nav("Tipos de Ocorrência", "/tipos-ocorrencias", Tag)] : []),
-        ...(canViewOcorrencias ? [nav("Relatório de Ocorrências", "/ocorrencias", FileText)] : []),
+        ...(canManageTiposOcorrencias ? [nav("Textos Padrão", "/textos-padrao-ocorrencias", FileText)] : []),
+        ...(canViewOcorrencias ? [nav("Relatório de Ocorrências", "/ocorrencias", ClipboardList)] : []),
       ],
     }] : []),
     ...(canImport ? [{
