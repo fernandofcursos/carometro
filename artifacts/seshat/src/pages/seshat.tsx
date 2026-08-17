@@ -175,14 +175,16 @@ function OcorrenciaItem({
             {isEstudante && estudanteMenor && !jaTemCiencia && (
               <p className="text-xs text-orange-600">A ciência deve ser registrada pelo responsável.</p>
             )}
-            {canCreate && !ocorrencia.notificacaoPaisEnviadaEm && (
+            {canCreate && (
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs"
+                className={`h-7 text-xs ${ocorrencia.notificacaoPaisEnviadaEm ? "text-muted-foreground" : ""}`}
                 onClick={() => onNotificar(ocorrencia.id)}
+                title={ocorrencia.notificacaoPaisEnviadaEm ? `Notificado em ${formatarData(ocorrencia.notificacaoPaisEnviadaEm)} — clique para reenviar` : "Enviar e-mail para responsáveis"}
               >
-                <Send className="w-3 h-3 mr-1" />Notificar responsáveis
+                <Send className="w-3 h-3 mr-1" />
+                {ocorrencia.notificacaoPaisEnviadaEm ? "Reenviar e-mail" : "Notificar responsáveis"}
               </Button>
             )}
             {canCreate && (
@@ -316,10 +318,13 @@ function EstudanteModal({
       if (!res.ok) throw new Error(body.error ?? "Erro");
       return body;
     },
-    onSuccess: () => { toast({ title: "Responsáveis notificados por e-mail" }); refetchOcorrencias(); },
+    onSuccess: (data) => {
+      toast({ title: data?.mensagem ?? "E-mail enviado aos responsáveis." });
+      refetchOcorrencias();
+    },
     onError: (err) => toast({
       title: "Erro ao notificar",
-      description: err instanceof Error ? err.message : "Tente novamente.",
+      description: err instanceof Error ? err.message : "Verifique se o estudante possui e-mail de responsável cadastrado.",
       variant: "destructive",
     }),
   });

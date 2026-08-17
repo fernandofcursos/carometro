@@ -40,6 +40,7 @@ import RolesPage from "@/pages/roles/index";
 import DisciplinasPage from "@/pages/disciplinas/index";
 import EnturmacaoPage from "@/pages/enturmacao/index";
 import TextosPadraoPage from "@/pages/textos-padrao/index";
+import MailerDiagnosticoPage from "@/pages/mailer-diagnostico/index";
 import LgpdPage from "@/pages/lgpd";
 import PermissoesPage from "@/pages/permissoes";
 import AuditoriaPage from "@/pages/auditoria";
@@ -97,6 +98,7 @@ function AppRoutes() {
           <Route path="/disciplinas" component={DisciplinasPage} />
           <Route path="/enturmacao" component={EnturmacaoPage} />
           <Route path="/textos-padrao-ocorrencias" component={TextosPadraoPage} />
+          <Route path="/mailer-diagnostico" component={MailerDiagnosticoPage} />
           <Route path="/lgpd" component={LgpdPage} />
           <Route path="/permissoes" component={PermissoesPage} />
           <Route path="/auditoria" component={AuditoriaPage} />

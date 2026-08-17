@@ -112,7 +112,12 @@ async function fetchOcorrenciaFull(id: string) {
 
 // ── Helper: envia e-mail de ocorrência para responsáveis do estudante ─────────
 
-async function notificarPais(ocorrenciaId: string, estudanteId: string, turnoNome?: string | null, disciplinaNome?: string | null) {
+async function notificarPais(
+  ocorrenciaId: string,
+  estudanteId: string,
+  turnoNome?: string | null,
+  disciplinaNome?: string | null,
+): Promise<{ enviados: number; semResponsaveis: boolean }> {
   const emails = await db
     .select({ email: estudanteEmailsTable.email })
     .from(estudanteEmailsTable)
@@ -121,34 +126,50 @@ async function notificarPais(ocorrenciaId: string, estudanteId: string, turnoNom
       eq(estudanteEmailsTable.tipo, "responsavel"),
     ));
 
-  if (!emails.length) return;
+  if (!emails.length) return { enviados: 0, semResponsaveis: true };
 
-  const [est]  = await db.select({ nome: estudantesTable.nome }).from(estudantesTable).where(eq(estudantesTable.id, estudanteId)).limit(1);
-  const [ocorr] = await db.select({
-    tipoDescricao:  tiposOcorrenciasTable.descricao,
-    dataOcorrencia: ocorrenciasTable.dataOcorrencia,
-    observacao:     ocorrenciasTable.observacao,
-  })
+  const [est] = await db
+    .select({ nome: estudantesTable.nome })
+    .from(estudantesTable)
+    .where(eq(estudantesTable.id, estudanteId))
+    .limit(1);
+
+  const [ocorr] = await db
+    .select({
+      tipoDescricao:  tiposOcorrenciasTable.descricao,
+      dataOcorrencia: ocorrenciasTable.dataOcorrencia,
+      observacao:     ocorrenciasTable.observacao,
+    })
     .from(ocorrenciasTable)
     .leftJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
     .where(eq(ocorrenciasTable.id, ocorrenciaId))
     .limit(1);
 
+  let enviados = 0;
   for (const { email } of emails) {
-    enviarEmailOcorrencia({
-      para:           email,
-      estudanteNome:  est?.nome ?? "Estudante",
-      tipoOcorrencia: ocorr?.tipoDescricao ?? "Ocorrência",
-      dataOcorrencia: ocorr?.dataOcorrencia ?? new Date().toISOString().slice(0, 10),
-      turnoNome,
-      disciplinaNome,
-      observacao:     ocorr?.observacao,
-    }).catch((e) => console.error("[ocorrencias] falha ao enviar e-mail:", e));
+    try {
+      await enviarEmailOcorrencia({
+        para:           email,
+        estudanteNome:  est?.nome ?? "Estudante",
+        tipoOcorrencia: ocorr?.tipoDescricao ?? "Ocorrência",
+        dataOcorrencia: ocorr?.dataOcorrencia ?? new Date().toISOString().slice(0, 10),
+        turnoNome,
+        disciplinaNome,
+        observacao:     ocorr?.observacao,
+      });
+      enviados++;
+    } catch (e) {
+      console.error("[ocorrencias] falha ao enviar e-mail para", email, e);
+    }
   }
 
-  await db.update(ocorrenciasTable)
-    .set({ notificacaoPaisEnviadaEm: new Date(), atualizadoEm: new Date() })
-    .where(eq(ocorrenciasTable.id, ocorrenciaId));
+  if (enviados > 0) {
+    await db.update(ocorrenciasTable)
+      .set({ notificacaoPaisEnviadaEm: new Date(), atualizadoEm: new Date() })
+      .where(eq(ocorrenciasTable.id, ocorrenciaId));
+  }
+
+  return { enviados, semResponsaveis: false };
 }
 
 // ── GET /api/ocorrencias ──────────────────────────────────────────────────────
@@ -377,8 +398,17 @@ router.post("/:id/notificar-pais", requirePermissao("ocorrencias:create"), async
     const ocorr = await fetchOcorrenciaFull(String(req.params.id));
     if (!ocorr) return res.status(404).json({ error: "Ocorrência não encontrada." });
 
-    await notificarPais(ocorr.id, ocorr.estudanteId, ocorr.turnoNome, ocorr.disciplinaNome);
-    res.json({ ok: true });
+    const resultado = await notificarPais(ocorr.id, ocorr.estudanteId, ocorr.turnoNome, ocorr.disciplinaNome);
+
+    if (resultado.semResponsaveis) {
+      return res.status(422).json({ error: "Este estudante não possui e-mails de responsável cadastrados." });
+    }
+
+    res.json({
+      ok: true,
+      enviados: resultado.enviados,
+      mensagem: `E-mail enviado para ${resultado.enviados} responsável(is).`,
+    });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao notificar responsáveis." });
   }

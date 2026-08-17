@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, UserSquare2, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft, Crown, Building2,
+  PanelLeft, Crown, Building2, Mail,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -90,6 +90,7 @@ export function AppSidebar() {
       items: [
         ...(canManageRoles ? [nav("Roles & Permissões", "/roles", ShieldCheck)] : []),
         ...(canManageUsuarios ? [nav("Usuários", "/usuarios", UserCog)] : []),
+        ...(canManageUsuarios ? [nav("Diagnóstico de E-mail", "/mailer-diagnostico", Mail)] : []),
       ],
     }] : []),
     ...(canManageGeral ? [{
