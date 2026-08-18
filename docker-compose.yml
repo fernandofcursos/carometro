@@ -39,10 +39,11 @@ services:
     working_dir: /workspace
 
     # Carregar variáveis de ambiente em ordem (último sobrescreve anterior).
-    # .env.local (ignorado pelo git) permite usar Neon ou overrides locais.
+    # .env não vai para o git — copie .env.example para .env e ajuste.
+    # .env.local permite overrides locais (Neon, SMTP real, etc.)
     env_file:
       - path: .env
-        required: true
+        required: false
       - path: .env.local
         required: false
 
