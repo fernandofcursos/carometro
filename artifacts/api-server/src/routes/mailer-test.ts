@@ -24,14 +24,12 @@ router.post("/teste", requireAuth, requirePermissao("usuarios:manage"), async (r
   try {
     await enviarEmailTeste(para);
     const info = await diagnosticoMailer();
-    res.json({
-      ok: true,
-      mensagem: `E-mail de teste enviado para ${para}.`,
-      modo: info.modo,
-      dica: info.modo === "ethereal"
-        ? "Modo Ethereal ativo — acesse https://ethereal.email/messages para visualizar (login: " + info.etherealUser + ")"
-        : null,
-    });
+    const dica = info.modo === "ethereal"
+      ? `Modo Ethereal ativo — acesse https://ethereal.email/messages para visualizar (login: ${info.etherealUser})`
+      : info.modo === "local"
+      ? "Modo captura local — sem acesso ao Ethereal. O e-mail foi processado e o conteúdo está nos logs do servidor. Configure SMTP_HOST, SMTP_USER e SMTP_PASS para envio real."
+      : null;
+    res.json({ ok: true, mensagem: `E-mail de teste enviado para ${para}.`, modo: info.modo, dica });
   } catch (err) {
     res.status(500).json({
       error: "Falha ao enviar e-mail de teste.",

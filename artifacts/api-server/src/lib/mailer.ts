@@ -26,17 +26,23 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
     return _transport;
   }
 
-  // Sem SMTP configurado → Ethereal (captura sem entregar, visível em ethereal.email)
-  const conta = await nodemailer.createTestAccount();
-  _etherealUser = conta.user;
-  _transport = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false,
-    auth: { user: conta.user, pass: conta.pass },
-  });
-  console.log(`[mailer] Ethereal ativado — login: ${conta.user} / ${conta.pass}`);
-  console.log(`[mailer] Visualize mensagens em https://ethereal.email/messages`);
+  // Sem SMTP configurado → tenta Ethereal; se sem rede → captura local (log)
+  try {
+    const conta = await nodemailer.createTestAccount();
+    _etherealUser = conta.user;
+    _transport = nodemailer.createTransport({
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: { user: conta.user, pass: conta.pass },
+    });
+    console.log(`[mailer] Ethereal ativado — login: ${conta.user} / ${conta.pass}`);
+    console.log(`[mailer] Visualize mensagens em https://ethereal.email/messages`);
+  } catch {
+    // Ethereal indisponível (sem acesso a api.nodemailer.com) → modo captura local
+    console.warn("[mailer] Ethereal indisponível — modo captura local (e-mails exibidos apenas em log)");
+    _transport = nodemailer.createTransport({ jsonTransport: true });
+  }
   return _transport;
 }
 
@@ -50,6 +56,10 @@ async function enviar(opts: nodemailer.SendMailOptions): Promise<void> {
   const preview = nodemailer.getTestMessageUrl(info);
   if (preview) {
     console.log(`[mailer] "${opts.subject}" → ${preview}`);
+  } else if (!info.messageId && info.message) {
+    // jsonTransport (modo captura local)
+    console.log(`[mailer] "${opts.subject}" — capturado localmente (para: ${opts.to})`);
+    console.log(`[mailer] Conteúdo texto: ${opts.text ?? "(sem texto)"}`);
   } else {
     console.log(`[mailer] "${opts.subject}" enviado para ${opts.to} (id: ${info.messageId})`);
   }
@@ -60,7 +70,7 @@ async function enviar(opts: nodemailer.SendMailOptions): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function diagnosticoMailer(): Promise<{
-  modo: "smtp" | "ethereal" | "não iniciado";
+  modo: "smtp" | "ethereal" | "local" | "não iniciado";
   smtpHost: string | null;
   smtpUser: string | null;
   etherealUser: string | null;
@@ -69,7 +79,7 @@ export async function diagnosticoMailer(): Promise<{
   const host = process.env.SMTP_HOST ?? null;
   const user = process.env.SMTP_USER ?? null;
   const modo = _transport
-    ? host ? "smtp" : "ethereal"
+    ? host ? "smtp" : _etherealUser ? "ethereal" : "local"
     : "não iniciado";
   return { modo, smtpHost: host, smtpUser: user, etherealUser: _etherealUser, from: remetente() };
 }

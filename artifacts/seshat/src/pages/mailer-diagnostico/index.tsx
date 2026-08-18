@@ -10,7 +10,7 @@ import { Mail, CheckCircle2, AlertTriangle, Send, RefreshCw } from "lucide-react
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface MailerStatus {
-  modo: "smtp" | "ethereal" | "não iniciado";
+  modo: "smtp" | "ethereal" | "local" | "não iniciado";
   smtpHost: string | null;
   smtpUser: string | null;
   etherealUser: string | null;
@@ -65,6 +65,8 @@ export default function MailerDiagnosticoPage() {
     ? "bg-green-100 text-green-800 border-green-300"
     : status?.modo === "ethereal"
     ? "bg-amber-100 text-amber-800 border-amber-300"
+    : status?.modo === "local"
+    ? "bg-blue-100 text-blue-800 border-blue-300"
     : "bg-gray-100 text-gray-600 border-gray-300";
 
   return (
@@ -96,8 +98,8 @@ export default function MailerDiagnosticoPage() {
               <span className="text-sm text-muted-foreground w-32">Modo:</span>
               <Badge variant="outline" className={`capitalize ${modoCor}`}>
                 {status.modo === "smtp" && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                {status.modo === "ethereal" && <AlertTriangle className="w-3 h-3 mr-1" />}
-                {status.modo}
+                {(status.modo === "ethereal" || status.modo === "local") && <AlertTriangle className="w-3 h-3 mr-1" />}
+                {status.modo === "local" ? "captura local" : status.modo}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -132,6 +134,15 @@ export default function MailerDiagnosticoPage() {
                   <p className="text-xs mt-1">Login: <code>{status.etherealUser}</code></p>
                 )}
                 <p className="text-xs text-amber-600 mt-1">
+                  Configure SMTP_HOST, SMTP_USER e SMTP_PASS para envio real.
+                </p>
+              </div>
+            )}
+            {status.modo === "local" && (
+              <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800 space-y-1">
+                <p className="font-medium">Modo captura local</p>
+                <p>Sem acesso ao Ethereal. E-mails são processados e exibidos <strong>apenas nos logs do servidor</strong>.</p>
+                <p className="text-xs text-blue-600 mt-1">
                   Configure SMTP_HOST, SMTP_USER e SMTP_PASS para envio real.
                 </p>
               </div>
