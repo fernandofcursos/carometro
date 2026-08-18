@@ -362,6 +362,36 @@ router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Reques
   }
 });
 
+// PUT /api/usuarios/:id/disciplinas — substituir disciplinas (ofertas) do usuário
+router.put("/:id/disciplinas", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const { disciplinaOfertaIds } = z
+      .object({ disciplinaOfertaIds: z.array(z.string().uuid()) })
+      .parse(req.body);
+
+    const usuarioId = String(req.params.id);
+
+    await db.delete(usuarioDisciplinasTable).where(eq(usuarioDisciplinasTable.usuarioId, usuarioId));
+
+    if (disciplinaOfertaIds.length > 0) {
+      await db.insert(usuarioDisciplinasTable).values(
+        disciplinaOfertaIds.map((disciplinaOfertaId) => ({ usuarioId, disciplinaOfertaId }))
+      );
+    }
+
+    await registrarAuditoria({
+      tabela: "usuario_disciplinas", operacao: "UPDATE", registroId: usuarioId,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/usuarios/:id/disciplinas", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, total: disciplinaOfertaIds.length });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
 // POST /api/usuarios/:id/resetar-senha — gera nova senha temporária
 router.post("/:id/resetar-senha", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
