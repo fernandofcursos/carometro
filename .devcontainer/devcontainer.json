@@ -20,8 +20,8 @@
 
   // Roda NO HOST antes de subir o container:
   //   1. Cria o volume externo seshat-pg-dev se não existir
-  //   2. Cria .env a partir do .env.example se não existir (docker-compose exige o arquivo)
-  "initializeCommand": "bash ${localWorkspaceFolder}/scripts/criar-volume-pg.sh && [ -f ${localWorkspaceFolder}/.env ] || cp ${localWorkspaceFolder}/.env.example ${localWorkspaceFolder}/.env",
+  //   2. Cria .env de desenvolvimento se não existir (nunca sobrescreve existente)
+  "initializeCommand": "bash ${localWorkspaceFolder}/scripts/criar-volume-pg.sh && bash ${localWorkspaceFolder}/scripts/criar-env-dev.sh",
 
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
