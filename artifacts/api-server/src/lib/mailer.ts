@@ -54,23 +54,17 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
     return _transport;
   }
 
-  // Sem SMTP configurado → tenta Ethereal; se sem rede → captura local (log)
-  try {
-    const conta = await nodemailer.createTestAccount();
-    _etherealUser = conta.user;
-    _transport = nodemailer.createTransport({
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false,
-      auth: { user: conta.user, pass: conta.pass },
-    });
-    console.log(`[mailer] Ethereal ativado — login: ${conta.user} / ${conta.pass}`);
-    console.log(`[mailer] Visualize mensagens em https://ethereal.email/messages`);
-  } catch {
-    // Ethereal indisponível (sem acesso a api.nodemailer.com) → modo captura local
-    console.warn("[mailer] Ethereal indisponível — modo captura local (e-mails exibidos apenas em log)");
-    _transport = nodemailer.createTransport({ jsonTransport: true });
-  }
+  // Sem SMTP configurado → conta Ethereal fixa de teste
+  // Conta: tanya.sipes46@ethereal.email — criada em https://ethereal.email
+  _etherealUser = "tanya.sipes46@ethereal.email";
+  _transport = nodemailer.createTransport({
+    host: "smtp.ethereal.email",
+    port: 587,
+    secure: false,
+    auth: { user: "tanya.sipes46@ethereal.email", pass: "YMWsC87krHZuDYdCuH" },
+  });
+  console.log("[mailer] Ethereal fixo ativado — tanya.sipes46@ethereal.email");
+  console.log("[mailer] Visualize mensagens em https://ethereal.email/messages");
   return _transport;
 }
 
