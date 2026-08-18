@@ -166,7 +166,7 @@ export default function EstudantesDetail() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/estudantes")} className="-ml-2 text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/carometro")} className="-ml-2 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-2xl font-bold tracking-tight text-primary truncate">{estudante.nome}</h1>
