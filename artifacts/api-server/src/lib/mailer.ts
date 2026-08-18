@@ -6,14 +6,31 @@ import nodemailer from "nodemailer";
 
 let _transport: nodemailer.Transporter | null = null;
 let _etherealUser: string | null = null;
+// Rastreia as credenciais com que o transport foi criado para detectar mudanças
+let _smtpKey: string | null = null;
+
+function smtpKeyAtual(): string {
+  return `${process.env.SMTP_HOST ?? ""}:${process.env.SMTP_USER ?? ""}:${process.env.SMTP_PASS ?? ""}`;
+}
 
 async function ensureTransport(): Promise<nodemailer.Transporter> {
+  // Reinicia singleton se variáveis SMTP mudaram desde a última criação
+  const key = smtpKeyAtual();
+  if (_transport && _smtpKey !== null && _smtpKey !== key) {
+    console.log("[mailer] Configuração SMTP alterada — reiniciando transport.");
+    _transport = null;
+    _etherealUser = null;
+    _smtpKey = null;
+  }
+
   if (_transport) return _transport;
 
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? 587);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+
+  _smtpKey = key;
 
   if (host && user && pass) {
     _transport = nodemailer.createTransport({
