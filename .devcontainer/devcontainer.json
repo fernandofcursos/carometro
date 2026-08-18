@@ -18,6 +18,10 @@
   // Sem isso, o entrypoint.sh toma controle e o VSCode não consegue conectar
   "overrideCommand": true,
 
+  // Roda NO HOST antes de subir o container — cria o volume externo se não existir
+  // Necessário porque pg_data_dev é declarado como external no docker-compose.yml
+  "initializeCommand": "bash ${localWorkspaceFolder}/scripts/criar-volume-pg.sh",
+
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
