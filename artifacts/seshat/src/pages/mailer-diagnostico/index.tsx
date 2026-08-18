@@ -39,12 +39,17 @@ export default function MailerDiagnosticoPage() {
 
   const testeMutation = useMutation({
     mutationFn: async (destino: string): Promise<TesteResult> => {
-      const res = await fetch(`${BASE}/api/mailer/teste`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ para: destino }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`${BASE}/api/mailer/teste`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ para: destino }),
+        });
+      } catch {
+        throw new Error("Sem resposta da API. O servidor SMTP pode estar travando a requisição — verifique os logs do servidor.");
+      }
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Erro ao enviar");
       return body;
@@ -57,7 +62,7 @@ export default function MailerDiagnosticoPage() {
       refetch();
     },
     onError: (err: Error) => {
-      toast({ title: "Falha no envio", description: err.message, variant: "destructive" });
+      toast({ title: "Falha no envio", description: err.message, variant: "destructive", duration: 12000 });
     },
   });
 

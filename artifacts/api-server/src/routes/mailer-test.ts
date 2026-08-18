@@ -21,19 +21,21 @@ router.post("/teste", requireAuth, requirePermissao("usuarios:manage"), async (r
   if (!para || !para.includes("@")) {
     return res.status(400).json({ error: "Informe um e-mail válido no campo 'para'." });
   }
+  // Timeout explícito para não travar o proxy do Vite (10s)
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Timeout: servidor SMTP não respondeu em 8s. Verifique conectividade ou configure SMTP_HOST no .env.")), 8000)
+  );
   try {
-    await enviarEmailTeste(para);
+    await Promise.race([enviarEmailTeste(para), timeout]);
     const info = await diagnosticoMailer();
     const dica = info.modo === "ethereal"
       ? `Modo Ethereal ativo — acesse https://ethereal.email/messages para visualizar (login: ${info.etherealUser})`
-      : info.modo === "local"
-      ? "Modo captura local — sem acesso ao Ethereal. O e-mail foi processado e o conteúdo está nos logs do servidor. Configure SMTP_HOST, SMTP_USER e SMTP_PASS para envio real."
       : null;
     res.json({ ok: true, mensagem: `E-mail de teste enviado para ${para}.`, modo: info.modo, dica });
   } catch (err) {
     res.status(500).json({
-      error: "Falha ao enviar e-mail de teste.",
-      detalhe: err instanceof Error ? err.message : String(err),
+      error: err instanceof Error ? err.message : "Falha ao enviar e-mail de teste.",
+      detalhe: err instanceof Error ? err.stack?.split("\n")[1]?.trim() : String(err),
     });
   }
 });

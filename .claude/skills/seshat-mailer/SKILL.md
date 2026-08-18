@@ -79,6 +79,9 @@ POST /api/mailer/teste
 
 Requer permissão `usuarios:manage`.
 
+**Armadilha — "Failed to fetch" ao enviar teste:**  
+O proxy Vite tem timeout de 10s. Se o SMTP não responder nesse prazo, o browser recebe "Failed to fetch" em vez do erro real. Solução implementada: timeout de 8s no `Promise.race` da rota + `connectionTimeout: 6000` no transport nodemailer. O frontend captura o `TypeError: Failed to fetch` e exibe mensagem útil. Se ocorrer, verificar logs do servidor (`[mailer] ...`) para o erro real.
+
 **Armadilha — dados antigos no diagnóstico:**  
 `diagnosticoMailer()` chama `ensureTransport()` internamente para detectar mudanças nas env vars e reiniciar o singleton antes de retornar o status. Se o servidor não foi reiniciado após alterar o `.env`, o botão "Atualizar" na página de diagnóstico é suficiente para refletir a nova configuração — não é necessário reiniciar o servidor manualmente.  
 Nota: `tsx watch` observa apenas arquivos-fonte, **não** o `.env`. Para que mudanças no `.env` sejam carregadas sem reinicialização manual, é necessário reiniciar o servidor de desenvolvimento.

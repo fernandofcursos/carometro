@@ -43,13 +43,10 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
 
   _smtpKey = key;
 
+  const timeouts = { connectionTimeout: 6000, greetingTimeout: 5000, socketTimeout: 8000 };
+
   if (host && user && pass) {
-    _transport = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
+    _transport = nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass }, ...timeouts });
     console.log(`[mailer] SMTP configurado: ${host}:${port} (user: ${user})`);
     return _transport;
   }
@@ -62,6 +59,7 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
     port: 587,
     secure: false,
     auth: { user: "tanya.sipes46@ethereal.email", pass: "YMWsC87krHZuDYdCuH" },
+    ...timeouts,
   });
   console.log("[mailer] Ethereal fixo ativado — tanya.sipes46@ethereal.email");
   console.log("[mailer] Visualize mensagens em https://ethereal.email/messages");
