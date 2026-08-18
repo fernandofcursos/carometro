@@ -90,7 +90,7 @@ RUN git config --global --add safe.directory /workspace \
 # Variáveis de ambiente padrão (sobrescritas pelo .env no docker-compose)
 # ---------------------------------------------------------------------------
 ENV NODE_ENV=development
-ENV PORT=5000
+# PORT não definido aqui — API usa fallback 8080 (src/index.ts), Vite usa VITE_PORT ou 5000
 ENV BASE_PATH=/
 # ENV LANG=pt_BR.UTF-8
 ENV LANG=pt_BR.UTF-8 LANGUAGE=pt_BR:pt LC_ALL=pt_BR.UTF-8

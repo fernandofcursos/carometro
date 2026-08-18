@@ -42,7 +42,8 @@ ENCRYPTION_KEY=bc30887220cb03c633dbb28769b0dc8796b64e4e62490e432534f72118a64288
 # Aplicação
 # ---------------------------------------------------------------------------
 NODE_ENV=development
-PORT=8080
+# PORT da API — padrão 8080 definido no código; descomente só se precisar trocar
+# PORT=8080
 BASE_PATH=/
 LOG_LEVEL=debug
 FRONTEND_URL=http://localhost:5000

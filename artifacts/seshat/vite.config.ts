@@ -4,8 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
-const rawPort = process.env.PORT || "5000";
-const port = Number(rawPort);
+// Porta do frontend — usa VITE_PORT se definida, nunca herda PORT (que é da API)
+const port = Number(process.env.VITE_PORT ?? 5000);
 const basePath = process.env.BASE_PATH || "/";
 
 export default defineConfig({
