@@ -162,3 +162,17 @@ docker compose up --build
 | `ENCRYPTION_KEY` | Chave AES-256 (hex 64 chars) para criptografia de fotos/e-mails | Definida em `.env` |
 | `SESSION_SECRET` | Segredo JWT/sessão | Definido em `.env` |
 | `ADMIN_EMAIL` | E-mail do administrador inicial | `admin@escola.edu.br` |
+
+## Criação automática do .env no devcontainer
+
+O `initializeCommand` do devcontainer executa `scripts/criar-env-dev.sh` antes de subir o container.
+O script cria o `.env` com os valores corretos de desenvolvimento **somente se o arquivo não existir** — nunca sobrescreve.
+
+`DATABASE_URL` gerado automaticamente: `postgresql://seshat:seshat@localhost:5432/seshat`
+
+Se o `.env` foi sobrescrito acidentalmente com valores do `.env.example` (que aponta para o serviço `db` de produção), corrija:
+```bash
+# No Mac, antes de reabrir o container:
+rm /caminho/do/projeto/.env
+# Reabrir o devcontainer — o initializeCommand recria o .env correto
+```
