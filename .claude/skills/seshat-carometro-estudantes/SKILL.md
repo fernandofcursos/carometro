@@ -233,3 +233,25 @@ pnpm --filter @workspace/db run push-force
 | `artifacts/api-server/src/lib/mailer.ts` | enviarEmailOcorrencia |
 | `artifacts/seshat/src/pages/seshat.tsx` | Página completa |
 | `.specs/features/carometro-estudantes.md` | Spec completa |
+
+---
+
+## Carômetros de Grupo (Usuários por Role)
+
+Páginas: `/carometro/equipe-gestora`, `/administracao`, `/equipe-pedagogica`, `/corpo-docente`, `/apoio-operacional`, `/carometro/usuarios`
+
+**Componente:** `seshat-grupo.tsx` → `CarometroGrupoPage`
+
+**Contrato da API:** retorna `UsuarioCard[]` (array plano).
+
+```typescript
+// CORRETO — o frontend faz Array.isArray(data)
+res.json(await getUsuariosPorRoles(["equipe_gestora"]));
+
+// ERRADO — Array.isArray({ sections: [] }) === false → lista vazia na UI
+res.json({ sections: await getUsuariosPorRoles(...) });
+```
+
+**Email:** campo `emailEncrypted` no banco — descriptografar com `SESSION_SECRET` antes de retornar.
+
+**Agrupamento:** feito no frontend via `ofertas[].turnoId + cursoId`. A API retorna lista plana; o `buildGroups()` em `seshat-grupo.tsx` monta a hierarquia turno → curso.

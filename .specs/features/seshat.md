@@ -31,6 +31,42 @@
 > Foto é retornada como data URL base64 inline (para o grid carregar sem requests extras).  
 > Para estudantes sem foto ou com foto corrompida: `foto: null` (sem falha na resposta).
 
+---
+
+## Endpoints de Grupo (Usuários por Role)
+
+Retornam `UsuarioCard[]` — **array plano**, não objeto com `sections`.
+
+```typescript
+type UsuarioCard = {
+  id: string;
+  nome: string | null;
+  email: string;           // descriptografado com SESSION_SECRET
+  fotoUrl: string | null;  // "/api/usuarios/:id/foto" ou null
+  codigoAcesso: string;
+  roles: { id: string; nome: string }[];
+  ofertas: {
+    ofertaId: string; disciplinaId: string; disciplinaNome: string;
+    cursoId: string; cursoNome: string; turnoId: string; turnoNome: string;
+  }[];
+}
+```
+
+| Endpoint | Roles filtradas |
+|---|---|
+| `GET /api/carometro/equipe-gestora` | `equipe_gestora` |
+| `GET /api/carometro/administracao` | `secretaria`, `administracao` |
+| `GET /api/carometro/equipe-pedagogica` | `coordenador`, `soe`, `aee`, `supervisao_pedagogica` |
+| `GET /api/carometro/corpo-docente` | `professor`, `educador` |
+| `GET /api/carometro/apoio-operacional` | `inspetor`, `limpeza`, `portaria`, `merendeira`, `seguranca` |
+| `GET /api/carometro/usuarios` | `pai_responsavel`, `estudante` |
+
+Todos requerem `carometro:view`.
+
+O frontend (`seshat-grupo.tsx`) agrupa por `ofertas[].turnoId + cursoId` para montar seções de turno/curso. Usuários sem ofertas aparecem em "Sem turno".
+
+**Armadilha crítica:** a API DEVE retornar array plano. Se retornar `{ sections: [...] }`, o frontend faz `Array.isArray(data)` → `false` → lista vazia.
+
 ## Considerações de Performance
 
 - Grid exibe todos os resultados filtrados de uma vez (sem paginação no MVP)
