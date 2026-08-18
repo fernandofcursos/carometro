@@ -61,7 +61,10 @@
 
         // DX
         "mikestead.dotenv",
-        "usernamehw.errorlens"
+        "usernamehw.errorlens",
+
+        // Qualidade — SonarLint
+        "sonarsource.sonarlint-vscode"
       ],
 
       "settings": {
