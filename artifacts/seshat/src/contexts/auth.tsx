@@ -51,7 +51,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refetch = useCallback(async () => {
     try {
-      const res = await fetch(`${BASE}/api/auth/me`, { credentials: "include" });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(`${BASE}/api/auth/me`, {
+        credentials: "include",
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
       if (res.ok) {
         setUser(await res.json());
       } else {
