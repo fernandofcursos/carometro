@@ -38,12 +38,31 @@ export async function enviarEmailXxx(para: string, dados: ...): Promise<void> {
 | `SMTP_PASS` | Senha SMTP |
 | `SMTP_FROM` | Remetente; padrão `Seshat <noreply@seshat.local>` |
 
-## Testar sem SMTP (Ethereal)
+## Modos sem SMTP
 
+### Ethereal (requer acesso a api.nodemailer.com)
 1. Não definir variáveis SMTP
 2. `POST /api/mailer/teste { "para": "qualquer@email.com" }`
-3. Log: `[mailer] "Teste de envio..." → https://ethereal.email/message/...`
-4. Abrir URL para ver o e-mail
+3. Log: `[mailer] Ethereal ativado — login: <user>@ethereal.email / <senha>`
+4. Log: `[mailer] "Teste de envio..." → https://ethereal.email/message/...`
+5. Abrir URL para ver o e-mail
+
+**A senha é exibida UMA VEZ ao iniciar o servidor.** Se o servidor foi reiniciado, a conta mudou.  
+Para fixar uma conta Ethereal, cadastre em https://ethereal.email e configure via SMTP:
+```env
+SMTP_HOST=smtp.ethereal.email
+SMTP_PORT=587
+SMTP_USER=<user>@ethereal.email
+SMTP_PASS=<senha>
+```
+
+### Modo captura local (fallback sem rede externa)
+
+Quando `api.nodemailer.com` está inacessível (proxy bloqueado), o mailer cai automaticamente para `jsonTransport`:
+- E-mails são processados mas **apenas logados no servidor** — sem envio real
+- Log: `[mailer] Ethereal indisponível — modo captura local`
+- Log: `[mailer] "Assunto" — capturado localmente (para: destino@email.com)`
+- UI exibe badge "captura local" (azul) com aviso nos logs
 
 ## Diagnóstico via API
 

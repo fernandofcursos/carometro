@@ -27,13 +27,35 @@ Sistema de envio de e-mails transacionais via SMTP configurável. Sem configura�
 | Modo | Quando | Comportamento |
 |---|---|---|
 | **SMTP** | `SMTP_HOST` + `SMTP_USER` + `SMTP_PASS` definidos | Entrega real via servidor configurado |
-| **Ethereal** | Variáveis não definidas | Captura sem entrega; URL de preview nos logs |
+| **Ethereal** | Sem vars SMTP, com acesso a `api.nodemailer.com` | Captura sem entrega; URL de preview nos logs |
+| **Local** | Sem vars SMTP e sem acesso externo (proxy bloqueia) | `jsonTransport` — e-mail processado e exibido apenas nos logs do servidor |
 
 Em modo Ethereal, os logs do servidor exibem:
 ```
 [mailer] Ethereal ativado — login: abc@ethereal.email / senha
 [mailer] Visualize mensagens em https://ethereal.email/messages
 [mailer] "Assunto do e-mail" → https://ethereal.email/message/...
+```
+
+Em modo Local (fallback sem rede), os logs exibem:
+```
+[mailer] Ethereal indisponível — modo captura local (e-mails exibidos apenas em log)
+[mailer] "Assunto do e-mail" — capturado localmente (para: destino@email.com)
+[mailer] Conteúdo texto: ...
+```
+
+### Senha da conta Ethereal
+
+A senha é gerada pelo `nodemailer.createTestAccount()` e exibida **uma única vez** no log do servidor ao iniciar:
+```
+[mailer] Ethereal ativado — login: <user>@ethereal.email / <senha>
+```
+Se o servidor foi reiniciado, a senha é perdida. Para reutilizar, acesse [https://ethereal.email](https://ethereal.email) → "Sign up" → cria conta manualmente e configure via SMTP_HOST/USER/PASS:
+```env
+SMTP_HOST=smtp.ethereal.email
+SMTP_PORT=587
+SMTP_USER=<user>@ethereal.email
+SMTP_PASS=<senha da conta>
 ```
 
 ---
