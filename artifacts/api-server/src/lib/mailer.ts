@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import fs from "fs";
+import { config as dotenvConfig } from "dotenv";
 import path from "path";
 
 // ---------------------------------------------------------------------------
@@ -11,24 +11,11 @@ let _etherealUser: string | null = null;
 // Rastreia as credenciais com que o transport foi criado para detectar mudanças
 let _smtpKey: string | null = null;
 
-/** Relê o .env do projeto para capturar mudanças sem reiniciar o servidor. */
+/** Relê o .env para capturar mudanças sem reiniciar o servidor. */
 function reloadEnv(): void {
-  // Sobe dois níveis a partir de artifacts/api-server até a raiz do repo
-  const envPath = path.resolve(import.meta.dirname, "../../../../.env");
-  try {
-    const content = fs.readFileSync(envPath, "utf-8");
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq === -1) continue;
-      const key = trimmed.slice(0, eq).trim();
-      const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
-      process.env[key] = val;
-    }
-  } catch {
-    // .env não existe no ambiente (produção/CI) — ignora silenciosamente
-  }
+  // CWD do servidor é artifacts/api-server/ — sobe dois níveis até a raiz
+  const envPath = path.resolve(process.cwd(), "../../.env");
+  dotenvConfig({ path: envPath, override: true });
 }
 
 function smtpKeyAtual(): string {
