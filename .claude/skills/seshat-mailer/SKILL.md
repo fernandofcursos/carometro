@@ -79,6 +79,10 @@ POST /api/mailer/teste
 
 Requer permissão `usuarios:manage`.
 
+**Armadilha — dados antigos no diagnóstico:**  
+`diagnosticoMailer()` chama `ensureTransport()` internamente para detectar mudanças nas env vars e reiniciar o singleton antes de retornar o status. Se o servidor não foi reiniciado após alterar o `.env`, o botão "Atualizar" na página de diagnóstico é suficiente para refletir a nova configuração — não é necessário reiniciar o servidor manualmente.  
+Nota: `tsx watch` observa apenas arquivos-fonte, **não** o `.env`. Para que mudanças no `.env` sejam carregadas sem reinicialização manual, é necessário reiniciar o servidor de desenvolvimento.
+
 ## Funções disponíveis
 
 | Função | Quando usar |

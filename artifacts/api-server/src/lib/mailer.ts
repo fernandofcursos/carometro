@@ -93,11 +93,11 @@ export async function diagnosticoMailer(): Promise<{
   etherealUser: string | null;
   from: string;
 }> {
+  // Garante que mudanças nas env vars sejam detectadas e o singleton reiniciado
+  await ensureTransport();
   const host = process.env.SMTP_HOST ?? null;
   const user = process.env.SMTP_USER ?? null;
-  const modo = _transport
-    ? host ? "smtp" : _etherealUser ? "ethereal" : "local"
-    : "não iniciado";
+  const modo = host ? "smtp" : _etherealUser ? "ethereal" : "local";
   return { modo, smtpHost: host, smtpUser: user, etherealUser: _etherealUser, from: remetente() };
 }
 
