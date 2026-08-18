@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
-import { diagnosticoMailer, enviarEmailTeste } from "../lib/mailer.js";
+import { diagnosticoMailer, enviarEmailTeste, type EnvioInfo } from "../lib/mailer.js";
 
 const router = Router();
 
@@ -26,12 +26,23 @@ router.post("/teste", requireAuth, requirePermissao("usuarios:manage"), async (r
     setTimeout(() => reject(new Error("Timeout: servidor SMTP não respondeu em 8s. Verifique conectividade ou configure SMTP_HOST no .env.")), 8000)
   );
   try {
-    await Promise.race([enviarEmailTeste(para), timeout]);
+    const envio = await Promise.race([enviarEmailTeste(para), timeout]) as EnvioInfo;
     const info = await diagnosticoMailer();
-    const dica = info.modo === "ethereal"
-      ? `Modo Ethereal ativo — acesse https://ethereal.email/messages para visualizar (login: ${info.etherealUser})`
+    const dica = envio.previewUrl
+      ? `Visualize em: ${envio.previewUrl}`
+      : envio.capturado && envio.conteudo
+      ? null  // conteudo é retornado diretamente
       : null;
-    res.json({ ok: true, mensagem: `E-mail de teste enviado para ${para}.`, modo: info.modo, dica });
+    res.json({
+      ok: true,
+      mensagem: envio.capturado
+        ? `E-mail capturado localmente (SMTP indisponível). Verifique o conteúdo abaixo.`
+        : `E-mail de teste enviado para ${para}.`,
+      modo: info.modo,
+      dica,
+      capturado: envio.capturado,
+      conteudo: envio.conteudo,
+    });
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Falha ao enviar e-mail de teste.",

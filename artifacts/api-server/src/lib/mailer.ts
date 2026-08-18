@@ -51,18 +51,10 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
     return _transport;
   }
 
-  // Sem SMTP configurado → conta Ethereal fixa de teste
-  // Conta: tanya.sipes46@ethereal.email — criada em https://ethereal.email
-  _etherealUser = "tanya.sipes46@ethereal.email";
-  _transport = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false,
-    auth: { user: "tanya.sipes46@ethereal.email", pass: "YMWsC87krHZuDYdCuH" },
-    ...timeouts,
-  });
-  console.log("[mailer] Ethereal fixo ativado — tanya.sipes46@ethereal.email");
-  console.log("[mailer] Visualize mensagens em https://ethereal.email/messages");
+  // Sem SMTP configurado → captura local (jsonTransport)
+  // SMTP externo não está disponível neste ambiente (porta 587 bloqueada)
+  _transport = nodemailer.createTransport({ jsonTransport: true });
+  console.log("[mailer] Modo captura local ativo — e-mails logados no servidor.");
   return _transport;
 }
 
@@ -70,19 +62,32 @@ function remetente() {
   return process.env.SMTP_FROM ?? "Seshat <noreply@seshat.local>";
 }
 
-async function enviar(opts: nodemailer.SendMailOptions): Promise<void> {
+export type EnvioInfo = {
+  previewUrl: string | null;
+  capturado: boolean;
+  conteudo: { para: string; assunto: string; texto: string } | null;
+};
+
+async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
   const t = await ensureTransport();
   const info = await t.sendMail({ from: remetente(), ...opts });
-  const preview = nodemailer.getTestMessageUrl(info);
-  if (preview) {
-    console.log(`[mailer] "${opts.subject}" → ${preview}`);
-  } else if (!info.messageId && info.message) {
-    // jsonTransport (modo captura local)
-    console.log(`[mailer] "${opts.subject}" — capturado localmente (para: ${opts.to})`);
-    console.log(`[mailer] Conteúdo texto: ${opts.text ?? "(sem texto)"}`);
-  } else {
-    console.log(`[mailer] "${opts.subject}" enviado para ${opts.to} (id: ${info.messageId})`);
+  const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+  if (previewUrl) {
+    console.log(`[mailer] "${opts.subject}" → ${previewUrl}`);
+    return { previewUrl, capturado: false, conteudo: null };
   }
+  if (info.message) {
+    // jsonTransport — e-mail capturado localmente
+    const para = Array.isArray(opts.to) ? opts.to.join(", ") : String(opts.to ?? "");
+    console.log(`[mailer] "${opts.subject}" — capturado localmente (para: ${para})`);
+    return {
+      previewUrl: null,
+      capturado: true,
+      conteudo: { para, assunto: String(opts.subject ?? ""), texto: String(opts.text ?? "") },
+    };
+  }
+  console.log(`[mailer] "${opts.subject}" enviado para ${opts.to} (id: ${info.messageId})`);
+  return { previewUrl: null, capturado: false, conteudo: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -108,8 +113,8 @@ export async function diagnosticoMailer(): Promise<{
 // Envio de e-mail de teste (qualquer destinatário, conteúdo simples)
 // ---------------------------------------------------------------------------
 
-export async function enviarEmailTeste(para: string): Promise<void> {
-  await enviar({
+export async function enviarEmailTeste(para: string): Promise<EnvioInfo> {
+  return enviar({
     to: para,
     subject: "Teste de envio — Seshat",
     text: "Este é um e-mail de teste do sistema Seshat. Se você recebeu, o envio está funcionando.",

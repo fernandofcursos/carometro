@@ -22,11 +22,14 @@ interface TesteResult {
   mensagem: string;
   modo: string;
   dica: string | null;
+  capturado?: boolean;
+  conteudo?: { para: string; assunto: string; texto: string } | null;
 }
 
 export default function MailerDiagnosticoPage() {
   const { toast } = useToast();
   const [para, setPara] = useState("");
+  const [captura, setCaptura] = useState<TesteResult["conteudo"]>(null);
 
   const { data: status, isLoading, refetch } = useQuery<MailerStatus>({
     queryKey: ["mailer-status"],
@@ -55,10 +58,10 @@ export default function MailerDiagnosticoPage() {
       return body;
     },
     onSuccess: (data) => {
-      toast({ title: data.mensagem });
-      if (data.dica) {
-        toast({ title: "Modo Ethereal", description: data.dica, duration: 15000 });
-      }
+      toast({ title: data.mensagem, duration: data.capturado ? 8000 : 5000 });
+      if (data.dica) toast({ title: "Preview", description: data.dica, duration: 15000 });
+      if (data.capturado && data.conteudo) setCaptura(data.conteudo);
+      else setCaptura(null);
       refetch();
     },
     onError: (err: Error) => {
@@ -193,6 +196,26 @@ export default function MailerDiagnosticoPage() {
           Em modo Ethereal, o link de preview aparece nos logs do servidor e em um toast.
         </p>
       </div>
+
+      {/* Prévia do e-mail capturado (modo local) */}
+      {captura && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-medium text-blue-800">E-mail Capturado Localmente</h2>
+            <span className="text-xs text-blue-600">SMTP indisponível neste ambiente</span>
+          </div>
+          <div className="space-y-1 text-sm">
+            <div className="flex gap-2"><span className="font-medium w-16 shrink-0">Para:</span><code className="text-xs bg-white px-2 py-0.5 rounded border">{captura.para}</code></div>
+            <div className="flex gap-2"><span className="font-medium w-16 shrink-0">Assunto:</span><code className="text-xs bg-white px-2 py-0.5 rounded border">{captura.assunto}</code></div>
+          </div>
+          <div className="bg-white rounded border p-3 text-sm whitespace-pre-wrap font-mono text-gray-700 text-xs">
+            {captura.texto}
+          </div>
+          <p className="text-xs text-blue-600">
+            O sistema de e-mail está funcionando. Para entrega real, configure SMTP_HOST, SMTP_USER e SMTP_PASS no .env.
+          </p>
+        </div>
+      )}
 
       {/* Funcionalidades que enviam e-mail */}
       <div className="rounded-lg border bg-card p-5 space-y-3">
