@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import fs from "fs";
+import path from "path";
 
 // ---------------------------------------------------------------------------
 // Transport — singleton compartilhado por todas as funções
@@ -9,11 +11,33 @@ let _etherealUser: string | null = null;
 // Rastreia as credenciais com que o transport foi criado para detectar mudanças
 let _smtpKey: string | null = null;
 
+/** Relê o .env do projeto para capturar mudanças sem reiniciar o servidor. */
+function reloadEnv(): void {
+  // Sobe dois níveis a partir de artifacts/api-server até a raiz do repo
+  const envPath = path.resolve(import.meta.dirname, "../../../../.env");
+  try {
+    const content = fs.readFileSync(envPath, "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+      process.env[key] = val;
+    }
+  } catch {
+    // .env não existe no ambiente (produção/CI) — ignora silenciosamente
+  }
+}
+
 function smtpKeyAtual(): string {
   return `${process.env.SMTP_HOST ?? ""}:${process.env.SMTP_USER ?? ""}:${process.env.SMTP_PASS ?? ""}`;
 }
 
 async function ensureTransport(): Promise<nodemailer.Transporter> {
+  // Relê o .env para capturar mudanças feitas após o servidor ter iniciado
+  reloadEnv();
   // Reinicia singleton se variáveis SMTP mudaram desde a última criação
   const key = smtpKeyAtual();
   if (_transport && _smtpKey !== null && _smtpKey !== key) {
