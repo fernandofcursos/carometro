@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
-import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable } from "@workspace/db/schema";
+import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable, coordenadorCursosTable } from "@workspace/db/schema";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
 import bcrypt from "bcryptjs";
@@ -74,6 +74,7 @@ const createUsuarioSchema = z.object({
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   roleIds: z.array(z.string().uuid()).optional().default([]),
   disciplinaOfertaIds: z.array(z.string().uuid()).optional().default([]),
+  cursoIds: z.array(z.string().uuid()).optional().default([]),
 });
 
 // GET /api/usuarios — listar usuários ativos com seus roles
@@ -111,6 +112,12 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           .innerJoin(turnosTable, eq(disciplinaOfertasTable.turnoId, turnosTable.id))
           .where(eq(usuarioDisciplinasTable.usuarioId, u.id));
 
+        const cursosCoordenados = await db
+          .select({ id: cursosTable.id, nome: cursosTable.nome })
+          .from(coordenadorCursosTable)
+          .innerJoin(cursosTable, eq(coordenadorCursosTable.cursoId, cursosTable.id))
+          .where(eq(coordenadorCursosTable.usuarioId, u.id));
+
         return {
           id:            u.id,
           nome:          u.nome,
@@ -123,6 +130,7 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           criadoEm:      u.criadoEm,
           roles,
           disciplinas,
+          cursosCoordenados,
         };
       })
     );
@@ -170,7 +178,7 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 // POST /api/usuarios — criar usuário com senha temporária
 router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds } = createUsuarioSchema.parse(req.body);
+    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds, cursoIds } = createUsuarioSchema.parse(req.body);
     const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
 
     const erroRegra = await validarRegrasRoles(roleIds, dataNascimento);
@@ -206,6 +214,13 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       ).onConflictDoNothing();
     }
 
+    // Vincular cursos coordenados
+    if (cursoIds.length > 0) {
+      await db.insert(coordenadorCursosTable).values(
+        cursoIds.map((cursoId) => ({ usuarioId: u.id, cursoId }))
+      ).onConflictDoNothing();
+    }
+
     await registrarAuditoria({
       tabela: "usuarios", operacao: "INSERT", registroId: u.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
@@ -231,7 +246,11 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       console.error("[usuarios] falha ao enviar e-mail de boas-vindas:", err);
     });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("23505") || msg.includes("email_hash") || msg.includes("unique")) {
+      return res.status(400).json({ error: "O e-mail informado já está cadastrado para outro usuário." });
+    }
+    res.status(400).json({ error: msg || "Dados inválidos" });
   }
 });
 
@@ -355,6 +374,100 @@ router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Reques
     res.json({ ok: true, total: roleIds.length });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// PUT /api/usuarios/:id/cursos — substituir cursos coordenados pelo usuário
+router.put("/:id/cursos", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const { cursoIds } = z
+      .object({ cursoIds: z.array(z.string().uuid()) })
+      .parse(req.body);
+
+    const usuarioId = String(req.params.id);
+
+    await db.delete(coordenadorCursosTable).where(eq(coordenadorCursosTable.usuarioId, usuarioId));
+
+    if (cursoIds.length > 0) {
+      await db.insert(coordenadorCursosTable).values(
+        cursoIds.map((cursoId) => ({ usuarioId, cursoId }))
+      );
+    }
+
+    await registrarAuditoria({
+      tabela: "coordenador_cursos", operacao: "UPDATE", registroId: usuarioId,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/usuarios/:id/cursos", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, total: cursoIds.length });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// PUT /api/usuarios/:id/disciplinas — substituir disciplinas (ofertas) do usuário
+router.put("/:id/disciplinas", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const { disciplinaOfertaIds } = z
+      .object({ disciplinaOfertaIds: z.array(z.string().uuid()) })
+      .parse(req.body);
+
+    const usuarioId = String(req.params.id);
+
+    await db.delete(usuarioDisciplinasTable).where(eq(usuarioDisciplinasTable.usuarioId, usuarioId));
+
+    if (disciplinaOfertaIds.length > 0) {
+      await db.insert(usuarioDisciplinasTable).values(
+        disciplinaOfertaIds.map((disciplinaOfertaId) => ({ usuarioId, disciplinaOfertaId }))
+      );
+    }
+
+    await registrarAuditoria({
+      tabela: "usuario_disciplinas", operacao: "UPDATE", registroId: usuarioId,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/usuarios/:id/disciplinas", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, total: disciplinaOfertaIds.length });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// POST /api/usuarios/:id/resetar-senha — gera nova senha temporária
+router.post("/:id/resetar-senha", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const senhaGerada = randomBytes(8).toString("base64url").slice(0, 10);
+    const senhaHash = await bcrypt.hash(senhaGerada, 12);
+
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+    const [u] = await db
+      .update(usuariosTable)
+      .set({ senhaHash, primeiroAcesso: true, atualizadoEm: new Date() })
+      .where(and(eq(usuariosTable.id, String(req.params.id)), isNull(usuariosTable.deletadoEm)))
+      .returning();
+
+    if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    const email = decryptEmail(u.emailEncrypted, secret);
+
+    await registrarAuditoria({
+      tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: `POST /api/usuarios/${String(req.params.id)}/resetar-senha`, metodoHttp: "POST", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, senhaGerada });
+
+    enviarEmailBoasVindas(email, u.codigoAcesso ?? "", senhaGerada, u.nome).catch((err) => {
+      console.error("[usuarios] falha ao enviar e-mail de reset de senha:", err);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao resetar senha" });
   }
 });
 

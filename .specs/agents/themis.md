@@ -38,7 +38,7 @@ Para cada rota, Themis exige:
 
 ### TypeScript
 - Executar `pnpm --filter @workspace/api-server run typecheck` antes de aprovar
-- Executar `pnpm --filter @workspace/carometro run typecheck` para o frontend
+- Executar `pnpm --filter @workspace/seshat run typecheck` para o frontend
 - Zero erros de TS permitidos em merge — warnings são investigados
 
 ### Validação de Specs
@@ -87,7 +87,7 @@ pnpm --filter @workspace/api-server run test:watch
 pnpm --filter @workspace/api-server run typecheck
 
 # Verificar TypeScript frontend
-pnpm --filter @workspace/carometro run typecheck
+pnpm --filter @workspace/seshat run typecheck
 ```
 
 ---

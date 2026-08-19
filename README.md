@@ -1,6 +1,6 @@
-# Carômetro — Ambiente de Desenvolvimento Docker
+# Seshat — Ambiente de Desenvolvimento Docker
 
-Container Docker que replica o ambiente Replit para desenvolvimento local do projeto Carômetro.
+Container Docker para desenvolvimento local da plataforma **Seshat** — sistema de gestão educacional com registro fotográfico, equipes, turmas e ocorrências.
 
 ## O que está incluído
 
@@ -62,7 +62,7 @@ make up
 
 O entrypoint faz automaticamente na primeira vez:
 1. Inicia o PostgreSQL 16 interno
-2. Cria o banco e usuário `carometro`
+2. Cria o banco e usuário `seshat`
 3. Roda `pnpm install` (usa o cache do volume pnpm_store)
 4. Aplica o schema com `pnpm --filter @workspace/db run push`
 5. Cria o administrador inicial se o banco estiver vazio
@@ -88,7 +88,7 @@ make help          # lista todos os comandos
 Edite o `.env` e substitua `DATABASE_URL`:
 
 ```env
-DATABASE_URL=postgresql://usuario:senha@ep-xxx.us-east-2.aws.neon.tech/carometro?sslmode=require
+DATABASE_URL=postgresql://usuario:senha@ep-xxx.us-east-2.aws.neon.tech/seshat?sslmode=require
 ```
 
 O entrypoint detecta que não é `localhost` e pula a inicialização do PostgreSQL local.
@@ -103,6 +103,6 @@ docker compose --profile split up
 docker compose --profile split --profile tools up
 ```
 
-Credenciais do pgAdmin: `admin@carometro.local` / `admin`
+Credenciais do pgAdmin: `admin@seshat.local` / `admin`
 
 ## 

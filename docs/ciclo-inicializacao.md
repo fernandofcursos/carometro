@@ -1,4 +1,4 @@
-# Ciclo Completo de Inicialização — Carômetro Dev
+# Ciclo Completo de Inicialização — Seshat Dev
 
 ---
 
@@ -96,7 +96,7 @@ Há duas formas equivalentes — escolha a que preferir:
 
 #### Opção A — Via Tasks do VSCode (recomendado)
 
-`Cmd+Shift+P` → **Tasks: Run Task** → **🚀 Carômetro: subir tudo**
+`Cmd+Shift+P` → **Tasks: Run Task** → **🚀 Seshat: subir tudo**
 
 Isso sobe API e Frontend em paralelo, cada um em seu próprio painel de terminal.
 
@@ -115,7 +115,7 @@ Aguarde: `api-server listening on port 8080`
 
 **Terminal 2 — Frontend (porta 5000):**
 ```bash
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 ```
 Aguarde: `➜ Local: http://localhost:5000/`
 
@@ -189,7 +189,7 @@ Acesso: `Cmd+Shift+P` → **Tasks: Run Task**
 
 | Task | O que faz |
 |---|---|
-| **🚀 Carômetro: subir tudo** | Sobe API (8080) e Frontend (5000) em paralelo |
+| **🚀 Seshat: subir tudo** | Sobe API (8080) e Frontend (5000) em paralelo |
 | **API: api-server dev** | Sobe apenas a API na porta 8080 |
 | **Frontend: Vite dev server** | Sobe apenas o frontend na porta 5000 |
 | **DB: aplicar schema** | Executa `push-force` no banco |
@@ -217,14 +217,14 @@ pnpm --filter @workspace/api-server run seed-admin admin@escola.edu.br
 PORT=8080 pnpm --filter @workspace/api-server run dev
 
 # Subir frontend (porta 5000)
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 
 # Rodar testes
 pnpm --filter @workspace/api-server run test
 
 # Verificar TypeScript
 pnpm --filter @workspace/api-server run typecheck
-pnpm --filter @workspace/carometro run typecheck
+pnpm --filter @workspace/seshat run typecheck
 
 # Matar processo travado na porta 5000
 kill $(lsof -ti :5000)

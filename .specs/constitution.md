@@ -1,10 +1,10 @@
-# Constituição do Carômetro
+# Constituição do Seshat
 
 > Regras invioláveis. Qualquer mudança exige revisão explícita da Athena (arquiteta).
 
 ## 1. Propósito
 
-O Carômetro é um sistema de gestão escolar para registro fotográfico de estudantes, controle de turmas, ocorrências e geração de relatórios. Destina-se a escolas públicas e privadas com foco em segurança, rastreabilidade e conformidade com a LGPD.
+O Seshat é um sistema de gestão escolar para registro fotográfico de estudantes, controle de turmas, ocorrências e geração de relatórios. Destina-se a escolas públicas e privadas com foco em segurança, rastreabilidade e conformidade com a LGPD.
 
 ## 2. Princípios Invioláveis
 
@@ -75,6 +75,6 @@ Formato: `recurso:acao`
 
 - Rotas: `artifacts/api-server/src/routes/<recurso>.ts`
 - Schemas Drizzle: `lib/db/src/schema/<recurso>.ts`
-- Páginas frontend: `artifacts/carometro/src/pages/<recurso>/index.tsx`
+- Páginas frontend: `artifacts/seshat/src/pages/<recurso>/index.tsx`
 - Testes unitários: `tests/<recurso>.test.ts`
 - Testes E2E: `tests/e2e/<fluxo>.spec.ts`

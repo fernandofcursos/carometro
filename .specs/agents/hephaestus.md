@@ -76,8 +76,10 @@ fotoDados: customType bytea                                     // foto criptogr
 | `disciplinas` | Disciplinas por curso | ✅ |
 | `estudantes` | Estudantes com foto criptografada | ✅ |
 | `estudantes_emails` | E-mails de estudantes (criptografados) | ❌ |
-| `ocorrencias` | Ocorrências disciplinares | ✅ |
+| `ocorrencias` | Ocorrências disciplinares (inclui `notificacao_pais_enviada_em`) | ✅ |
 | `tipos_ocorrencias` | Tipos de ocorrência configuráveis | ✅ |
+| `textos_padrao_ocorrencias` | Textos padrão por tipo de ocorrência com placeholders | ✅ |
+| `turma_turnos` | Associação N:N turma ↔ turno (substitui `turno_id` em `turmas`) | ✅ |
 | `auditoria_logs` | Log imutável de todas as operações | ❌ |
 | `consentimentos_lgpd` | Consentimentos LGPD por usuário/finalidade | ❌ |
 | `solicitacoes_lgpd` | Solicitações de direitos LGPD | ❌ |
@@ -127,6 +129,37 @@ psql $DATABASE_URL -c "SELECT codigo_acesso, primeiro_acesso, tentativas_login_f
 # Desbloquear conta
 psql $DATABASE_URL -c "UPDATE usuarios SET tentativas_login_falhas = 0, bloqueado_ate = NULL;"
 ```
+
+---
+
+## Armadilhas Conhecidas
+
+### `turmas` não tem `turno_id`
+
+A coluna `turno_id` foi removida de `turmas`. O turno é obtido **exclusivamente** via a tabela `turma_turnos` (N:N):
+
+```typescript
+// ERRADO — coluna não existe:
+.leftJoin(turnosTable, eq(turmasTable.turnoId, turnosTable.id))
+
+// CORRETO:
+.leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
+.leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
+```
+
+Importar `turmaTurnosTable` de `@workspace/db` em toda rota que precise do turno da turma.
+
+### `textos_padrao_ocorrencias` — índice único parcial
+
+Apenas um texto ativo por tipo de ocorrência:
+
+```sql
+CREATE UNIQUE INDEX uq_texto_padrao_ativo_por_tipo
+  ON textos_padrao_ocorrencias (tipo_ocorrencia_id)
+  WHERE ativo = true AND deletado_em IS NULL;
+```
+
+Ao reativar um texto (`ativo = true`), verificar antes se já existe outro ativo para o mesmo tipo (retornar 409 se sim).
 
 ---
 

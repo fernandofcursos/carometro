@@ -1,4 +1,4 @@
-# Produto: Carômetro
+# Produto: Seshat
 
 ## Visão
 

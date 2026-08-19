@@ -11,12 +11,15 @@ import disciplinasRouter from "./routes/disciplinas.js";
 import turmasRouter from "./routes/turmas.js";
 // SDD Dia 2: ocorrências, roles e usuários
 import tiposOcorrenciasRouter from "./routes/tipos-ocorrencias.js";
+import textosPadraoRouter from "./routes/textos-padrao.js";
+import mailerTestRouter from "./routes/mailer-test.js";
 import ocorrenciasRouter from "./routes/ocorrencias.js";
 import rolesRouter from "./routes/roles.js";
 import usuariosRouter from "./routes/usuarios.js";
 // SDD Dia 3: estudantes, carômetro e import
 import estudantesRouter from "./routes/estudantes.js";
-import carometroRouter from "./routes/carometro.js";
+import matriculasRouter from "./routes/matriculas.js";
+import seshatRouter from "./routes/seshat.js";
 import importRouter from "./routes/import.js";
 import statsRouter from "./routes/stats.js";
 import biometriaRouter from "./routes/biometria.js";
@@ -46,12 +49,15 @@ app.use("/api/disciplinas", disciplinasRouter);
 app.use("/api/turmas", turmasRouter);
 // SDD Dia 2: rotas implementadas
 app.use("/api/tipos-ocorrencias", tiposOcorrenciasRouter);
+app.use("/api/mailer", mailerTestRouter);
+app.use("/api/textos-padrao", textosPadraoRouter);
 app.use("/api/ocorrencias", ocorrenciasRouter);
 app.use("/api/roles", rolesRouter);
 app.use("/api/usuarios", usuariosRouter);
 // SDD Dia 3: rotas implementadas
 app.use("/api/estudantes", estudantesRouter);
-app.use("/api/carometro", carometroRouter);
+app.use("/api/matriculas", matriculasRouter);
+app.use("/api/carometro", seshatRouter);
 app.use("/api/import", importRouter);
 app.use("/api/stats", statsRouter);
 // Biometria facial e digital (WebAuthn FIDO2)

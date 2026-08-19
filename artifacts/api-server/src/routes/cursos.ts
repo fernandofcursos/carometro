@@ -46,7 +46,14 @@ router.post("/", requirePermissao("cursos:manage"), async (req: Request, res: Re
     });
     res.status(201).json(curso);
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("23505") || msg.includes("sigla")) {
+      return res.status(400).json({ error: "Já existe um curso com essa sigla." });
+    }
+    if (msg.includes("nome")) {
+      return res.status(400).json({ error: "Já existe um curso com esse nome." });
+    }
+    res.status(400).json({ error: msg || "Dados inválidos" });
   }
 });
 
@@ -68,7 +75,14 @@ router.put("/:id", requirePermissao("cursos:manage"), async (req: Request, res: 
     });
     res.json(curso);
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("23505") || msg.includes("sigla")) {
+      return res.status(400).json({ error: "Já existe um curso com essa sigla." });
+    }
+    if (msg.includes("nome")) {
+      return res.status(400).json({ error: "Já existe um curso com esse nome." });
+    }
+    res.status(400).json({ error: msg || "Dados inválidos" });
   }
 });
 
