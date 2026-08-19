@@ -134,13 +134,17 @@ const testeMutation = useMutation({
 `dist/index.d.ts` pode estar desatualizado e não exportar esses símbolos.
 Sempre usar `fetch` nativo com `credentials: "include"` e prefixo `BASE`.
 
-## Gmail como SMTP
+## Configuração Gmail — conta oficial do projeto
+
+Conta: `noreplay.seshat.etsm@gmail.com`
 
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=conta@gmail.com
-SMTP_PASS=xxxx-xxxx-xxxx-xxxx   # App Password (não a senha normal)
-SMTP_FROM=Seshat <conta@gmail.com>
+SMTP_USER=noreplay.seshat.etsm@gmail.com
+SMTP_PASS=<Senha de App de 16 chars gerada no Google>
+SMTP_FROM=Seshat <noreplay.seshat.etsm@gmail.com>
 ```
-Gerar App Password: myaccount.google.com → Segurança → Senhas de app
+
+**Atenção:** o Gmail exige **Senha de App** (não a senha da conta).  
+Gerar em: myaccount.google.com → Segurança → Verificação em 2 etapas → Senhas de app
