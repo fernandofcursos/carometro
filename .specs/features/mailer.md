@@ -123,14 +123,14 @@ Resposta:
 3. Verifique os logs do servidor — aparece URL de preview
 4. Acesse a URL para ver o e-mail capturado
 
-### Com SMTP Real (Gmail como exemplo)
+### Com SMTP Real (Gmail — configuração oficial do projeto)
 
 ```env
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=sua-conta@gmail.com
-SMTP_PASS=sua-app-password   # gerar em myaccount.google.com/apppasswords
-SMTP_FROM=Seshat <sua-conta@gmail.com>
+SMTP_USER=noreplay.seshat.etsm@gmail.com
+SMTP_PASS=jbvwwogmeuuexlfr
+SMTP_FROM=Seshat <noreplay.seshat.etsm@gmail.com>
 ```
 
 Verificar status: `GET /api/mailer/status` → `"modo": "smtp"`

@@ -142,9 +142,6 @@ Conta: `noreplay.seshat.etsm@gmail.com`
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=noreplay.seshat.etsm@gmail.com
-SMTP_PASS=<Senha de App de 16 chars gerada no Google>
+SMTP_PASS=jbvwwogmeuuexlfr
 SMTP_FROM=Seshat <noreplay.seshat.etsm@gmail.com>
 ```
-
-**Atenção:** o Gmail exige **Senha de App** (não a senha da conta).  
-Gerar em: myaccount.google.com → Segurança → Verificação em 2 etapas → Senhas de app
