@@ -338,7 +338,7 @@ export function CarometroEquipeGestora() {
   return (
     <CarometroGrupoPage
       endpoint="/api/carometro/equipe-gestora"
-      titulo="Carômetro — Equipe Gestora"
+      titulo="Equipe Gestora"
       descricao="Membros da equipe gestora agrupados por turno e curso."
     />
   );
@@ -348,7 +348,7 @@ export function CarometroAdministracao() {
   return (
     <CarometroGrupoPage
       endpoint="/api/carometro/administracao"
-      titulo="Carômetro — Administração"
+      titulo="Administração"
       descricao="Membros da administração agrupados por turno e curso."
     />
   );
@@ -358,7 +358,7 @@ export function CarometroEquipePedagogica() {
   return (
     <CarometroGrupoPage
       endpoint="/api/carometro/equipe-pedagogica"
-      titulo="Carômetro — Equipe Pedagógica"
+      titulo="Equipe Pedagógica"
       descricao="Membros da equipe pedagógica agrupados por turno e curso."
       showDisciplinas={false}
     />
@@ -369,7 +369,7 @@ export function CarometroCorpoDocente() {
   return (
     <CarometroGrupoPage
       endpoint="/api/carometro/corpo-docente"
-      titulo="Carômetro — Corpo Docente"
+      titulo="Corpo Docente"
       descricao="Professores e docentes agrupados por turno e curso."
     />
   );
@@ -379,7 +379,7 @@ export function CarometroApoioOperacional() {
   return (
     <CarometroGrupoPage
       endpoint="/api/carometro/apoio-operacional"
-      titulo="Carômetro — Apoio Operacional"
+      titulo="Apoio Operacional"
       descricao="Membros do apoio operacional agrupados por turno e curso."
     />
   );
@@ -389,7 +389,7 @@ export function CarometroUsuariosVinculados() {
   return (
     <CarometroGrupoPage
       endpoint="/api/carometro/usuarios-vinculados"
-      titulo="Carômetro — Usuários Vinculados"
+      titulo="Usuários Vinculados"
       descricao="Usuários vinculados agrupados por turno e curso."
     />
   );

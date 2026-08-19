@@ -246,7 +246,7 @@ export default function CarometroUsuarios() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Carômetro de Usuários</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">Usuários Vinculados</h1>
         <p className="text-muted-foreground mt-2">Usuários agrupados por função, curso e turno.</p>
       </div>
 

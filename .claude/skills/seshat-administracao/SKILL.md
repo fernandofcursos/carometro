@@ -2,7 +2,7 @@
 description: Spec do carômetro de Administração
 ---
 
-# Carômetro de Administração
+# Administração
 
 ## Spec
 

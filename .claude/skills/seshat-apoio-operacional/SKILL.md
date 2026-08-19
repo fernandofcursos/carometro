@@ -2,7 +2,7 @@
 description: Spec do carômetro de Apoio e Operacional
 ---
 
-# Carômetro de Apoio e Operacional
+# Apoio e Operacional
 
 ## Spec
 

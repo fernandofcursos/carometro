@@ -2,7 +2,7 @@
 description: Spec do carômetro de Equipe Gestora
 ---
 
-# Carômetro de Equipe Gestora
+# Equipe Gestora
 
 ## Spec
 

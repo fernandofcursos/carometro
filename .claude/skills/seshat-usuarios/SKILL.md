@@ -2,7 +2,7 @@
 description: Spec do carômetro de Usuários (pais, responsáveis e estudantes)
 ---
 
-# Carômetro de Usuários
+# Usuários
 
 ## Spec
 

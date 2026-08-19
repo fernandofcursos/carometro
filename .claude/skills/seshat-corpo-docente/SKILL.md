@@ -2,7 +2,7 @@
 description: Spec do carômetro de Corpo Docente
 ---
 
-# Carômetro de Corpo Docente
+# Corpo Docente
 
 ## Spec
 

@@ -2,7 +2,7 @@
 description: Spec do carômetro de Equipe Pedagógica
 ---
 
-# Carômetro de Equipe Pedagógica
+# Equipe Pedagógica
 
 ## Spec
 
