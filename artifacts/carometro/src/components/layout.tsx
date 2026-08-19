@@ -12,7 +12,7 @@ import {
 import {
   Grid, Users, Building, Clock, BookOpen, Upload,
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
-  ChevronDown, Check, UserSquare2, GraduationCap, FileText,
+  ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
   PanelLeft, Crown, Building2,
 } from "lucide-react";
@@ -78,7 +78,6 @@ export function AppSidebar() {
         nav("Equipe Pedagógica", "/carometro/equipe-pedagogica", GraduationCap),
         nav("Corpo Docente", "/carometro/corpo-docente", BookOpen),
         nav("Apoio / Operacional", "/carometro/apoio-operacional", Wrench),
-        nav("Usuários", "/carometro/usuarios", UserSquare2),
       ],
     }] : []),
     ...((canManageUsuarios || canManageRoles) ? [{

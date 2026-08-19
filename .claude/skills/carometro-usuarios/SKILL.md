@@ -1,8 +1,10 @@
 ---
-description: Spec do carômetro de Usuários (pais, responsáveis e estudantes)
+description: Spec do carômetro de Usuários (pais, responsáveis e estudantes) — removido do menu
 ---
 
 # Carômetro de Usuários
+
+> **Status:** endpoint e página existem mas a opção foi **removida do menu** do Carômetro. Não recriar sem aprovação explícita.
 
 ## Spec
 
