@@ -42,11 +42,13 @@ function UserPhotoCard({
   small,
   cursoId,
   turnoId,
+  showDisciplinas = true,
 }: {
   u: UsuarioCard;
   small?: boolean;
   cursoId?: string;
   turnoId?: string;
+  showDisciplinas?: boolean;
 }) {
   const displayName = u.nome || u.email;
 
@@ -86,7 +88,7 @@ function UserPhotoCard({
       <p className={`font-medium text-center leading-tight line-clamp-2 w-full ${small ? "text-[9px]" : "text-[10px]"}`} title={displayName}>
         {displayName}
       </p>
-      {disciplinas.length > 0 && (
+      {showDisciplinas && disciplinas.length > 0 && (
         <p
           className="text-[8px] text-muted-foreground text-center leading-tight line-clamp-2 w-full -mt-0.5"
           title={disciplinas.join(", ")}
@@ -111,11 +113,13 @@ function UserGrid({
   small,
   cursoId,
   turnoId,
+  showDisciplinas = true,
 }: {
   usuarios: UsuarioCard[];
   small?: boolean;
   cursoId?: string;
   turnoId?: string;
+  showDisciplinas?: boolean;
 }) {
   if (usuarios.length === 0) {
     return (
@@ -125,7 +129,7 @@ function UserGrid({
   return (
     <div className="flex flex-wrap gap-2">
       {usuarios.map((u) => (
-        <UserPhotoCard key={u.id} u={u} small={small} cursoId={cursoId} turnoId={turnoId} />
+        <UserPhotoCard key={u.id} u={u} small={small} cursoId={cursoId} turnoId={turnoId} showDisciplinas={showDisciplinas} />
       ))}
     </div>
   );
@@ -228,9 +232,10 @@ type CarometroGrupoPageProps = {
   endpoint: string;
   titulo: string;
   descricao: string;
+  showDisciplinas?: boolean;
 };
 
-function CarometroGrupoPage({ endpoint, titulo, descricao }: CarometroGrupoPageProps) {
+function CarometroGrupoPage({ endpoint, titulo, descricao, showDisciplinas = true }: CarometroGrupoPageProps) {
   const [usuarios, setUsuarios] = useState<UsuarioCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -280,7 +285,7 @@ function CarometroGrupoPage({ endpoint, titulo, descricao }: CarometroGrupoPageP
         <div className="space-y-4">
           <SectionHeader title={titulo} count={totalUsuarios} />
           <div className="mt-4">
-            <UserGrid usuarios={usuarios} />
+            <UserGrid usuarios={usuarios} showDisciplinas={showDisciplinas} />
           </div>
         </div>
       ) : (
@@ -295,6 +300,7 @@ function CarometroGrupoPage({ endpoint, titulo, descricao }: CarometroGrupoPageP
                     usuarios={turno.cursos[0].usuarios}
                     cursoId={turno.cursos[0].cursoId}
                     turnoId={turno.turnoId}
+                    showDisciplinas={showDisciplinas}
                   />
                 </div>
               </section>
@@ -312,6 +318,7 @@ function CarometroGrupoPage({ endpoint, titulo, descricao }: CarometroGrupoPageP
                         small
                         cursoId={curso.cursoId}
                         turnoId={turno.turnoId}
+                        showDisciplinas={showDisciplinas}
                       />
                     </SubSection>
                   ))}
@@ -353,6 +360,7 @@ export function CarometroEquipePedagogica() {
       endpoint="/api/carometro/equipe-pedagogica"
       titulo="Carômetro — Equipe Pedagógica"
       descricao="Membros da equipe pedagógica agrupados por turno e curso."
+      showDisciplinas={false}
     />
   );
 }
