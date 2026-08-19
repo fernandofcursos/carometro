@@ -17,6 +17,7 @@ import {
   usuarioDisciplinasTable,
   disciplinaOfertasTable,
   disciplinasTable,
+  coordenadorCursosTable,
 } from "@workspace/db";
 import { descriptografarFoto, verificarIntegridade } from "../lib/crypto.js";
 import { requireAuth } from "../lib/auth.js";
@@ -43,6 +44,7 @@ type UsuarioCardAPI = {
     turnoId: string;
     turnoNome: string;
   }[];
+  cursosCoordenados: { id: string; nome: string }[];
 };
 
 // ─── Função auxiliar ──────────────────────────────────────────────────────────
@@ -137,7 +139,20 @@ async function getUsuariosPorRoles(nomes: string[]): Promise<UsuarioCardAPI[]> {
     });
   }
 
-  // 3. Montar UsuarioCardAPI[]
+  // 3. Buscar cursos coordenados
+  const coordRows = await db
+    .select({ usuarioId: coordenadorCursosTable.usuarioId, cursoId: cursosTable.id, cursoNome: cursosTable.nome })
+    .from(coordenadorCursosTable)
+    .innerJoin(cursosTable, eq(coordenadorCursosTable.cursoId, cursosTable.id))
+    .where(inArray(coordenadorCursosTable.usuarioId, usuarioIds));
+
+  const coordMap = new Map<string, { id: string; nome: string }[]>();
+  for (const c of coordRows) {
+    if (!coordMap.has(c.usuarioId)) coordMap.set(c.usuarioId, []);
+    coordMap.get(c.usuarioId)!.push({ id: c.cursoId, nome: c.cursoNome });
+  }
+
+  // 4. Montar UsuarioCardAPI[]
   return [...usuarioMap.values()].map((u) => ({
     id: u.id,
     nome: u.nome,
@@ -146,6 +161,7 @@ async function getUsuariosPorRoles(nomes: string[]): Promise<UsuarioCardAPI[]> {
     fotoUrl: u.fotoStorageKey && u.fotoDados ? `/api/usuarios/${u.id}/foto` : null,
     roles: [...u.roles.entries()].map(([id, nome]) => ({ id, nome })),
     ofertas: ofertaMap.get(u.id) ?? [],
+    cursosCoordenados: coordMap.get(u.id) ?? [],
   }));
 }
 

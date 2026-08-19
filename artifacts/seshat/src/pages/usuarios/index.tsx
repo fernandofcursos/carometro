@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useListUsuarios, useCreateUsuario, useUpdateUsuario, useDeleteUsuario,
   useUploadFotoUsuario, useListDisciplinas, useListRoles, useSetUsuarioRoles,
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { UserCog, Plus, Trash2, Edit2, Lock, Copy, BookOpen, Camera, ShieldCheck, RefreshCw, AlertCircle } from "lucide-react";
+import { UserCog, Plus, Trash2, Edit2, Lock, Copy, BookOpen, Camera, ShieldCheck, RefreshCw, AlertCircle, GraduationCap } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -30,10 +30,12 @@ type RoleSummary = { id: string; nome: string };
 type DisciplinaOferta = { id: string; disciplinaId: string; cursoId: string; cursoNome: string; turnoId: string; turnoNome: string };
 type EnrichedDisc = { id: string; nome: string; criadoEm: string; ofertas: DisciplinaOferta[] };
 type UsuarioDisciplina = { ofertaId: string; disciplinaId: string; disciplinaNome: string; cursoId: string; cursoNome: string; turnoId: string; turnoNome: string };
+type CursoSummary = { id: string; nome: string };
 type Usuario = {
   id: string; nome: string | null; email: string; codigoAcesso: string;
   primeiroAcesso: boolean; fotoUrl: string | null;
   roles: RoleSummary[]; disciplinas: UsuarioDisciplina[];
+  cursosCoordenados: CursoSummary[];
   criadoEm: string;
 };
 
@@ -112,6 +114,73 @@ function DisciplinasModal({
             </div>
           ))
         )}
+      </div>
+      <div className="flex gap-2 pt-2">
+        <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Salvando..." : "Salvar"}</Button>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+      </div>
+    </DialogContent>
+  );
+}
+
+function CursosModal({
+  usuario, onClose,
+}: { usuario: Usuario; onClose: () => void }) {
+  const [allCursos, setAllCursos] = useState<CursoSummary[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set((usuario.cursosCoordenados ?? []).map((c) => c.id)));
+  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  useEffect(() => {
+    fetch(`${BASE}/api/cursos`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setAllCursos(Array.isArray(data) ? data : []))
+      .catch(() => setAllCursos([]));
+  }, [BASE]);
+
+  const toggle = (id: string) => {
+    const s = new Set(selected);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    setSelected(s);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${BASE}/api/usuarios/${usuario.id}/cursos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ cursoIds: [...selected] }),
+      });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: getListUsuariosQueryKey() });
+        toast({ title: "Coordenações atualizadas" });
+        onClose();
+      } else {
+        toast({ title: "Erro ao salvar coordenações", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro de conexão", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader><DialogTitle>Coordenações de {usuario.nome ?? usuario.email}</DialogTitle></DialogHeader>
+      <div className="space-y-2 max-h-72 overflow-y-auto py-2">
+        {allCursos.length === 0
+          ? <p className="text-sm text-muted-foreground text-center py-4">Nenhum curso cadastrado.</p>
+          : allCursos.map((c) => (
+            <label key={c.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer">
+              <Checkbox checked={selected.has(c.id)} onCheckedChange={() => toggle(c.id)} />
+              <span className="text-sm font-medium">{c.nome}</span>
+            </label>
+          ))}
       </div>
       <div className="flex gap-2 pt-2">
         <Button onClick={save} disabled={saving} className="flex-1">{saving ? "Salvando..." : "Salvar"}</Button>
@@ -347,6 +416,8 @@ function UsuarioRow({
   const [showDisc, setShowDisc] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
   const [showFoto, setShowFoto] = useState(false);
+  const [showCursos, setShowCursos] = useState(false);
+  const isCoordenador = usuario.roles.some((r) => r.nome === "coordenador");
   const { toast } = useToast();
 
   const copyCode = () => { navigator.clipboard.writeText(usuario.codigoAcesso); toast({ title: "Código copiado!" }); };
@@ -383,6 +454,12 @@ function UsuarioRow({
               {[...new Set((usuario.disciplinas ?? []).map((d) => d.disciplinaNome))].join(", ")}
             </span>
           )}
+          {(usuario.cursosCoordenados?.length ?? 0) > 0 && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <GraduationCap className="w-3 h-3" />
+              {(usuario.cursosCoordenados ?? []).map((c) => c.nome).join(", ")}
+            </span>
+          )}
         </div>
       </div>
 
@@ -396,6 +473,11 @@ function UsuarioRow({
         <Button variant="ghost" size="icon" className="h-8 w-8" title="Disciplinas" onClick={() => setShowDisc(true)}>
           <BookOpen className="w-4 h-4 text-muted-foreground" />
         </Button>
+        {isCoordenador && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" title="Coordenações" onClick={() => setShowCursos(true)}>
+            <GraduationCap className="w-4 h-4 text-muted-foreground" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" onClick={() => setShowEdit(true)}>
           <Edit2 className="w-4 h-4 text-muted-foreground" />
         </Button>
@@ -428,6 +510,9 @@ function UsuarioRow({
       <Dialog open={showFoto} onOpenChange={setShowFoto}>
         {showFoto && <FotoModal usuario={usuario} onClose={() => setShowFoto(false)} />}
       </Dialog>
+      <Dialog open={showCursos} onOpenChange={setShowCursos}>
+        {showCursos && <CursosModal usuario={usuario} onClose={() => setShowCursos(false)} />}
+      </Dialog>
     </div>
   );
 }
@@ -440,10 +525,25 @@ function NovoUsuarioModal({
   const [dataNascimento, setDataNascimento] = useState("");
   const [roleIds, setRoleIds] = useState<Set<string>>(new Set());
   const [disciplinaOfertaIds, setDisciplinaOfertaIds] = useState<Set<string>>(new Set());
+  const [cursoIds, setCursoIds] = useState<Set<string>>(new Set());
+  const [allCursos, setAllCursos] = useState<CursoSummary[]>([]);
   const create = useCreateUsuario();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [createdCreds, setCreatedCreds] = useState<{ nome: string | null; email: string; codigo: string; senha: string } | null>(null);
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const roleCoordId = allRoles.find((r) => r.nome === "coordenador")?.id;
+  const temCoordenador = roleCoordId ? roleIds.has(roleCoordId) : false;
+
+  useEffect(() => {
+    if (temCoordenador && allCursos.length === 0) {
+      fetch(`${BASE}/api/cursos`, { credentials: "include" })
+        .then((r) => r.json())
+        .then((data) => setAllCursos(Array.isArray(data) ? data : []))
+        .catch(() => {});
+    }
+  }, [temCoordenador, BASE, allCursos.length]);
 
   const roleEstudanteId = allRoles.find((r) => r.nome === "estudante")?.id;
   const temEstudante = roleEstudanteId ? roleIds.has(roleEstudanteId) : false;
@@ -483,6 +583,12 @@ function NovoUsuarioModal({
     setDisciplinaOfertaIds(s);
   };
 
+  const toggleCurso = (id: string) => {
+    const s = new Set(cursoIds);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    setCursoIds(s);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
@@ -494,6 +600,7 @@ function NovoUsuarioModal({
           dataNascimento: dataNascimento || undefined,
           roleIds: [...roleIds],
           disciplinaOfertaIds: [...disciplinaOfertaIds],
+          cursoIds: temCoordenador ? [...cursoIds] : [],
         },
       },
       {
@@ -643,6 +750,24 @@ function NovoUsuarioModal({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {temCoordenador && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5"><GraduationCap className="w-3.5 h-3.5 text-violet-500" />Curso(s) que coordena</Label>
+            {allCursos.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Carregando cursos...</p>
+            ) : (
+              <div className="space-y-1 max-h-36 overflow-y-auto border rounded-lg p-3 bg-muted/10">
+                {allCursos.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/50 cursor-pointer select-none">
+                    <Checkbox checked={cursoIds.has(c.id)} onCheckedChange={() => toggleCurso(c.id)} />
+                    <span className="text-sm">{c.nome}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

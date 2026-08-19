@@ -22,6 +22,7 @@ type UsuarioCard = {
   codigoAcesso: string;
   roles: { id: string; nome: string }[];
   ofertas: OfertaDetail[];
+  cursosCoordenados: { id: string; nome: string }[];
 };
 
 function getInitials(u: Pick<UsuarioCard, "nome" | "email">) {
@@ -60,6 +61,9 @@ function UserPhotoCard({
         ]
       : [];
 
+  const isCoordenador = u.roles.some((r) => r.nome === "coordenador");
+  const coordenacoes = isCoordenador ? (u.cursosCoordenados ?? []).map((c) => c.nome) : [];
+
   return (
     <div className={`flex flex-col items-center gap-1 ${small ? "w-16" : "w-20"}`}>
       <div
@@ -88,6 +92,14 @@ function UserPhotoCard({
           title={disciplinas.join(", ")}
         >
           {disciplinas.join(" · ")}
+        </p>
+      )}
+      {coordenacoes.length > 0 && (
+        <p
+          className="text-[8px] text-violet-600 dark:text-violet-400 text-center leading-tight line-clamp-2 w-full -mt-0.5 font-medium"
+          title={"Coord.: " + coordenacoes.join(", ")}
+        >
+          Coord.: {coordenacoes.join(" · ")}
         </p>
       )}
     </div>
