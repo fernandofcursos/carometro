@@ -18,16 +18,36 @@ DELETE /api/ocorrencias/:id             → soft delete         // requer ocorre
 POST /api/ocorrencias/:id/notificar-pais → notifica responsáveis por e-mail
 ```
 
-## Notificação de Responsáveis
+## Notificação por E-mail ao Registrar Ocorrência
+
+### Regra automática no POST /api/ocorrencias
+
+| Condição | Destinatário |
+|---|---|
+| Estudante **menor de 18 anos** | Responsáveis (`estudante_emails.tipo = 'responsavel'`) |
+| Estudante **maior ou igual a 18 anos** | Próprio estudante (`estudante_emails.tipo = 'proprio'`) |
+| `enviarEmailPais: true` no body | Força envio para responsáveis (independente da idade) |
 
 ```typescript
-// routes/ocorrencias.ts
-async function notificarPais(ocorrenciaId: string): Promise<{ enviados: number; semResponsaveis: boolean }> {
-  // busca emails de tipo 'responsavel' em estudante_emails
-  // envia com enviarEmailOcorrencia() para cada um
-  // retorna { enviados, semResponsaveis }
+// POST /api/ocorrencias — lógica de envio automático
+const menor = await getEstudanteMenorDeIdade(data.estudanteId);
+if (menor || enviarEmailPais) {
+  await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
+} else {
+  await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
 }
+```
 
+**Verificação de idade:**
+1. `estudantes.data_nascimento` (primária)
+2. Fallback: `usuarios.data_nascimento` do usuário vinculado
+3. Se nenhuma data → trata como maior (envia para e-mail próprio)
+
+**`notificacao_pais_enviada_em`** é atualizado apenas quando envia para responsáveis (menores).
+
+## Notificação Manual de Responsáveis
+
+```typescript
 // POST /:id/notificar-pais
 // 200 → { ok: true, enviados: number, mensagem: string }
 // 422 → { error: "Nenhum responsável com e-mail cadastrado..." }

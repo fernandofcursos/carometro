@@ -110,24 +110,9 @@ async function fetchOcorrenciaFull(id: string) {
   return row ?? null;
 }
 
-// ── Helper: envia e-mail de ocorrência para responsáveis do estudante ─────────
+// ── Helper: busca dados comuns para o e-mail de ocorrência ───────────────────
 
-async function notificarPais(
-  ocorrenciaId: string,
-  estudanteId: string,
-  turnoNome?: string | null,
-  disciplinaNome?: string | null,
-): Promise<{ enviados: number; semResponsaveis: boolean }> {
-  const emails = await db
-    .select({ email: estudanteEmailsTable.email })
-    .from(estudanteEmailsTable)
-    .where(and(
-      eq(estudanteEmailsTable.estudanteId, estudanteId),
-      eq(estudanteEmailsTable.tipo, "responsavel"),
-    ));
-
-  if (!emails.length) return { enviados: 0, semResponsaveis: true };
-
+async function buscarDadosEmail(ocorrenciaId: string, estudanteId: string) {
   const [est] = await db
     .select({ nome: estudantesTable.nome })
     .from(estudantesTable)
@@ -145,8 +130,21 @@ async function notificarPais(
     .where(eq(ocorrenciasTable.id, ocorrenciaId))
     .limit(1);
 
+  return { est, ocorr };
+}
+
+async function enviarParaEmails(
+  emails: string[],
+  ocorrenciaId: string,
+  estudanteId: string,
+  turnoNome: string | null | undefined,
+  disciplinaNome: string | null | undefined,
+  stamparNotificacaoPais: boolean,
+): Promise<number> {
+  if (!emails.length) return 0;
+  const { est, ocorr } = await buscarDadosEmail(ocorrenciaId, estudanteId);
   let enviados = 0;
-  for (const { email } of emails) {
+  for (const email of emails) {
     try {
       await enviarEmailOcorrencia({
         para:           email,
@@ -162,14 +160,58 @@ async function notificarPais(
       console.error("[ocorrencias] falha ao enviar e-mail para", email, e);
     }
   }
-
-  if (enviados > 0) {
+  if (enviados > 0 && stamparNotificacaoPais) {
     await db.update(ocorrenciasTable)
       .set({ notificacaoPaisEnviadaEm: new Date(), atualizadoEm: new Date() })
       .where(eq(ocorrenciasTable.id, ocorrenciaId));
   }
+  return enviados;
+}
 
-  return { enviados, semResponsaveis: false };
+// ── Helper: envia e-mail para responsáveis (estudante menor) ─────────────────
+
+async function notificarPais(
+  ocorrenciaId: string,
+  estudanteId: string,
+  turnoNome?: string | null,
+  disciplinaNome?: string | null,
+): Promise<{ enviados: number; semDestinatarios: boolean }> {
+  const rows = await db
+    .select({ email: estudanteEmailsTable.email })
+    .from(estudanteEmailsTable)
+    .where(and(
+      eq(estudanteEmailsTable.estudanteId, estudanteId),
+      eq(estudanteEmailsTable.tipo, "responsavel"),
+    ));
+
+  if (!rows.length) return { enviados: 0, semDestinatarios: true };
+  const enviados = await enviarParaEmails(
+    rows.map((r) => r.email), ocorrenciaId, estudanteId, turnoNome, disciplinaNome, true,
+  );
+  return { enviados, semDestinatarios: false };
+}
+
+// ── Helper: envia e-mail para o próprio estudante (maior de idade) ────────────
+
+async function notificarEstudante(
+  ocorrenciaId: string,
+  estudanteId: string,
+  turnoNome?: string | null,
+  disciplinaNome?: string | null,
+): Promise<{ enviados: number; semDestinatarios: boolean }> {
+  const rows = await db
+    .select({ email: estudanteEmailsTable.email })
+    .from(estudanteEmailsTable)
+    .where(and(
+      eq(estudanteEmailsTable.estudanteId, estudanteId),
+      eq(estudanteEmailsTable.tipo, "proprio"),
+    ));
+
+  if (!rows.length) return { enviados: 0, semDestinatarios: true };
+  const enviados = await enviarParaEmails(
+    rows.map((r) => r.email), ocorrenciaId, estudanteId, turnoNome, disciplinaNome, false,
+  );
+  return { enviados, semDestinatarios: false };
 }
 
 // ── GET /api/ocorrencias ──────────────────────────────────────────────────────
@@ -285,10 +327,12 @@ router.post("/", requirePermissao("ocorrencias:create"), async (req: Request, re
       registradoPorId: req.usuarioId,
     }).returning();
 
-    // Notifica responsáveis: sempre para menores de idade, ou quando solicitado
+    // Regra: menor → e-mail para responsáveis; maior → e-mail para o próprio estudante
     const menor = await getEstudanteMenorDeIdade(data.estudanteId);
     if (menor || enviarEmailPais) {
       await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
+    } else {
+      await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
     }
 
     await registrarAuditoria({

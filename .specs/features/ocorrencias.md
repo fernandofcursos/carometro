@@ -62,11 +62,33 @@ Entidade independente com CRUD completo.
 **Requer:** `tipos-ocorrencias:manage`  
 Status: `"ativo"` | `"inativo"` (enum `status_ocorrencia`)
 
-## Notificação de Responsáveis
+## Notificação por E-mail ao Registrar Ocorrência
+
+### Regra de envio automático no POST /api/ocorrencias
+
+Ao registrar uma ocorrência, o sistema envia e-mail automaticamente com base na idade do estudante:
+
+| Condição | Destinatário |
+|---|---|
+| **Menor de 18 anos** | Responsáveis cadastrados (`estudante_emails.tipo = 'responsavel'`) |
+| **Maior ou igual a 18 anos** | Próprio estudante (`estudante_emails.tipo = 'proprio'`) |
+| `enviarEmailPais: true` no body | Força envio para responsáveis (independente da idade) |
+
+**Verificação de idade:**
+1. Usa `estudantes.data_nascimento` (primária)
+2. Fallback: `usuarios.data_nascimento` do usuário vinculado
+3. Se nenhuma data disponível → trata como maior (envia para e-mail próprio)
+
+**Comportamento:**
+- Falhas individuais são logadas mas não interrompem o fluxo
+- `notificacao_pais_enviada_em` é atualizado apenas quando enviado para responsáveis (menores)
+- Se não há e-mail cadastrado do tipo adequado, o registro prossegue normalmente sem erro
+
+## Notificação Manual de Responsáveis
 
 ### POST /api/ocorrencias/:id/notificar-pais
 
-Envia e-mail aos responsáveis do estudante via `enviarEmailOcorrencia()`.  
+Reenvio manual para responsáveis via `enviarEmailOcorrencia()`.  
 **Requer:** `ocorrencias:create`
 
 **Comportamento:**
