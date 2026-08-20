@@ -108,6 +108,22 @@ async function enviarViaResend(opts: nodemailer.SendMailOptions): Promise<EnvioI
   if (!res.ok) {
     const msg = data.message ?? `Resend error ${res.status}`;
     console.error(`[mailer] Resend falhou: ${msg}`);
+    // Erro de domínio não verificado: captura localmente em vez de lançar exceção
+    if (msg.includes("verify a domain") || msg.includes("testing emails to your own")) {
+      console.log(`[mailer] Resend sem domínio verificado — capturando localmente.`);
+      const para = to.join(", ");
+      console.log(`[mailer] "${opts.subject}" — capturado localmente (para: ${para})`);
+      return {
+        previewUrl: null,
+        capturado: true,
+        conteudo: {
+          para,
+          assunto: String(opts.subject ?? ""),
+          texto: String(opts.text ?? ""),
+        },
+        resendSemDominio: true,
+      } as EnvioInfo & { resendSemDominio: boolean };
+    }
     throw new Error(msg);
   }
 
@@ -123,6 +139,7 @@ export type EnvioInfo = {
   previewUrl: string | null;
   capturado: boolean;
   conteudo: { para: string; assunto: string; texto: string } | null;
+  resendSemDominio?: boolean;
 };
 
 function isConnectionError(err: unknown): boolean {

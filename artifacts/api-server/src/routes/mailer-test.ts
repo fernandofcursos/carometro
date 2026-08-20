@@ -30,15 +30,19 @@ router.post("/teste", requireAuth, requirePermissao("usuarios:manage"), async (r
       : envio.capturado && envio.conteudo
       ? null  // conteudo é retornado diretamente
       : null;
+    const resendSemDominio = (envio as { resendSemDominio?: boolean }).resendSemDominio ?? false;
     res.json({
       ok: true,
-      mensagem: envio.capturado
+      mensagem: resendSemDominio
+        ? `Resend sem domínio verificado — e-mail capturado localmente. Verifique o conteúdo abaixo.`
+        : envio.capturado
         ? `E-mail capturado localmente (SMTP indisponível). Verifique o conteúdo abaixo.`
         : `E-mail de teste enviado para ${para}.`,
       modo: info.modo,
       dica,
       capturado: envio.capturado,
       conteudo: envio.conteudo,
+      resendSemDominio,
     });
   } catch (err) {
     res.status(500).json({

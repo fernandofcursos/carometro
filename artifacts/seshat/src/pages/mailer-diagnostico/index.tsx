@@ -25,12 +25,14 @@ interface TesteResult {
   dica: string | null;
   capturado?: boolean;
   conteudo?: { para: string; assunto: string; texto: string } | null;
+  resendSemDominio?: boolean;
 }
 
 export default function MailerDiagnosticoPage() {
   const { toast } = useToast();
   const [para, setPara] = useState("");
   const [captura, setCaptura] = useState<TesteResult["conteudo"]>(null);
+  const [resendAviso, setResendAviso] = useState(false);
 
   const { data: status, isLoading, refetch } = useQuery<MailerStatus>({
     queryKey: ["mailer-status"],
@@ -63,6 +65,7 @@ export default function MailerDiagnosticoPage() {
       if (data.dica) toast({ title: "Preview", description: data.dica, duration: 15000 });
       if (data.capturado && data.conteudo) setCaptura(data.conteudo);
       else setCaptura(null);
+      setResendAviso(data.resendSemDominio ?? false);
       refetch();
     },
     onError: (err: Error) => {
@@ -160,10 +163,11 @@ export default function MailerDiagnosticoPage() {
               <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800 space-y-1">
                 <p><CheckCircle2 className="w-4 h-4 inline mr-1" />Resend configurado — envio via API HTTPS (porta 443).</p>
                 <p className="text-xs text-green-700">Remetente: <code>{status.from}</code></p>
-                <p className="text-xs text-green-600">
-                  Em testes sem domínio verificado, use <code>onboarding@resend.dev</code> como remetente.
-                  Para domínio próprio, configure <code>RESEND_FROM</code> no .env após verificação em resend.com.
-                </p>
+                <div className="rounded bg-amber-50 border border-amber-200 p-2 text-xs text-amber-800 mt-1 space-y-1">
+                  <p className="font-medium">Sem domínio verificado (modo de teste)</p>
+                  <p>O Resend só entrega e-mails para o <strong>próprio e-mail da conta</strong> até que um domínio seja verificado.</p>
+                  <p>Para enviar a qualquer destinatário: <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline font-medium">resend.com/domains</a> → adicione e verifique seu domínio → defina <code>RESEND_FROM</code> no .env.</p>
+                </div>
               </div>
             )}
             {status.modo === "smtp" && (
@@ -208,23 +212,34 @@ export default function MailerDiagnosticoPage() {
         </p>
       </div>
 
-      {/* Prévia do e-mail capturado (modo local) */}
+      {/* Prévia do e-mail capturado */}
       {captura && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 space-y-3">
+        <div className={`rounded-lg border p-5 space-y-3 ${resendAviso ? "border-amber-200 bg-amber-50" : "border-blue-200 bg-blue-50"}`}>
           <div className="flex items-center justify-between">
-            <h2 className="font-medium text-blue-800">E-mail Capturado Localmente</h2>
-            <span className="text-xs text-blue-600">SMTP indisponível neste ambiente</span>
+            <h2 className={`font-medium ${resendAviso ? "text-amber-800" : "text-blue-800"}`}>
+              {resendAviso ? "Resend — Sem Domínio Verificado" : "E-mail Capturado Localmente"}
+            </h2>
+            <span className={`text-xs ${resendAviso ? "text-amber-600" : "text-blue-600"}`}>
+              {resendAviso ? "envio bloqueado pelo Resend" : "SMTP indisponível"}
+            </span>
           </div>
+          {resendAviso && (
+            <p className="text-xs text-amber-700 bg-white border border-amber-200 rounded p-2">
+              O Resend não entregou pois o destinatário não é o e-mail da sua conta. Para testar entrega real: envie para o e-mail da sua conta Resend, ou verifique um domínio em <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline font-medium">resend.com/domains</a>.
+            </p>
+          )}
           <div className="space-y-1 text-sm">
             <div className="flex gap-2"><span className="font-medium w-16 shrink-0">Para:</span><code className="text-xs bg-white px-2 py-0.5 rounded border">{captura.para}</code></div>
             <div className="flex gap-2"><span className="font-medium w-16 shrink-0">Assunto:</span><code className="text-xs bg-white px-2 py-0.5 rounded border">{captura.assunto}</code></div>
           </div>
-          <div className="bg-white rounded border p-3 text-sm whitespace-pre-wrap font-mono text-gray-700 text-xs">
+          <div className="bg-white rounded border p-3 whitespace-pre-wrap font-mono text-gray-700 text-xs">
             {captura.texto}
           </div>
-          <p className="text-xs text-blue-600">
-            O sistema de e-mail está funcionando. Para entrega real, configure SMTP_HOST, SMTP_USER e SMTP_PASS no .env.
-          </p>
+          {!resendAviso && (
+            <p className="text-xs text-blue-600">
+              O sistema de e-mail está funcionando. Para entrega real, configure RESEND_API_KEY ou SMTP no .env.
+            </p>
+          )}
         </div>
       )}
 
