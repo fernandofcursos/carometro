@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useListTiposOcorrencias } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -15,7 +14,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, FileText, Info } from "lucide-react";
+import {
+  Plus, Pencil, Trash2, FileText, Info, Bold, Italic, List, ListOrdered,
+  Upload, GripVertical,
+} from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -58,6 +60,62 @@ interface TextoPadraoInput {
 
 const CORPO_MAX = 5000;
 
+// ---------------------------------------------------------------------------
+// Toolbar helpers — insere formatação markdown na posição do cursor
+// ---------------------------------------------------------------------------
+
+function aplicarFormatacao(
+  textarea: HTMLTextAreaElement,
+  setCorpo: (v: string) => void,
+  tipo: "bold" | "italic" | "ul" | "ol",
+) {
+  const { selectionStart: s, selectionEnd: e, value } = textarea;
+  const sel = value.slice(s, e);
+  let novo = value;
+  let cursorApos = s;
+
+  if (tipo === "bold") {
+    novo = value.slice(0, s) + `**${sel || "negrito"}**` + value.slice(e);
+    cursorApos = s + 2 + (sel || "negrito").length + 2;
+  } else if (tipo === "italic") {
+    novo = value.slice(0, s) + `_${sel || "itálico"}_` + value.slice(e);
+    cursorApos = s + 1 + (sel || "itálico").length + 1;
+  } else if (tipo === "ul") {
+    const linhas = (sel || "item").split("\n").map((l) => `- ${l}`).join("\n");
+    novo = value.slice(0, s) + linhas + value.slice(e);
+    cursorApos = s + linhas.length;
+  } else if (tipo === "ol") {
+    const linhas = (sel || "item").split("\n").map((l, i) => `${i + 1}. ${l}`).join("\n");
+    novo = value.slice(0, s) + linhas + value.slice(e);
+    cursorApos = s + linhas.length;
+  }
+
+  setCorpo(novo.slice(0, CORPO_MAX));
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.setSelectionRange(cursorApos, cursorApos);
+  });
+}
+
+function inserirNoCursor(
+  textarea: HTMLTextAreaElement,
+  setCorpo: (v: string) => void,
+  texto: string,
+) {
+  const pos = textarea.selectionStart ?? textarea.value.length;
+  const novo = textarea.value.slice(0, pos) + texto + textarea.value.slice(pos);
+  setCorpo(novo.slice(0, CORPO_MAX));
+  requestAnimationFrame(() => {
+    textarea.focus();
+    const novaCursor = pos + texto.length;
+    textarea.setSelectionRange(novaCursor, novaCursor);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// TextoForm
+// ---------------------------------------------------------------------------
+
 function TextoForm({
   tipos,
   placeholders,
@@ -73,17 +131,65 @@ function TextoForm({
   onCancelar: () => void;
   salvando: boolean;
 }) {
+  const { toast } = useToast();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [tipoOcorrenciaId, setTipoOcorrenciaId] = useState(inicial?.tipoOcorrenciaId ?? "");
   const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
   const [corpo, setCorpo] = useState(inicial?.corpo ?? "");
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true);
-
-  const inserirPlaceholder = (ph: string) => setCorpo((prev) => prev + ph);
+  const [dragOver, setDragOver] = useState(false);
+  const [extraindo, setExtraindo] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tipoOcorrenciaId || !titulo.trim() || !corpo.trim()) return;
     onSalvar({ tipoOcorrenciaId, titulo: titulo.trim(), corpo: corpo.trim(), ativo });
+  };
+
+  // Drag-and-drop dos marcadores para a textarea
+  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const ph = e.dataTransfer.getData("text/plain");
+    if (!ph || !textareaRef.current) return;
+    inserirNoCursor(textareaRef.current, setCorpo, ph);
+  };
+
+  // Upload de arquivo — extrai texto via API (docx/pdf) ou FileReader (md)
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const ext = file.name.split(".").pop()?.toLowerCase();
+
+    if (ext === "md" || ext === "txt") {
+      const texto = await file.text();
+      setCorpo(texto.slice(0, CORPO_MAX));
+      toast({ title: "Arquivo carregado", description: `${file.name} inserido no corpo do texto.` });
+      return;
+    }
+
+    // docx / pdf — enviar para o servidor extrair
+    setExtraindo(true);
+    try {
+      const form = new FormData();
+      form.append("arquivo", file);
+      const res = await fetch(`${BASE}/api/textos-padrao/extrair-texto`, {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      const data = await res.json() as { texto?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Erro ao extrair texto");
+      setCorpo((data.texto ?? "").slice(0, CORPO_MAX));
+      toast({ title: "Arquivo carregado", description: `${file.name} inserido no corpo do texto.` });
+    } catch (err) {
+      toast({ title: "Erro ao carregar arquivo", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setExtraindo(false);
+    }
   };
 
   return (
@@ -117,6 +223,7 @@ function TextoForm({
         />
       </div>
 
+      {/* Corpo com toolbar de formatação */}
       <div>
         <div className="flex items-center justify-between mb-1">
           <Label htmlFor="corpo">Corpo do texto *</Label>
@@ -124,30 +231,95 @@ function TextoForm({
             {corpo.length}/{CORPO_MAX}
           </span>
         </div>
-        <Textarea
+
+        {/* Toolbar */}
+        <div className="flex items-center gap-1 border border-input border-b-0 rounded-t-md bg-muted/40 px-2 py-1">
+          <Button
+            type="button" variant="ghost" size="sm"
+            className="h-7 w-7 p-0" title="Negrito (**texto**)"
+            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "bold")}
+          >
+            <Bold className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            type="button" variant="ghost" size="sm"
+            className="h-7 w-7 p-0" title="Itálico (_texto_)"
+            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "italic")}
+          >
+            <Italic className="w-3.5 h-3.5" />
+          </Button>
+          <div className="w-px h-4 bg-border mx-1" />
+          <Button
+            type="button" variant="ghost" size="sm"
+            className="h-7 w-7 p-0" title="Lista com marcadores"
+            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "ul")}
+          >
+            <List className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            type="button" variant="ghost" size="sm"
+            className="h-7 w-7 p-0" title="Lista numerada"
+            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "ol")}
+          >
+            <ListOrdered className="w-3.5 h-3.5" />
+          </Button>
+          <div className="w-px h-4 bg-border mx-1" />
+          {/* Upload de arquivo */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".md,.txt,.docx,.pdf"
+            className="hidden"
+            onChange={handleUpload}
+          />
+          <Button
+            type="button" variant="ghost" size="sm"
+            className="h-7 px-2 gap-1.5 text-xs" title="Importar de arquivo (.md, .docx, .pdf)"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={extraindo}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {extraindo ? "Extraindo…" : "Importar arquivo"}
+          </Button>
+          <span className="text-[10px] text-muted-foreground ml-1">.md .docx .pdf</span>
+        </div>
+
+        <textarea
+          ref={textareaRef}
           id="corpo"
           value={corpo}
           onChange={(e) => setCorpo(e.target.value.slice(0, CORPO_MAX))}
           rows={8}
           required
-          placeholder="Digite o texto modelo. Use os marcadores abaixo para inserir dados dinâmicos."
-          className="mt-1 font-mono text-sm"
+          placeholder="Digite o texto modelo. Use a toolbar para formatar ou arraste um marcador para inserir."
+          className={`w-full rounded-b-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-y transition-colors ${dragOver ? "bg-amber-50 border-amber-400 ring-2 ring-amber-300" : ""}`}
+          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
         />
       </div>
 
+      {/* Marcadores — draggable */}
       <div>
         <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-          <Info className="w-3 h-3" /> Clique para inserir um marcador no texto:
+          <Info className="w-3 h-3" />
+          Clique para inserir ou <strong>arraste</strong> o marcador para a posição desejada no texto:
         </p>
         <div className="flex flex-wrap gap-2">
           {placeholders.map((ph) => (
             <button
               key={ph.placeholder}
               type="button"
-              onClick={() => inserirPlaceholder(ph.placeholder)}
-              className="text-xs px-2 py-1 rounded bg-muted hover:bg-amber-100 border border-border font-mono transition-colors"
-              title={ph.descricao}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("text/plain", ph.placeholder);
+                e.dataTransfer.effectAllowed = "copy";
+              }}
+              onClick={() => textareaRef.current && inserirNoCursor(textareaRef.current, setCorpo, ph.placeholder)}
+              className="text-xs px-2 py-1 rounded bg-muted hover:bg-amber-100 border border-border font-mono transition-colors cursor-grab active:cursor-grabbing flex items-center gap-1"
+              title={`${ph.descricao} — clique para inserir ou arraste`}
             >
+              <GripVertical className="w-3 h-3 text-muted-foreground" />
               {ph.placeholder}
             </button>
           ))}
@@ -175,6 +347,10 @@ function TextoForm({
     </form>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Página principal
+// ---------------------------------------------------------------------------
 
 export default function TextosPadraoPage() {
   const qc = useQueryClient();

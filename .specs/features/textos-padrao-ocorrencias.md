@@ -116,11 +116,26 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 - Dialog de criação/edição com:
   - Select de tipo de ocorrência (filtrado: somente ativos)
   - Campo título (max 200)
-  - Textarea corpo (max 5000) com contador
-  - Botões de inserção de placeholders (clique insere no fim do texto)
+  - **Toolbar de formatação** sobre a textarea: Negrito (`**texto**`), Itálico (`_texto_`), Lista com marcadores (`- item`), Lista numerada (`1. item`) — formata o texto selecionado ou insere exemplo
+  - **Textarea** corpo (max 5000) com contador, aceita drop de marcadores
+  - **Marcadores com drag-and-drop**: chips `draggable` que podem ser arrastados para a posição desejada na textarea; clique também insere no cursor
+  - **Importar arquivo**: botão na toolbar que aceita `.md`, `.docx` e `.pdf`; arquivos `.md` são lidos no browser, `.docx` e `.pdf` são enviados para `POST /api/textos-padrao/extrair-texto` e o texto extraído substitui o corpo
   - Switch ativo
 - AlertDialog de confirmação para remoção
 - Sem preview de renderização no frontend (renderização acontece no formulário de ocorrência)
+
+### Endpoint de Extração de Texto
+
+**POST /api/textos-padrao/extrair-texto**  
+**Requer:** `tipos-ocorrencias:manage`  
+**Content-Type:** `multipart/form-data` (campo `arquivo`)  
+**Formatos suportados:** `.md`, `.docx`, `.pdf` (máx. 5 MB)
+
+```json
+{ "texto": "Conteúdo extraído do arquivo..." }
+```
+
+Erros: 400 (formato não suportado), 500 (falha na extração).
 
 ---
 
@@ -156,7 +171,7 @@ pnpm --filter @workspace/db run push-force
 |---|---|
 | `lib/db/src/schema/textos-padrao-ocorrencias.ts` | Tabela + `insertTextoPadraoSchema` |
 | `scripts/migrate-textos-padrao.sql` | DDL idempotente |
-| `artifacts/api-server/src/routes/textos-padrao.ts` | CRUD + /placeholders + /tipo/:id + /render |
+| `artifacts/api-server/src/routes/textos-padrao.ts` | CRUD + /placeholders + /tipo/:id + /render + /extrair-texto |
 | `artifacts/seshat/src/pages/textos-padrao/index.tsx` | UI de gerenciamento |
 | `artifacts/seshat/src/components/layout.tsx` | Item "Textos Padrão" no grupo Ocorrências |
 | `artifacts/seshat/src/App.tsx` | Rota `/textos-padrao-ocorrencias` |

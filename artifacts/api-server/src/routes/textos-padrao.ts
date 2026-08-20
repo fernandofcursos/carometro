@@ -1,4 +1,8 @@
 import { Router } from "express";
+import multer from "multer";
+import mammoth from "mammoth";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PDFParse } = require("pdf-parse") as { PDFParse: new () => { loadPDF(buf: Buffer): Promise<{ pages: { content: string }[] }> } };
 import {
   db,
   textosPadraoOcorrenciasTable,
@@ -12,6 +16,8 @@ import {
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -288,6 +294,41 @@ router.delete(
     } catch (err) {
       req.log?.error(err);
       res.status(500).json({ error: "Erro ao remover texto padrão." });
+    }
+  }
+);
+
+// POST /api/textos-padrao/extrair-texto — extrai texto de .md, .docx ou .pdf
+router.post(
+  "/extrair-texto",
+  requireAuth,
+  requirePermissao("tipos-ocorrencias:manage"),
+  upload.single("arquivo"),
+  async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "Nenhum arquivo enviado." });
+      const { originalname, buffer, mimetype } = req.file;
+      const ext = originalname.split(".").pop()?.toLowerCase();
+
+      let texto = "";
+
+      if (ext === "md" || mimetype === "text/markdown" || mimetype === "text/plain") {
+        texto = buffer.toString("utf-8");
+      } else if (ext === "docx" || mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        const result = await mammoth.extractRawText({ buffer });
+        texto = result.value;
+      } else if (ext === "pdf" || mimetype === "application/pdf") {
+        const parser = new PDFParse();
+        const result = await parser.loadPDF(buffer);
+        texto = result.pages.map((p) => p.content).join("\n");
+      } else {
+        return res.status(400).json({ error: "Formato não suportado. Use .md, .docx ou .pdf." });
+      }
+
+      res.json({ texto: texto.trim() });
+    } catch (err) {
+      req.log?.error(err);
+      res.status(500).json({ error: "Erro ao extrair texto do arquivo." });
     }
   }
 );
