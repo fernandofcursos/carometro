@@ -21,12 +21,9 @@ router.post("/teste", requireAuth, requirePermissao("usuarios:manage"), async (r
   if (!para || !para.includes("@")) {
     return res.status(400).json({ error: "Informe um e-mail válido no campo 'para'." });
   }
-  // Timeout explícito para não travar o proxy do Vite (10s)
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Timeout: servidor SMTP não respondeu em 8s. Verifique conectividade ou configure SMTP_HOST no .env.")), 8000)
-  );
   try {
-    const envio = await Promise.race([enviarEmailTeste(para), timeout]) as EnvioInfo;
+    // enviarEmailTeste já faz fallback para captura local em caso de erro de conexão SMTP
+    const envio = await enviarEmailTeste(para);
     const info = await diagnosticoMailer();
     const dica = envio.previewUrl
       ? `Visualize em: ${envio.previewUrl}`
