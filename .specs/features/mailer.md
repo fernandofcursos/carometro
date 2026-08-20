@@ -85,11 +85,67 @@ O transport SMTP é criado uma única vez (singleton `_transport`) e reutilizado
 
 | Função | Assunto do e-mail |
 |---|---|
-| `enviarEmailRecuperacao(para, token, expiresAt)` | "Redefinição de senha — Seshat" |
-| `enviarEmailBoasVindas(para, codigoAcesso, senhaGerada, nome?)` | "Seu acesso ao Seshat" |
-| `enviarEmailOcorrencia({ para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome?, disciplinaNome?, observacao? })` | "Ocorrência: {estudante} — {tipo}" |
+| `enviarEmailRecuperacao(para, token, expiresAt, nomeUsuario?, codigoAcesso?)` | "Recuperação de senha — Seshat ETSM" |
+| `enviarEmailBoasVindas(para, codigoAcesso, senhaGerada, nome?)` | "Seu acesso ao Seshat — ETSM" |
+| `enviarEmailOcorrencia({ para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome?, disciplinaNome?, observacao?, textoPadrao? })` | "Notificação de Ocorrência: {estudante} — {tipo}" |
 | `enviarEmailTeste(para)` | "Teste de envio — Seshat" |
-| `diagnosticoMailer()` | Retorna estado do mailer (modo, host, user, from) |
+| `diagnosticoMailer()` | Retorna estado do mailer (modo, host, user, from, resendConfigured?) |
+
+---
+
+## Templates Institucionais ETSM
+
+Todos os e-mails transacionais seguem o padrão visual institucional da Escola Técnica de Santa Maria (ETSM/SEEDF).
+
+### Estrutura comum
+
+```html
+<!-- Cabeçalho — fundo azul escuro #1e3a5f -->
+<p>Escola Técnica de Santa Maria</p>
+<p>Secretaria de Estado de Educação do Distrito Federal – SEEDF</p>
+
+<!-- Banner colorido (varia por e-mail) -->
+
+<!-- Corpo: saudação, conteúdo, assinatura -->
+
+<!-- Rodapé cinza: "Comunicado automático gerado pelo Sistema Seshat" -->
+```
+
+### Boas-vindas (`enviarEmailBoasVindas`)
+
+- Banner **verde** (#dcfce7 / #16a34a) — "✅ Cadastro Realizado com Sucesso"
+- Tabela com e-mail, código de acesso e senha provisória
+- Aviso âmbar de alteração obrigatória de senha no primeiro acesso
+- Instruções de foto de perfil (menu Usuários → Foto do Perfil → Capturar Foto)
+- Assinatura: **Equipe de Tecnologia da Informação / Escola Técnica de Santa Maria – ETSM**
+
+### Recuperação de senha (`enviarEmailRecuperacao`)
+
+- Banner **âmbar** (#fef9c3 / #f59e0b) — "🔐 Recuperação de Senha"
+- Tabela com e-mail cadastrado, código de acesso e procedimento
+- Passo a passo numerado para redefinição
+- Caixa âmbar com aviso de segurança (não compartilhar token)
+- Instruções de foto de perfil
+- Assinatura: **Equipe de Tecnologia da Informação / Escola Técnica de Santa Maria – ETSM**
+
+### Ocorrência (`enviarEmailOcorrencia`)
+
+- Banner **âmbar** (#fef9c3 / #f59e0b) — "⚠️ Notificação de Ocorrência Disciplinar"
+- Parágrafo formal com referência à Portaria SEEDF nº 15/2015 e nº 180/2019 (DODF 30/05/2019)
+
+**Quando `textoPadrao` fornecido:** usa o texto do tipo com placeholders substituídos:
+- `{{NOME_ESTUDANTE}}` → nome do estudante
+- `{{DATA_OCORRENCIA}}` → data formatada pt-BR
+- `{{DATA_REGISTRO}}` → data atual
+- `{{TIPO_OCORRENCIA}}` → descrição do tipo
+- `{{DESCRICAO}}` → observação da ocorrência
+
+**Quando sem `textoPadrao`:** exibe seções completas:
+1. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição)
+2. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV com medidas disciplinares + direito ao contraditório (Portaria SEEDF nº 180/2019 + ECA)
+3. **ORIENTAÇÕES AO RESPONSÁVEL** — caixa azul (#eff6ff) com prazo de 3 dias úteis para comparecer à Coordenação Pedagógica
+
+- Assinatura: **Equipe Gestora / Escola Técnica de Santa Maria – ETSM / SEEDF / Brasília – DF**
 
 ---
 
@@ -102,11 +158,12 @@ O transport SMTP é criado uma única vez (singleton `_transport`) e reutilizado
 Retorna o estado atual do mailer:
 ```json
 {
-  "modo": "smtp" | "ethereal" | "não iniciado",
+  "modo": "resend" | "smtp" | "ethereal" | "local" | "não iniciado",
   "smtpHost": "smtp.gmail.com" | null,
   "smtpUser": "noreply@escola.br" | null,
   "etherealUser": "abc@ethereal.email" | null,
-  "from": "Seshat <noreply@seshat.local>"
+  "from": "Seshat <noreply@seshat.local>",
+  "resendConfigured": true | undefined
 }
 ```
 

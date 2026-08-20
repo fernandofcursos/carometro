@@ -143,50 +143,54 @@ Nota: `tsx watch` observa apenas arquivos-fonte, **não** o `.env`. Para que mud
 
 | Função | Quando usar |
 |---|---|
-| `enviarEmailRecuperacao(para, token, expiresAt, nome?, codigoAcesso?)` | Recuperação de senha — inclui nome, código de acesso e instruções ETSM |
-| `enviarEmailBoasVindas(para, codigo, senha, nome?)` | Novo usuário criado — template institucional ETSM com credenciais e instruções |
-| `enviarEmailOcorrencia({para, estudanteNome, tipo, data, turno?, disciplina?, obs?, textoPadrao?})` | Ocorrência — usa texto padrão do tipo se disponível; fallback para tabela padrão |
+| `enviarEmailRecuperacao(para, token, expiresAt, nomeUsuario?, codigoAcesso?)` | Recuperação de senha — template ETSM com tabela de dados, passo a passo e aviso de segurança |
+| `enviarEmailBoasVindas(para, codigoAcesso, senhaGerada, nome?)` | Novo usuário criado — template ETSM com tabela de credenciais e instruções |
+| `enviarEmailOcorrencia({para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome?, disciplinaNome?, observacao?, textoPadrao?})` | Ocorrência — usa texto padrão do tipo se disponível; fallback para template completo ETSM |
 | `enviarEmailTeste(para)` | Diagnóstico manual |
-| `diagnosticoMailer()` | Estado atual (modo, credenciais) |
+| `diagnosticoMailer()` | Estado atual (modo, credenciais, resendConfigured?) |
 
 ## Templates institucionais (ETSM)
+
+Todos os e-mails compartilham a mesma estrutura visual:
+- **Cabeçalho** azul escuro (#1e3a5f): "ESCOLA TÉCNICA DE SANTA MARIA" + "Secretaria de Estado de Educação do Distrito Federal – SEEDF"
+- **Banner** colorido (varia por tipo)
+- **Corpo** com saudação formal, conteúdo e assinatura
+- **Rodapé** cinza: "Comunicado automático gerado pelo Sistema Seshat"
 
 ### Boas-vindas (`enviarEmailBoasVindas`)
 Assunto: `"Seu acesso ao Seshat — ETSM"`
 
-Inclui:
-- Saudação com nome do usuário (`Prezado(a) {{nome}},`)
-- Credenciais: e-mail, código de acesso, senha provisória em tabela
-- Aviso de alteração obrigatória de senha no primeiro acesso
-- Instruções para incluir foto de perfil (menu Usuários → Foto do Perfil → Capturar Foto)
-- Assinatura: Equipe de TI — Escola Técnica de Santa Maria
+- Banner **verde** — "✅ Cadastro Realizado com Sucesso"
+- Tabela: e-mail, código de acesso (monospace), senha provisória
+- Aviso âmbar: alteração obrigatória de senha no primeiro acesso
+- Passo a passo para incluir foto de perfil
+- Assinatura: **Equipe de Tecnologia da Informação / ETSM**
 
 ### Recuperação de senha (`enviarEmailRecuperacao`)
-Assinatura: `"Recuperação de senha — Seshat ETSM"`
+Assunto: `"Recuperação de senha — Seshat ETSM"`
 
-Parâmetros extras: `nomeUsuario?` e `codigoAcesso?` (buscados na rota de auth).
-
-Inclui:
-- Saudação com nome do usuário
-- Tabela com e-mail cadastrado, código de acesso e token de redefinição
-- Passo a passo para recuperar a senha
-- Aviso de segurança (não compartilhar token)
-- Instruções para incluir foto de perfil
-- Assinatura institucional ETSM
+- Banner **âmbar** — "🔐 Recuperação de Senha"
+- Tabela: e-mail cadastrado, código de acesso (monospace), procedimento
+- Lista numerada com 6 passos para redefinição
+- Caixa âmbar: aviso de segurança (não compartilhar token/código)
+- Passo a passo para incluir foto de perfil
+- Assinatura: **Equipe de Tecnologia da Informação / ETSM**
 
 ### Ocorrência (`enviarEmailOcorrencia`)
-Assunto: `"Ocorrência: {estudante} — {tipo}"`
+Assunto: `"Notificação de Ocorrência: {estudante} — {tipo}"`
 
-**Conteúdo do corpo:**
-- Se `textoPadrao` fornecido: usa o texto com placeholders substituídos
-- Caso contrário: tabela com tipo, data, turno, disciplina, descrição
+- Banner **âmbar** — "⚠️ Notificação de Ocorrência Disciplinar"
+- Parágrafo formal com referência à Portaria SEEDF nº 15/2015 e nº 180/2019
 
-Placeholders substituídos no `textoPadrao`:
-- `{{NOME_ESTUDANTE}}` → nome do estudante
-- `{{DATA_OCORRENCIA}}` → data formatada em pt-BR
-- `{{DATA_REGISTRO}}` → data atual formatada
-- `{{TIPO_OCORRENCIA}}` → descrição do tipo
-- `{{DESCRICAO}}` → observação da ocorrência
+**Com `textoPadrao`:** substitui placeholders e exibe como texto pré-formatado:
+- `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
+
+**Sem `textoPadrao`:** template completo com três seções:
+1. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição em destaque)
+2. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV (advertência oral → transferência compulsória) + direito ao contraditório (Portaria SEEDF nº 180/2019 + ECA Lei 8.069/1990)
+3. **ORIENTAÇÕES AO RESPONSÁVEL** — caixa azul (#eff6ff) com prazo de 3 dias úteis para comparecer à Coordenação Pedagógica
+
+- Assinatura: **Equipe Gestora / ETSM / SEEDF / Brasília – DF**
 
 ## Página de Diagnóstico UI
 
