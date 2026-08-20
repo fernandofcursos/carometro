@@ -44,6 +44,17 @@ Em modo Local (fallback sem rede), os logs exibem:
 [mailer] Conteúdo texto: ...
 ```
 
+### Fallback automático quando porta SMTP bloqueada
+
+Se `SMTP_HOST` está configurado mas a porta está bloqueada (ex.: ambiente de desenvolvimento com proxy que só permite 443), `sendMail()` lança erro de conexão. O mailer detecta esses erros (`ECONNREFUSED`, `ETIMEDOUT`, `ENOTFOUND`, `EHOSTUNREACH`, `timeout`) e faz fallback automático para `jsonTransport` (captura local):
+
+```
+[mailer] Falha de conexão SMTP (connect ETIMEDOUT ...) — usando captura local.
+[mailer] "Assunto" — capturado localmente (para: destino@email.com)
+```
+
+Em produção, onde a porta 587 está liberada, o SMTP real é usado normalmente.
+
 ### Senha da conta Ethereal
 
 A senha é gerada pelo `nodemailer.createTestAccount()` e exibida **uma única vez** no log do servidor ao iniciar:

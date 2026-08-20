@@ -64,6 +64,27 @@ Quando `api.nodemailer.com` está inacessível (proxy bloqueado), o mailer cai a
 - Log: `[mailer] "Assunto" — capturado localmente (para: destino@email.com)`
 - UI exibe badge "captura local" (azul) com aviso nos logs
 
+### Fallback quando porta SMTP bloqueada (ex.: dev container)
+
+Se `SMTP_HOST` está configurado mas a porta está bloqueada, `sendMail()` lança erro de conexão. A função `enviar()` detecta isso e faz fallback automático para `jsonTransport`:
+
+```typescript
+// em enviar():
+try {
+  return await enviarComTransport(t, opts);
+} catch (err) {
+  if (process.env.SMTP_HOST && isConnectionError(err)) {
+    // ECONNREFUSED | ETIMEDOUT | ENOTFOUND | EHOSTUNREACH | timeout
+    const local = nodemailer.createTransport({ jsonTransport: true });
+    return enviarComTransport(local, opts);
+  }
+  throw err;
+}
+```
+
+Log: `[mailer] Falha de conexão SMTP (connect ETIMEDOUT ...) — usando captura local.`  
+Em produção (porta 587 liberada) o SMTP real funciona normalmente.
+
 ## Diagnóstico via API
 
 ```bash

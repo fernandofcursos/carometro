@@ -68,8 +68,12 @@ export type EnvioInfo = {
   conteudo: { para: string; assunto: string; texto: string } | null;
 };
 
-async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
-  const t = await ensureTransport();
+function isConnectionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH|connect|timeout/i.test(msg);
+}
+
+async function enviarComTransport(t: nodemailer.Transporter, opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
   const info = await t.sendMail({ from: remetente(), ...opts });
   const previewUrl = nodemailer.getTestMessageUrl(info) || null;
   if (previewUrl) {
@@ -77,7 +81,6 @@ async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
     return { previewUrl, capturado: false, conteudo: null };
   }
   if (info.message) {
-    // jsonTransport — e-mail capturado localmente
     const para = Array.isArray(opts.to) ? opts.to.join(", ") : String(opts.to ?? "");
     console.log(`[mailer] "${opts.subject}" — capturado localmente (para: ${para})`);
     return {
@@ -88,6 +91,22 @@ async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
   }
   console.log(`[mailer] "${opts.subject}" enviado para ${opts.to} (id: ${info.messageId})`);
   return { previewUrl: null, capturado: false, conteudo: null };
+}
+
+async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
+  const t = await ensureTransport();
+  try {
+    return await enviarComTransport(t, opts);
+  } catch (err) {
+    // Se SMTP configurado mas porta bloqueada → fallback para captura local
+    if (process.env.SMTP_HOST && isConnectionError(err)) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`[mailer] Falha de conexão SMTP (${msg}) — usando captura local.`);
+      const local = nodemailer.createTransport({ jsonTransport: true });
+      return enviarComTransport(local, opts);
+    }
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------
