@@ -1,8 +1,9 @@
 import { Router } from "express";
 import multer from "multer";
 import mammoth from "mammoth";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { PDFParse } = require("pdf-parse") as { PDFParse: new () => { loadPDF(buf: Buffer): Promise<{ pages: { content: string }[] }> } };
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+const { PDFParse } = _require("pdf-parse") as { PDFParse: new () => { loadPDF(buf: Buffer): Promise<{ pages: { content: string }[] }> } };
 import {
   db,
   textosPadraoOcorrenciasTable,
