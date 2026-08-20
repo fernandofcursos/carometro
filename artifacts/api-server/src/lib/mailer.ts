@@ -296,45 +296,57 @@ Escola Técnica de Santa Maria`;
     subject: "Recuperação de senha — Seshat ETSM",
     text: textoPlano,
     html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
-        <h2 style="color:#1a56db">Recuperação de Senha — Seshat ETSM</h2>
-        <p>${saudacao}</p>
-        <p>Foi solicitada a recuperação de senha para acesso ao <strong>Sistema de Carômetros da Escola Técnica de Santa Maria (ETSM)</strong>.</p>
-        <p>Para sua segurança, a senha atual não é informada nem enviada por e-mail. O processo permite que você cadastre uma nova senha pessoal de forma segura.</p>
-
-        <table style="border-collapse:collapse;margin:16px 0;width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px">
-          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">📧 E-mail cadastrado</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb">${emailExibido}</td></tr>
-          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">🔑 Código de Acesso</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em;letter-spacing:2px;border-bottom:1px solid #e5e7eb">${codigoExibido}</td></tr>
-          <tr><td style="padding:10px 16px;font-weight:600">🔒 Token de redefinição</td><td style="padding:10px 16px;font-family:monospace;font-size:1.2em;letter-spacing:3px;color:#1a56db"><strong>${token}</strong></td></tr>
-        </table>
-        <p style="color:#6b7280;font-size:0.85em">O token expira em: <strong>${expiresAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong></p>
-
-        <h3 style="color:#1a56db;margin-top:24px">🔐 Como recuperar sua senha</h3>
-        <ol style="padding-left:20px;line-height:1.8">
-          <li>Acesse a tela de login do Sistema de Carômetros da ETSM.</li>
-          <li>Selecione a opção <strong>"Esqueci minha senha"</strong> ou <strong>"Recuperar senha"</strong>.</li>
-          <li>Informe o e-mail cadastrado ou o seu código de acesso.</li>
-          <li>Informe o token acima quando solicitado.</li>
-          <li>Cadastre uma nova senha pessoal e segura.</li>
-          <li>Após concluir, utilize a nova senha para realizar seu acesso normalmente.</li>
-        </ol>
-
-        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:12px;margin:16px 0">
-          <p style="margin:0;font-weight:600;color:#92400e">⚠️ IMPORTANTE – Segurança da sua conta</p>
-          <p style="margin:8px 0 0;color:#78350f;font-size:0.9em">Não compartilhe sua senha, código de acesso ou token de recuperação com terceiros. A equipe da ETSM <strong>não solicita</strong> sua senha por e-mail, telefone ou mensagem.</p>
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+        <div style="background:#1e3a5f;padding:20px 24px">
+          <p style="margin:0;color:#ffffff;font-size:1.05em;font-weight:700;letter-spacing:0.05em;text-transform:uppercase">Escola Técnica de Santa Maria</p>
+          <p style="margin:4px 0 0;color:#93c5fd;font-size:0.8em">Secretaria de Estado de Educação do Distrito Federal – SEEDF</p>
         </div>
+        <div style="background:#fef9c3;border-bottom:2px solid #f59e0b;padding:14px 24px;text-align:center">
+          <p style="margin:0;font-size:1em;font-weight:700;color:#78350f;letter-spacing:0.06em;text-transform:uppercase">
+            🔐&nbsp; Recuperação de Senha
+          </p>
+        </div>
+        <div style="padding:24px;color:#1f2937">
+          <p style="margin:0 0 12px">${saudacao}</p>
+          <p style="line-height:1.7;margin:0 0 16px">Foi solicitada a recuperação de senha para acesso ao <strong>Sistema de Carômetros da Escola Técnica de Santa Maria (ETSM)</strong>. Para sua segurança, a senha atual não é informada nem enviada por e-mail. O processo de recuperação permite que você cadastre uma nova senha pessoal de forma segura.</p>
 
-        <h3 style="color:#1a56db;margin-top:24px">📸 Como incluir sua foto de perfil</h3>
-        <ol style="padding-left:20px;line-height:1.8">
-          <li>Acesse o menu <strong>Usuários</strong>.</li>
-          <li>Clique no ícone <strong>Foto do Perfil</strong>.</li>
-          <li>Selecione a opção <strong>Capturar Foto</strong>.</li>
-        </ol>
-        <p>Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).</p>
+          <table style="border-collapse:collapse;width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:0.95em">
+            <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 16px;font-weight:600;color:#374151;width:45%">📧 E-mail cadastrado</td><td style="padding:10px 16px">${emailExibido}</td></tr>
+            <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 16px;font-weight:600;color:#374151">🔑 Código de Acesso</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em;letter-spacing:2px">${codigoExibido}</td></tr>
+            <tr><td style="padding:10px 16px;font-weight:600;color:#374151">🔒 Procedimento</td><td style="padding:10px 16px">Recuperação e redefinição de senha</td></tr>
+          </table>
 
-        <p style="color:#6b7280;font-size:0.85em;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
-          Atenciosamente,<br><strong>Equipe de Tecnologia da Informação</strong><br>Escola Técnica de Santa Maria
-        </p>
+          <p style="margin:20px 0 6px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.06em;text-transform:uppercase">🔐 Como recuperar sua senha</p>
+          <ol style="padding-left:20px;font-size:0.9em;line-height:1.9;margin:0 0 16px;color:#374151">
+            <li>Acesse a tela de login do Sistema de Carômetros da ETSM.</li>
+            <li>Selecione a opção <strong>"Esqueci minha senha"</strong> ou <strong>"Recuperar senha"</strong>.</li>
+            <li>Informe o e-mail cadastrado ou o seu código de acesso.</li>
+            <li>Siga as instruções apresentadas pelo sistema.</li>
+            <li>Cadastre uma nova senha pessoal e segura.</li>
+            <li>Após concluir a redefinição, utilize a nova senha para realizar seu acesso normalmente.</li>
+          </ol>
+
+          <div style="background:#fef9c3;border:1px solid #f59e0b;border-radius:6px;padding:12px 16px;margin:16px 0">
+            <p style="margin:0;font-weight:700;color:#78350f">⚠️ IMPORTANTE – Segurança da sua conta</p>
+            <p style="margin:8px 0 0;color:#92400e;font-size:0.9em">Por motivos de segurança, não compartilhe sua senha, código de acesso ou qualquer link/token de recuperação com terceiros. A equipe da ETSM <strong>não solicita</strong> sua senha por e-mail, telefone ou mensagem.</p>
+            <p style="margin:8px 0 0;color:#92400e;font-size:0.9em">Caso você não tenha solicitado a recuperação de senha, não prossiga com o procedimento e entre em contato com a equipe de suporte da ETSM.</p>
+          </div>
+
+          <p style="margin:20px 0 6px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.06em;text-transform:uppercase">📸 Como incluir sua foto de perfil (Avatar)</p>
+          <p style="margin:0 0 8px;font-size:0.9em">Após recuperar sua senha e realizar o login:</p>
+          <ol style="padding-left:20px;font-size:0.9em;line-height:1.9;margin:0 0 16px;color:#374151">
+            <li>Acesse o menu <strong>Usuários</strong>.</li>
+            <li>Clique no ícone <strong>Foto do Perfil</strong>.</li>
+            <li>Selecione a opção <strong>Capturar Foto</strong>.</li>
+          </ol>
+          <p style="font-size:0.9em;line-height:1.6;margin:0 0 20px">Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).</p>
+
+          <p style="margin:0 0 4px">Atenciosamente,</p>
+          <p style="margin:0"><strong>Equipe de Tecnologia da Informação</strong><br>Escola Técnica de Santa Maria – ETSM</p>
+        </div>
+        <div style="background:#f3f4f6;border-top:1px solid #e5e7eb;padding:10px 24px;font-size:0.75em;color:#9ca3af;text-align:center">
+          Em caso de dúvidas durante o processo de recuperação, entre em contato com a equipe de suporte da ETSM. Comunicado automático gerado pelo Sistema Seshat.
+        </div>
       </div>
     `,
   });
@@ -385,38 +397,47 @@ Escola Técnica de Santa Maria`;
     subject: "Seu acesso ao Seshat — ETSM",
     text: textoPlano,
     html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
-        <h2 style="color:#1a56db">Bem-vindo(a) ao Seshat — ETSM</h2>
-        <p>${saudacao}</p>
-        <p>Seja bem-vindo(a) ao <strong>Sistema de Seshat da Escola Técnica de Santa Maria (ETSM)</strong>!</p>
-        <p>Seu cadastro foi realizado com sucesso. Abaixo estão suas credenciais de acesso:</p>
-
-        <table style="border-collapse:collapse;margin:16px 0;width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px">
-          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">📧 E-mail</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb">${para}</td></tr>
-          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">🔑 Código de Acesso</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em;letter-spacing:2px;border-bottom:1px solid #e5e7eb">${codigoAcesso}</td></tr>
-          <tr><td style="padding:10px 16px;font-weight:600">🔒 Senha Provisória</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em">${senhaGerada}</td></tr>
-        </table>
-
-        <p>O acesso pode ser realizado utilizando o e-mail cadastrado ou o código de acesso, combinado com a senha provisória acima.</p>
-
-        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:12px;margin:16px 0">
-          <p style="margin:0;font-weight:600;color:#92400e">⚠️ IMPORTANTE – Alteração de Senha Obrigatória</p>
-          <p style="margin:8px 0 0;color:#78350f;font-size:0.9em">Por motivos de segurança, você deverá alterar sua senha no primeiro acesso ao sistema. Escolha uma senha pessoal e mantenha-a em sigilo.</p>
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+        <div style="background:#1e3a5f;padding:20px 24px">
+          <p style="margin:0;color:#ffffff;font-size:1.05em;font-weight:700;letter-spacing:0.05em;text-transform:uppercase">Escola Técnica de Santa Maria</p>
+          <p style="margin:4px 0 0;color:#93c5fd;font-size:0.8em">Secretaria de Estado de Educação do Distrito Federal – SEEDF</p>
         </div>
+        <div style="background:#dcfce7;border-bottom:2px solid #16a34a;padding:14px 24px;text-align:center">
+          <p style="margin:0;font-size:1em;font-weight:700;color:#14532d;letter-spacing:0.06em;text-transform:uppercase">
+            ✅&nbsp; Cadastro Realizado com Sucesso
+          </p>
+        </div>
+        <div style="padding:24px;color:#1f2937">
+          <p style="margin:0 0 12px">${saudacao}</p>
+          <p style="line-height:1.7;margin:0 0 16px">Seja bem-vindo(a) ao <strong>Sistema de Seshat da Escola Técnica de Santa Maria (ETSM)</strong>! Seu cadastro foi realizado com sucesso. Abaixo estão suas credenciais de acesso:</p>
 
-        <h3 style="color:#1a56db;margin-top:24px">📸 Como incluir sua foto de perfil (Avatar)</h3>
-        <p>Após realizar o login, siga os passos abaixo para adicionar sua foto ao sistema:</p>
-        <ol style="padding-left:20px;line-height:1.8">
-          <li>Acesse o menu <strong>Usuários</strong></li>
-          <li>Clique no ícone <strong>Foto do Perfil</strong> (exceto para estudantes/pais e responsáveis)</li>
-          <li>Selecione a opção <strong>Capturar Foto</strong></li>
-        </ol>
-        <p>Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).</p>
+          <table style="border-collapse:collapse;width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:0.95em">
+            <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 16px;font-weight:600;color:#374151;width:45%">📧 E-mail</td><td style="padding:10px 16px">${para}</td></tr>
+            <tr style="border-bottom:1px solid #e5e7eb"><td style="padding:10px 16px;font-weight:600;color:#374151">🔑 Código de Acesso</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em;letter-spacing:2px">${codigoAcesso}</td></tr>
+            <tr><td style="padding:10px 16px;font-weight:600;color:#374151">🔒 Senha Provisória</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em">${senhaGerada}</td></tr>
+          </table>
+          <p style="font-size:0.88em;color:#6b7280;margin:8px 0 16px">O acesso pode ser realizado com o e-mail ou o código de acesso, combinado com a senha provisória.</p>
 
-        <p style="color:#6b7280;font-size:0.85em;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
-          Em caso de dúvidas ou dificuldades, entre em contato com a equipe de suporte da ETSM.<br><br>
-          Atenciosamente,<br><strong>Equipe de Tecnologia da Informação</strong><br>Escola Técnica de Santa Maria
-        </p>
+          <div style="background:#fef9c3;border:1px solid #f59e0b;border-radius:6px;padding:12px 16px;margin:16px 0">
+            <p style="margin:0;font-weight:700;color:#78350f">⚠️ IMPORTANTE – Alteração de Senha Obrigatória</p>
+            <p style="margin:8px 0 0;color:#92400e;font-size:0.9em">Por motivos de segurança, você deverá alterar sua senha no primeiro acesso ao sistema. Escolha uma senha pessoal e mantenha-a em sigilo.</p>
+          </div>
+
+          <p style="margin:20px 0 6px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.06em;text-transform:uppercase">📸 Como incluir sua foto de perfil (Avatar)</p>
+          <p style="margin:0 0 8px;font-size:0.9em;line-height:1.6">Após realizar o login, siga os passos abaixo:</p>
+          <ol style="padding-left:20px;font-size:0.9em;line-height:1.9;margin:0 0 16px;color:#374151">
+            <li>Acesse o menu <strong>Usuários</strong></li>
+            <li>Clique no ícone <strong>Foto do Perfil</strong> (exceto para estudantes/pais e responsáveis)</li>
+            <li>Selecione a opção <strong>Capturar Foto</strong></li>
+          </ol>
+          <p style="font-size:0.9em;line-height:1.6;margin:0 0 20px">Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).</p>
+
+          <p style="margin:0 0 4px">Atenciosamente,</p>
+          <p style="margin:0"><strong>Equipe de Tecnologia da Informação</strong><br>Escola Técnica de Santa Maria – ETSM</p>
+        </div>
+        <div style="background:#f3f4f6;border-top:1px solid #e5e7eb;padding:10px 24px;font-size:0.75em;color:#9ca3af;text-align:center">
+          Em caso de dúvidas, entre em contato com a equipe de suporte da ETSM. Comunicado automático gerado pelo Sistema Seshat.
+        </div>
       </div>
     `,
   });
@@ -457,25 +478,109 @@ export async function enviarEmailOcorrencia({
   ].filter(Boolean).join("\n");
 
   const textoPlano = corpoTexto
-    ?? `Ocorrência registrada para ${estudanteNome}\nTipo: ${tipoOcorrencia}\nData: ${dataFormatada}${turnoNome ? `\nTurno: ${turnoNome}` : ""}${disciplinaNome ? `\nDisciplina: ${disciplinaNome}` : ""}${observacao ? `\nDescrição: ${observacao}` : ""}`;
+    ?? `Notificação de Ocorrência Disciplinar\n\nPrezado(a) Responsável pelo Estudante ${estudanteNome},\n\nVimos por meio desta NOTIFICÁ-LO(A) formalmente de que foi registrada uma ocorrência disciplinar conforme os termos do Regimento Escolar da Rede Pública de Ensino do Distrito Federal.\n\nDADOS DA OCORRÊNCIA\nNome do Estudante: ${estudanteNome}\nTipo: ${tipoOcorrencia}\nData da Ocorrência: ${dataFormatada}${turnoNome ? `\nTurno: ${turnoNome}` : ""}${disciplinaNome ? `\nDisciplina: ${disciplinaNome}` : ""}${observacao ? `\nDescrição: ${observacao}` : ""}\n\nAtenciosamente,\nEquipe Gestora\nEscola Técnica de Santa Maria – ETSM`;
 
-  const htmlCorpo = corpoTexto
-    ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.7;border-left:3px solid #f59e0b;padding-left:12px;margin:16px 0;color:#374151">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
-    : `<table style="border-collapse:collapse;margin:16px 0;width:100%">${linhas}</table><p>Acesse o sistema para visualizar os detalhes e registrar sua ciência.</p>`;
+  // Linhas da tabela de dados da ocorrência
+  const linhasDados = [
+    `<tr><td style="padding:8px 12px;color:#374151;width:200px">📋 Nome do Estudante:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${estudanteNome}</td></tr>`,
+    `<tr><td style="padding:8px 12px;color:#374151">📅 Data do Registro:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${new Date().toLocaleDateString("pt-BR")}</td></tr>`,
+    `<tr><td style="padding:8px 12px;color:#374151">📅 Data da Ocorrência:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${dataFormatada}</td></tr>`,
+    `<tr><td style="padding:8px 12px;color:#374151">⚠️ Tipo de Ocorrência:</td><td style="padding:8px 12px;font-weight:700;color:#111827">${tipoOcorrencia}</td></tr>`,
+    turnoNome ? `<tr><td style="padding:8px 12px;color:#374151">🏫 Turno:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${turnoNome}</td></tr>` : "",
+    disciplinaNome ? `<tr><td style="padding:8px 12px;color:#374151">📚 Disciplina:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${disciplinaNome}</td></tr>` : "",
+  ].filter(Boolean).join("");
+
+  const htmlDescricao = observacao
+    ? `<tr><td colspan="2" style="padding:8px 12px;color:#374151">✏️ <strong>Descrição da Ocorrência:</strong><div style="margin-top:8px;padding:10px 14px;background:#f9fafb;border-left:3px solid #f59e0b;color:#374151;font-style:italic">${observacao}</div></td></tr>`
+    : "";
+
+  // Seção do corpo: usa texto padrão ou tabela de dados
+  const htmlCorpoPrincipal = corpoTexto
+    ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.8;color:#374151;margin:16px 0">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    : `
+      <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid #e5e7eb;padding-bottom:4px">
+        Dados da <span style="color:#f59e0b">Ocorrência</span>
+      </p>
+      <table style="border-collapse:collapse;width:100%;font-size:0.9em">
+        ${linhasDados}${htmlDescricao}
+      </table>
+      <div style="height:16px;border-bottom:1px solid #e5e7eb;margin-bottom:16px"></div>
+
+      <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase">
+        Fundamentação e Possíveis Sanções
+      </p>
+      <p style="font-size:0.9em;line-height:1.7;color:#374151">
+        A conduta registrada poderá ensejar a aplicação de medidas disciplinares, as quais serão graduadas conforme a gravidade e a eventual reincidência, nos termos do Regimento Escolar da SEEDF:
+      </p>
+      <ol style="font-size:0.9em;line-height:1.9;color:#374151;padding-left:24px" type="I">
+        <li>Advertência oral ou retirada de sala de aula;</li>
+        <li>Advertência escrita, com ciência dos pais ou responsáveis (para estudantes menores de idade);</li>
+        <li>Suspensão de até 3 (três) dias letivos;</li>
+        <li>Transferência compulsória, nos casos em que o ato for considerado prejudicial à ordem escolar e ao desenvolvimento integral do estudante.</li>
+      </ol>
+      <p style="font-size:0.9em;line-height:1.7;color:#374151">
+        Em conformidade com o Regimento Escolar (Portaria SEEDF nº 180/2019), fica assegurado ao estudante o direito ao <strong>CONTRADITÓRIO E À AMPLA DEFESA</strong>, podendo manifestar-se por escrito em prazo a ser definido pela Equipe Gestora.
+      </p>
+      <p style="font-size:0.9em;line-height:1.7;color:#374151">
+        Os pais ou responsáveis legais têm o direito e o dever de acompanhar as medidas disciplinares aplicadas, conforme previsto no mesmo regimento e no Estatuto da Criança e do Adolescente – ECA (Lei Federal nº 8.069/1990).
+      </p>
+      <div style="height:16px;border-bottom:1px solid #e5e7eb;margin-bottom:16px"></div>
+
+      <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase">
+        Orientações ao Responsável
+      </p>
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px 16px;font-size:0.9em;line-height:1.7;color:#1e40af">
+        <p style="margin:0 0 8px">Esta notificação tem caráter pedagógico e formativo. A Escola Técnica de Santa Maria reafirma seu compromisso com um ambiente escolar seguro, respeitoso e propício ao aprendizado, conforme os princípios da cultura de paz estabelecidos pela SEEDF.</p>
+        <p style="margin:0">Orientamos que o(a) responsável compareça à Coordenação Pedagógica para acolhimento e esclarecimentos, no prazo de <strong>3 (três) dias úteis</strong> a partir do recebimento desta notificação. Dúvidas poderão ser encaminhadas diretamente à Equipe Gestora.</p>
+      </div>`;
 
   await enviar({
     to: para,
-    subject: `Ocorrência: ${estudanteNome} — ${tipoOcorrencia}`,
+    subject: `Notificação de Ocorrência: ${estudanteNome} — ${tipoOcorrencia}`,
     text: textoPlano,
     html: `
-      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1f2937">
-        <h2 style="color:#b45309">Registro de Ocorrência</h2>
-        <p>Foi registrada uma ocorrência para o(a) estudante <strong>${estudanteNome}</strong>.</p>
-        ${htmlCorpo}
-        <p style="color:#6b7280;font-size:0.85em;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
-          Comunicado automático — não responda este e-mail.<br>
-          Equipe de Tecnologia da Informação — Escola Técnica de Santa Maria
-        </p>
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+
+        <!-- Cabeçalho institucional -->
+        <div style="background:#1e3a5f;padding:20px 24px">
+          <p style="margin:0;color:#ffffff;font-size:1.05em;font-weight:700;letter-spacing:0.05em;text-transform:uppercase">Escola Técnica de Santa Maria</p>
+          <p style="margin:4px 0 0;color:#93c5fd;font-size:0.8em">Secretaria de Estado de Educação do Distrito Federal – SEEDF</p>
+        </div>
+
+        <!-- Banner de notificação -->
+        <div style="background:#fef9c3;border-bottom:2px solid #f59e0b;padding:14px 24px;text-align:center">
+          <p style="margin:0;font-size:1em;font-weight:700;color:#78350f;letter-spacing:0.06em;text-transform:uppercase">
+            ⚠️&nbsp; Notificação de <span style="color:#b45309">Ocorrência</span> Disciplinar
+          </p>
+        </div>
+
+        <!-- Corpo -->
+        <div style="padding:24px;color:#1f2937">
+          <p style="margin:0 0 16px">Prezado(a) Responsável pelo Estudante <strong>${estudanteNome}</strong>,</p>
+          <p style="line-height:1.7;margin:0 0 16px">
+            Vimos por meio desta <strong>NOTIFICÁ-LO(A)</strong> formalmente de que foi registrada uma
+            <span style="background:#fef08a;padding:1px 4px;border-radius:2px">ocorrência</span>
+            disciplinar em nome do(a) referido(a) estudante junto à Equipe Gestora desta instituição de ensino,
+            conforme os termos do Regimento Escolar da Rede Pública de Ensino do Distrito Federal,
+            instituído pela Portaria SEEDF nº 15/2015, com alterações introduzidas pela Portaria SEEDF
+            nº 180/2019, publicada no DODF de 30 de maio de 2019.
+          </p>
+
+          <div style="height:1px;background:#e5e7eb;margin:16px 0"></div>
+
+          ${htmlCorpoPrincipal}
+
+          <p style="margin:20px 0 4px">Atenciosamente,</p>
+          <p style="margin:0"><strong>Equipe Gestora</strong><br>
+          Escola Técnica de Santa Maria – ETSM<br>
+          Secretaria de Estado de Educação do Distrito Federal – SEEDF<br>
+          Brasília – DF</p>
+        </div>
+
+        <!-- Rodapé -->
+        <div style="background:#f3f4f6;border-top:1px solid #e5e7eb;padding:10px 24px;font-size:0.75em;color:#9ca3af;text-align:center">
+          Comunicado automático gerado pelo Sistema Seshat — não responda este e-mail.
+        </div>
       </div>
     `,
   });
