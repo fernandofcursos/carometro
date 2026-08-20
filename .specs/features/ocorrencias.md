@@ -79,6 +79,10 @@ Ao registrar uma ocorrência, o sistema envia e-mail automaticamente com base na
 2. Fallback: `usuarios.data_nascimento` do usuário vinculado
 3. Se nenhuma data disponível → trata como maior (envia para e-mail próprio)
 
+**Conteúdo do e-mail:**
+- Se o tipo de ocorrência possui um **texto padrão ativo** (`textos_padrao_ocorrencias`), o corpo do e-mail usa esse texto com os placeholders substituídos (`{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`, `{{DATA_REGISTRO}}`)
+- Caso não haja texto padrão, usa o formato tabelado padrão com tipo, data, turno, disciplina e descrição
+
 **Comportamento:**
 - Falhas individuais são logadas mas não interrompem o fluxo
 - `notificacao_pais_enviada_em` é atualizado apenas quando enviado para responsáveis (menores)

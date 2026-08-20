@@ -243,22 +243,98 @@ export async function enviarEmailRecuperacao(
   para: string,
   token: string,
   expiresAt: Date,
+  nomeUsuario?: string | null,
+  codigoAcesso?: string | null,
 ): Promise<void> {
-  const expiracao = expiresAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const saudacao = nomeUsuario ? `Prezado(a) ${nomeUsuario},` : "Prezado(a),";
+  const emailExibido = para;
+  const codigoExibido = codigoAcesso ?? "—";
+
+  const textoPlano = `${saudacao}
+
+Foi solicitada a recuperação de senha para acesso ao Sistema de Carômetros da Escola Técnica de Santa Maria (ETSM).
+
+Para sua segurança, a senha atual não é informada nem enviada por e-mail. O processo de recuperação permite que você cadastre uma nova senha pessoal de forma segura.
+
+──────────────────────────────
+📧 E-mail cadastrado: ${emailExibido}
+🔑 Código de Acesso: ${codigoExibido}
+🔒 Procedimento: Recuperação e redefinição de senha
+──────────────────────────────
+
+🔐 Como recuperar sua senha
+
+1. Acesse a tela de login do Sistema de Carômetros da ETSM.
+2. Selecione a opção "Esqueci minha senha" ou "Recuperar senha".
+3. Informe o e-mail cadastrado ou o seu código de acesso.
+4. Informe o token: ${token}
+5. Cadastre uma nova senha pessoal e segura.
+6. Após concluir a redefinição, utilize a nova senha para realizar seu acesso normalmente.
+
+O token expira em: ${expiresAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+
+⚠️ IMPORTANTE – Segurança da sua conta
+Por motivos de segurança, não compartilhe sua senha, código de acesso ou qualquer link/token de recuperação com terceiros.
+A equipe da ETSM não solicita sua senha por e-mail, telefone ou mensagem.
+Caso você não tenha solicitado a recuperação de senha, não prossiga com o procedimento e entre em contato com a equipe de suporte da ETSM.
+
+📸 Como incluir sua foto de perfil (Avatar)
+Após recuperar sua senha e realizar o login:
+1. Acesse o menu Usuários.
+2. Clique no ícone Foto do Perfil.
+3. Selecione a opção Capturar Foto.
+
+Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).
+Em caso de dúvidas, entre em contato com a equipe de suporte da ETSM.
+
+Atenciosamente,
+Equipe de Tecnologia da Informação
+Escola Técnica de Santa Maria`;
+
   await enviar({
     to: para,
-    subject: "Redefinição de senha — Seshat",
-    text: `Token de recuperação: ${token}\nExpira em: ${expiracao}\n\nSe não foi você, ignore este e-mail.`,
+    subject: "Recuperação de senha — Seshat ETSM",
+    text: textoPlano,
     html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#1a56db">Redefinição de senha</h2>
-        <p>Você solicitou a redefinição de senha no Seshat.</p>
-        <p>Use o token abaixo na tela de recuperação:</p>
-        <p style="font-size:1.4em;font-family:monospace;letter-spacing:2px;background:#f3f4f6;padding:12px;border-radius:6px;text-align:center">
-          <strong>${token}</strong>
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
+        <h2 style="color:#1a56db">Recuperação de Senha — Seshat ETSM</h2>
+        <p>${saudacao}</p>
+        <p>Foi solicitada a recuperação de senha para acesso ao <strong>Sistema de Carômetros da Escola Técnica de Santa Maria (ETSM)</strong>.</p>
+        <p>Para sua segurança, a senha atual não é informada nem enviada por e-mail. O processo permite que você cadastre uma nova senha pessoal de forma segura.</p>
+
+        <table style="border-collapse:collapse;margin:16px 0;width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px">
+          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">📧 E-mail cadastrado</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb">${emailExibido}</td></tr>
+          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">🔑 Código de Acesso</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em;letter-spacing:2px;border-bottom:1px solid #e5e7eb">${codigoExibido}</td></tr>
+          <tr><td style="padding:10px 16px;font-weight:600">🔒 Token de redefinição</td><td style="padding:10px 16px;font-family:monospace;font-size:1.2em;letter-spacing:3px;color:#1a56db"><strong>${token}</strong></td></tr>
+        </table>
+        <p style="color:#6b7280;font-size:0.85em">O token expira em: <strong>${expiresAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</strong></p>
+
+        <h3 style="color:#1a56db;margin-top:24px">🔐 Como recuperar sua senha</h3>
+        <ol style="padding-left:20px;line-height:1.8">
+          <li>Acesse a tela de login do Sistema de Carômetros da ETSM.</li>
+          <li>Selecione a opção <strong>"Esqueci minha senha"</strong> ou <strong>"Recuperar senha"</strong>.</li>
+          <li>Informe o e-mail cadastrado ou o seu código de acesso.</li>
+          <li>Informe o token acima quando solicitado.</li>
+          <li>Cadastre uma nova senha pessoal e segura.</li>
+          <li>Após concluir, utilize a nova senha para realizar seu acesso normalmente.</li>
+        </ol>
+
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:12px;margin:16px 0">
+          <p style="margin:0;font-weight:600;color:#92400e">⚠️ IMPORTANTE – Segurança da sua conta</p>
+          <p style="margin:8px 0 0;color:#78350f;font-size:0.9em">Não compartilhe sua senha, código de acesso ou token de recuperação com terceiros. A equipe da ETSM <strong>não solicita</strong> sua senha por e-mail, telefone ou mensagem.</p>
+        </div>
+
+        <h3 style="color:#1a56db;margin-top:24px">📸 Como incluir sua foto de perfil</h3>
+        <ol style="padding-left:20px;line-height:1.8">
+          <li>Acesse o menu <strong>Usuários</strong>.</li>
+          <li>Clique no ícone <strong>Foto do Perfil</strong>.</li>
+          <li>Selecione a opção <strong>Capturar Foto</strong>.</li>
+        </ol>
+        <p>Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).</p>
+
+        <p style="color:#6b7280;font-size:0.85em;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
+          Atenciosamente,<br><strong>Equipe de Tecnologia da Informação</strong><br>Escola Técnica de Santa Maria
         </p>
-        <p>O token expira em: <strong>${expiracao}</strong></p>
-        <p style="color:#6b7280;font-size:0.85em">Se não foi você, ignore este e-mail. Sua senha não será alterada.</p>
       </div>
     `,
   });
@@ -270,35 +346,84 @@ export async function enviarEmailBoasVindas(
   senhaGerada: string,
   nome?: string | null,
 ): Promise<void> {
-  const saudacao = nome ? `Olá, ${nome}!` : "Olá!";
+  const saudacao = nome ? `Prezado(a) ${nome},` : "Prezado(a),";
+
+  const textoPlano = `${saudacao}
+
+Seja bem-vindo(a) ao Sistema de Seshat da Escola Técnica de Santa Maria (ETSM)!
+
+Seu cadastro foi realizado com sucesso. Abaixo estão suas credenciais de acesso:
+
+──────────────────────────────
+📧 E-mail: ${para}
+🔑 Código de Acesso: ${codigoAcesso}
+🔒 Senha Provisória: ${senhaGerada}
+──────────────────────────────
+
+O acesso ao sistema pode ser realizado utilizando o seu e-mail cadastrado ou o código de acesso gerado, combinado com a senha provisória informada acima.
+
+⚠️ IMPORTANTE – Alteração de Senha Obrigatória
+Por motivos de segurança, você deverá alterar sua senha no primeiro acesso ao sistema. Escolha uma senha pessoal e mantenha-a em sigilo.
+
+📸 Como incluir sua foto de perfil (Avatar)
+Após realizar o login, siga os passos abaixo para adicionar sua foto ao sistema:
+
+  1. Acesse o menu Usuários
+  2. Clique no ícone Foto do Perfil (exceto para estudantes/pais e responsáveis)
+  3. Selecione a opção Capturar Foto
+
+Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).
+
+Em caso de dúvidas ou dificuldades, entre em contato com a equipe de suporte da ETSM.
+
+Atenciosamente,
+Equipe de Tecnologia da Informação
+Escola Técnica de Santa Maria`;
+
   await enviar({
     to: para,
-    subject: "Seu acesso ao Seshat",
-    text: `${saudacao}\n\nSua conta no Seshat foi criada.\n\nCódigo de acesso: ${codigoAcesso}\nSenha temporária: ${senhaGerada}\n\nVocê será solicitado a definir uma nova senha no primeiro acesso.`,
+    subject: "Seu acesso ao Seshat — ETSM",
+    text: textoPlano,
     html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#1a56db">Bem-vindo ao Seshat</h2>
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
+        <h2 style="color:#1a56db">Bem-vindo(a) ao Seshat — ETSM</h2>
         <p>${saudacao}</p>
-        <p>Sua conta foi criada. Use as credenciais abaixo para o primeiro acesso:</p>
-        <table style="border-collapse:collapse;margin:16px 0">
-          <tr>
-            <td style="padding:6px 12px;background:#f3f4f6;font-weight:600">Código de acesso</td>
-            <td style="padding:6px 12px;font-family:monospace;font-size:1.1em;letter-spacing:2px">${codigoAcesso}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 12px;background:#f3f4f6;font-weight:600">Senha temporária</td>
-            <td style="padding:6px 12px;font-family:monospace;font-size:1.1em">${senhaGerada}</td>
-          </tr>
+        <p>Seja bem-vindo(a) ao <strong>Sistema de Seshat da Escola Técnica de Santa Maria (ETSM)</strong>!</p>
+        <p>Seu cadastro foi realizado com sucesso. Abaixo estão suas credenciais de acesso:</p>
+
+        <table style="border-collapse:collapse;margin:16px 0;width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px">
+          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">📧 E-mail</td><td style="padding:10px 16px;border-bottom:1px solid #e5e7eb">${para}</td></tr>
+          <tr><td style="padding:10px 16px;font-weight:600;border-bottom:1px solid #e5e7eb">🔑 Código de Acesso</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em;letter-spacing:2px;border-bottom:1px solid #e5e7eb">${codigoAcesso}</td></tr>
+          <tr><td style="padding:10px 16px;font-weight:600">🔒 Senha Provisória</td><td style="padding:10px 16px;font-family:monospace;font-size:1.1em">${senhaGerada}</td></tr>
         </table>
-        <p style="color:#dc2626"><strong>Atenção:</strong> você será solicitado a definir uma nova senha no primeiro acesso.</p>
-        <p style="color:#6b7280;font-size:0.85em">Se não esperava este e-mail, entre em contato com a administração.</p>
+
+        <p>O acesso pode ser realizado utilizando o e-mail cadastrado ou o código de acesso, combinado com a senha provisória acima.</p>
+
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:12px;margin:16px 0">
+          <p style="margin:0;font-weight:600;color:#92400e">⚠️ IMPORTANTE – Alteração de Senha Obrigatória</p>
+          <p style="margin:8px 0 0;color:#78350f;font-size:0.9em">Por motivos de segurança, você deverá alterar sua senha no primeiro acesso ao sistema. Escolha uma senha pessoal e mantenha-a em sigilo.</p>
+        </div>
+
+        <h3 style="color:#1a56db;margin-top:24px">📸 Como incluir sua foto de perfil (Avatar)</h3>
+        <p>Após realizar o login, siga os passos abaixo para adicionar sua foto ao sistema:</p>
+        <ol style="padding-left:20px;line-height:1.8">
+          <li>Acesse o menu <strong>Usuários</strong></li>
+          <li>Clique no ícone <strong>Foto do Perfil</strong> (exceto para estudantes/pais e responsáveis)</li>
+          <li>Selecione a opção <strong>Capturar Foto</strong></li>
+        </ol>
+        <p>Sua foto ficará visível no carômetro da turma ou setor ao qual você está vinculado(a).</p>
+
+        <p style="color:#6b7280;font-size:0.85em;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
+          Em caso de dúvidas ou dificuldades, entre em contato com a equipe de suporte da ETSM.<br><br>
+          Atenciosamente,<br><strong>Equipe de Tecnologia da Informação</strong><br>Escola Técnica de Santa Maria
+        </p>
       </div>
     `,
   });
 }
 
 export async function enviarEmailOcorrencia({
-  para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome, disciplinaNome, observacao,
+  para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome, disciplinaNome, observacao, textoPadrao,
 }: {
   para: string;
   estudanteNome: string;
@@ -307,10 +432,21 @@ export async function enviarEmailOcorrencia({
   turnoNome?: string | null;
   disciplinaNome?: string | null;
   observacao?: string | null;
+  textoPadrao?: string | null;
 }): Promise<void> {
   const dataFormatada = new Date(dataOcorrencia + "T12:00:00").toLocaleDateString("pt-BR", {
     day: "2-digit", month: "long", year: "numeric",
   });
+
+  // Quando há texto padrão do tipo, substitui os placeholders e usa como corpo principal
+  const corpoTexto = textoPadrao
+    ? textoPadrao
+        .replace(/\{\{NOME_ESTUDANTE\}\}/g, estudanteNome)
+        .replace(/\{\{DATA_OCORRENCIA\}\}/g, dataFormatada)
+        .replace(/\{\{DATA_REGISTRO\}\}/g, new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }))
+        .replace(/\{\{TIPO_OCORRENCIA\}\}/g, tipoOcorrencia)
+        .replace(/\{\{DESCRICAO\}\}/g, observacao ?? "")
+    : null;
 
   const linhas = [
     `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600;width:35%">Tipo</td><td style="padding:8px 12px;background:#fffbeb">${tipoOcorrencia}</td></tr>`,
@@ -320,17 +456,26 @@ export async function enviarEmailOcorrencia({
     observacao ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Descrição</td><td style="padding:8px 12px;background:#fffbeb">${observacao}</td></tr>` : "",
   ].filter(Boolean).join("\n");
 
+  const textoPlano = corpoTexto
+    ?? `Ocorrência registrada para ${estudanteNome}\nTipo: ${tipoOcorrencia}\nData: ${dataFormatada}${turnoNome ? `\nTurno: ${turnoNome}` : ""}${disciplinaNome ? `\nDisciplina: ${disciplinaNome}` : ""}${observacao ? `\nDescrição: ${observacao}` : ""}`;
+
+  const htmlCorpo = corpoTexto
+    ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.7;border-left:3px solid #f59e0b;padding-left:12px;margin:16px 0;color:#374151">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    : `<table style="border-collapse:collapse;margin:16px 0;width:100%">${linhas}</table><p>Acesse o sistema para visualizar os detalhes e registrar sua ciência.</p>`;
+
   await enviar({
     to: para,
     subject: `Ocorrência: ${estudanteNome} — ${tipoOcorrencia}`,
-    text: `Ocorrência registrada para ${estudanteNome}\nTipo: ${tipoOcorrencia}\nData: ${dataFormatada}${turnoNome ? `\nTurno: ${turnoNome}` : ""}${disciplinaNome ? `\nDisciplina: ${disciplinaNome}` : ""}${observacao ? `\nDescrição: ${observacao}` : ""}`,
+    text: textoPlano,
     html: `
-      <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1f2937">
         <h2 style="color:#b45309">Registro de Ocorrência</h2>
         <p>Foi registrada uma ocorrência para o(a) estudante <strong>${estudanteNome}</strong>.</p>
-        <table style="border-collapse:collapse;margin:16px 0;width:100%">${linhas}</table>
-        <p>Acesse o sistema para visualizar os detalhes e registrar sua ciência.</p>
-        <p style="color:#6b7280;font-size:0.85em">Comunicado automático — não responda este e-mail.</p>
+        ${htmlCorpo}
+        <p style="color:#6b7280;font-size:0.85em;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px">
+          Comunicado automático — não responda este e-mail.<br>
+          Equipe de Tecnologia da Informação — Escola Técnica de Santa Maria
+        </p>
       </div>
     `,
   });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   db, ocorrenciasTable, tiposOcorrenciasTable, estudantesTable,
   disciplinasTable, turnosTable, usuariosTable, estudanteEmailsTable,
-  rolesTable, usuariosRolesTable,
+  rolesTable, usuariosRolesTable, textosPadraoOcorrenciasTable,
   eq, isNull, and,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
@@ -133,6 +133,19 @@ async function buscarDadosEmail(ocorrenciaId: string, estudanteId: string) {
   return { est, ocorr };
 }
 
+async function buscarTextoPadrao(tipoOcorrenciaId: string): Promise<string | null> {
+  const [tp] = await db
+    .select({ corpo: textosPadraoOcorrenciasTable.corpo })
+    .from(textosPadraoOcorrenciasTable)
+    .where(and(
+      eq(textosPadraoOcorrenciasTable.tipoOcorrenciaId, tipoOcorrenciaId),
+      eq(textosPadraoOcorrenciasTable.ativo, true),
+      isNull(textosPadraoOcorrenciasTable.deletadoEm),
+    ))
+    .limit(1);
+  return tp?.corpo ?? null;
+}
+
 async function enviarParaEmails(
   emails: string[],
   ocorrenciaId: string,
@@ -143,6 +156,16 @@ async function enviarParaEmails(
 ): Promise<number> {
   if (!emails.length) return 0;
   const { est, ocorr } = await buscarDadosEmail(ocorrenciaId, estudanteId);
+
+  // Busca texto padrão do tipo de ocorrência, se existir
+  const textoPadrao = ocorr
+    ? await buscarTextoPadrao(
+        (await db.select({ tipoOcorrenciaId: ocorrenciasTable.tipoOcorrenciaId })
+          .from(ocorrenciasTable).where(eq(ocorrenciasTable.id, ocorrenciaId)).limit(1)
+        )[0]?.tipoOcorrenciaId ?? ""
+      )
+    : null;
+
   let enviados = 0;
   for (const email of emails) {
     try {
@@ -154,6 +177,7 @@ async function enviarParaEmails(
         turnoNome,
         disciplinaNome,
         observacao:     ocorr?.observacao,
+        textoPadrao,
       });
       enviados++;
     } catch (e) {

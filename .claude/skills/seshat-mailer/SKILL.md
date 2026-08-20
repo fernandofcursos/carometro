@@ -143,11 +143,50 @@ Nota: `tsx watch` observa apenas arquivos-fonte, **não** o `.env`. Para que mud
 
 | Função | Quando usar |
 |---|---|
-| `enviarEmailRecuperacao(para, token, expiresAt)` | Recuperação de senha |
-| `enviarEmailBoasVindas(para, codigo, senha, nome?)` | Novo usuário criado |
-| `enviarEmailOcorrencia({para, estudanteNome, tipo, data, turno?, disciplina?, obs?})` | Ocorrência registrada para menor ou pai/responsável |
+| `enviarEmailRecuperacao(para, token, expiresAt, nome?, codigoAcesso?)` | Recuperação de senha — inclui nome, código de acesso e instruções ETSM |
+| `enviarEmailBoasVindas(para, codigo, senha, nome?)` | Novo usuário criado — template institucional ETSM com credenciais e instruções |
+| `enviarEmailOcorrencia({para, estudanteNome, tipo, data, turno?, disciplina?, obs?, textoPadrao?})` | Ocorrência — usa texto padrão do tipo se disponível; fallback para tabela padrão |
 | `enviarEmailTeste(para)` | Diagnóstico manual |
 | `diagnosticoMailer()` | Estado atual (modo, credenciais) |
+
+## Templates institucionais (ETSM)
+
+### Boas-vindas (`enviarEmailBoasVindas`)
+Assunto: `"Seu acesso ao Seshat — ETSM"`
+
+Inclui:
+- Saudação com nome do usuário (`Prezado(a) {{nome}},`)
+- Credenciais: e-mail, código de acesso, senha provisória em tabela
+- Aviso de alteração obrigatória de senha no primeiro acesso
+- Instruções para incluir foto de perfil (menu Usuários → Foto do Perfil → Capturar Foto)
+- Assinatura: Equipe de TI — Escola Técnica de Santa Maria
+
+### Recuperação de senha (`enviarEmailRecuperacao`)
+Assinatura: `"Recuperação de senha — Seshat ETSM"`
+
+Parâmetros extras: `nomeUsuario?` e `codigoAcesso?` (buscados na rota de auth).
+
+Inclui:
+- Saudação com nome do usuário
+- Tabela com e-mail cadastrado, código de acesso e token de redefinição
+- Passo a passo para recuperar a senha
+- Aviso de segurança (não compartilhar token)
+- Instruções para incluir foto de perfil
+- Assinatura institucional ETSM
+
+### Ocorrência (`enviarEmailOcorrencia`)
+Assunto: `"Ocorrência: {estudante} — {tipo}"`
+
+**Conteúdo do corpo:**
+- Se `textoPadrao` fornecido: usa o texto com placeholders substituídos
+- Caso contrário: tabela com tipo, data, turno, disciplina, descrição
+
+Placeholders substituídos no `textoPadrao`:
+- `{{NOME_ESTUDANTE}}` → nome do estudante
+- `{{DATA_OCORRENCIA}}` → data formatada em pt-BR
+- `{{DATA_REGISTRO}}` → data atual formatada
+- `{{TIPO_OCORRENCIA}}` → descrição do tipo
+- `{{DESCRICAO}}` → observação da ocorrência
 
 ## Página de Diagnóstico UI
 
