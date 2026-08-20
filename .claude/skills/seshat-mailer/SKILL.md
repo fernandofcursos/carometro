@@ -32,11 +32,43 @@ export async function enviarEmailXxx(para: string, dados: ...): Promise<void> {
 
 | Var | Uso |
 |---|---|
-| `SMTP_HOST` | Servidor SMTP; sem ela → Ethereal |
+| `RESEND_API_KEY` | API key do Resend (`re_xxx`) — modo prioritário, HTTPS/443 |
+| `RESEND_FROM` | Remetente Resend; sem ela usa `onboarding@resend.dev` (teste) |
+| `SMTP_HOST` | Servidor SMTP; usado se Resend não configurado |
 | `SMTP_PORT` | Padrão 587; 465 = SSL |
 | `SMTP_USER` | Usuário SMTP |
 | `SMTP_PASS` | Senha SMTP |
-| `SMTP_FROM` | Remetente; padrão `Seshat <noreply@seshat.local>` |
+| `SMTP_FROM` | Remetente SMTP; padrão `Seshat <noreply@seshat.local>` |
+
+**Prioridade:** `RESEND_API_KEY` > SMTP > captura local.
+
+## Resend — Configuração
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Opcional — sem isso usa onboarding@resend.dev (apenas para testes)
+RESEND_FROM=Seshat <noreply@seudominio.com.br>
+```
+
+1. Criar conta em https://resend.com
+2. Dashboard → API Keys → Create API Key
+3. Para domínio próprio: Domains → Add Domain → verificar DNS
+4. Sem domínio: usar `onboarding@resend.dev` (já verificado, só para testes)
+
+### Implementação (`mailer.ts`)
+
+```typescript
+// Resend via fetch nativo (HTTPS/443 — sem bloqueio de proxy)
+async function enviarViaResend(opts): Promise<EnvioInfo> {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to, subject, text, html }),
+  });
+  // res.ok → enviado; !res.ok → throw Error(data.message)
+}
+// enviar() chama enviarViaResend() quando RESEND_API_KEY está definida
+```
 
 ## Modos sem SMTP
 

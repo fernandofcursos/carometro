@@ -14,11 +14,13 @@ Sistema de envio de e-mails transacionais via SMTP configurável. Sem configura�
 
 | Variável | Descrição | Obrigatória |
 |---|---|---|
-| `SMTP_HOST` | Servidor SMTP (ex.: `smtp.gmail.com`) | Não — sem ela usa Ethereal |
-| `SMTP_PORT` | Porta (padrão: 587; 465 = SSL) | Não |
-| `SMTP_USER` | Usuário / e-mail de autenticação | Não (junto com HOST) |
+| `RESEND_API_KEY` | API key do Resend (`re_xxx`) — modo recomendado, usa HTTPS/443 | Não |
+| `RESEND_FROM` | Remetente quando usando Resend (ex.: `Seshat <noreply@escola.br>`). Sem ela usa `onboarding@resend.dev` | Não |
+| `SMTP_HOST` | Servidor SMTP (ex.: `smtp.gmail.com`) — ignorado se Resend ativo | Não |
+| `SMTP_PORT` | Porta SMTP (padrão: 587; 465 = SSL) | Não |
+| `SMTP_USER` | Usuário SMTP | Não (junto com HOST) |
 | `SMTP_PASS` | Senha ou App Password | Não (junto com HOST) |
-| `SMTP_FROM` | Remetente (ex.: `Seshat <noreply@escola.br>`) | Não (padrão: `Seshat <noreply@seshat.local>`) |
+| `SMTP_FROM` | Remetente SMTP (ex.: `Seshat <noreply@escola.br>`) | Não (padrão: `Seshat <noreply@seshat.local>`) |
 
 ---
 
@@ -26,9 +28,11 @@ Sistema de envio de e-mails transacionais via SMTP configurável. Sem configura�
 
 | Modo | Quando | Comportamento |
 |---|---|---|
-| **SMTP** | `SMTP_HOST` + `SMTP_USER` + `SMTP_PASS` definidos | Entrega real via servidor configurado |
-| **Ethereal** | Sem vars SMTP, com acesso a `api.nodemailer.com` | Captura sem entrega; URL de preview nos logs |
-| **Local** | Sem vars SMTP e sem acesso externo (proxy bloqueia) | `jsonTransport` — e-mail processado e exibido apenas nos logs do servidor |
+| **Resend** | `RESEND_API_KEY` definida | Entrega real via API HTTPS (porta 443) — funciona em qualquer ambiente |
+| **SMTP** | `SMTP_HOST` + `SMTP_USER` + `SMTP_PASS` definidos (sem Resend) | Entrega real via servidor SMTP (porta 587/465) |
+| **Local** | Sem vars de e-mail ou porta SMTP bloqueada | `jsonTransport` — e-mail processado e exibido apenas nos logs do servidor |
+
+**Prioridade:** Resend > SMTP > captura local.
 
 Em modo Ethereal, os logs do servidor exibem:
 ```

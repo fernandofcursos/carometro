@@ -8,12 +8,10 @@ import path from "path";
 
 let _transport: nodemailer.Transporter | null = null;
 let _etherealUser: string | null = null;
-// Rastreia as credenciais com que o transport foi criado para detectar mudanças
 let _smtpKey: string | null = null;
 
 /** Relê o .env para capturar mudanças sem reiniciar o servidor. */
 function reloadEnv(): void {
-  // CWD do servidor é artifacts/api-server/ — sobe dois níveis até a raiz
   const envPath = path.resolve(process.cwd(), "../../.env");
   dotenvConfig({ path: envPath, override: true });
 }
@@ -23,9 +21,7 @@ function smtpKeyAtual(): string {
 }
 
 async function ensureTransport(): Promise<nodemailer.Transporter> {
-  // Relê o .env para capturar mudanças feitas após o servidor ter iniciado
   reloadEnv();
-  // Reinicia singleton se variáveis SMTP mudaram desde a última criação
   const key = smtpKeyAtual();
   if (_transport && _smtpKey !== null && _smtpKey !== key) {
     console.log("[mailer] Configuração SMTP alterada — reiniciando transport.");
@@ -51,8 +47,6 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
     return _transport;
   }
 
-  // Sem SMTP configurado → captura local (jsonTransport)
-  // SMTP externo não está disponível neste ambiente (porta 587 bloqueada)
   _transport = nodemailer.createTransport({ jsonTransport: true });
   console.log("[mailer] Modo captura local ativo — e-mails logados no servidor.");
   return _transport;
@@ -61,6 +55,69 @@ async function ensureTransport(): Promise<nodemailer.Transporter> {
 function remetente() {
   return process.env.SMTP_FROM ?? "Seshat <noreply@seshat.local>";
 }
+
+// ---------------------------------------------------------------------------
+// Resend — envio via API HTTPS (porta 443, sem bloqueio de proxy)
+// ---------------------------------------------------------------------------
+
+function resendApiKey(): string | null {
+  reloadEnv();
+  return process.env.RESEND_API_KEY ?? null;
+}
+
+function parseFrom(from: string): { name: string; email: string } {
+  const m = from.match(/^(.+?)\s*<(.+?)>$/);
+  if (m) return { name: m[1].trim(), email: m[2].trim() };
+  return { name: "Seshat", email: from.trim() };
+}
+
+async function enviarViaResend(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
+  const apiKey = resendApiKey()!;
+  const fromRaw = String(opts.from ?? remetente());
+  const { email: fromEmail } = parseFrom(fromRaw);
+
+  // Em teste sem domínio próprio verificado, Resend exige remetente @resend.dev
+  // Se o remetente configurado não é @resend.dev e não tem domínio verificado,
+  // usamos o domínio de teste oficial do Resend.
+  const from = fromEmail.endsWith("@resend.dev") || process.env.RESEND_FROM
+    ? (process.env.RESEND_FROM ?? fromRaw)
+    : `Seshat <onboarding@resend.dev>`;
+
+  const to = Array.isArray(opts.to) ? opts.to : [String(opts.to ?? "")];
+  const para = to.join(", ");
+
+  const body = {
+    from,
+    to,
+    subject: String(opts.subject ?? ""),
+    text: opts.text ? String(opts.text) : undefined,
+    html: opts.html ? String(opts.html) : undefined,
+  };
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json() as { id?: string; statusCode?: number; message?: string; name?: string };
+
+  if (!res.ok) {
+    const msg = data.message ?? `Resend error ${res.status}`;
+    console.error(`[mailer] Resend falhou: ${msg}`);
+    throw new Error(msg);
+  }
+
+  console.log(`[mailer] "${opts.subject}" enviado via Resend para ${para} (id: ${data.id})`);
+  return { previewUrl: null, capturado: false, conteudo: null };
+}
+
+// ---------------------------------------------------------------------------
+// Tipos e helpers internos
+// ---------------------------------------------------------------------------
 
 export type EnvioInfo = {
   previewUrl: string | null;
@@ -94,11 +151,15 @@ async function enviarComTransport(t: nodemailer.Transporter, opts: nodemailer.Se
 }
 
 async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
+  // Resend tem prioridade quando RESEND_API_KEY está definida
+  if (resendApiKey()) {
+    return enviarViaResend(opts);
+  }
+
   const t = await ensureTransport();
   try {
     return await enviarComTransport(t, opts);
   } catch (err) {
-    // Se SMTP configurado mas porta bloqueada → fallback para captura local
     if (process.env.SMTP_HOST && isConnectionError(err)) {
       const msg = err instanceof Error ? err.message : String(err);
       console.log(`[mailer] Falha de conexão SMTP (${msg}) — usando captura local.`);
@@ -110,17 +171,30 @@ async function enviar(opts: nodemailer.SendMailOptions): Promise<EnvioInfo> {
 }
 
 // ---------------------------------------------------------------------------
-// Diagnóstico — retorna estado do mailer para endpoint de teste
+// Diagnóstico
 // ---------------------------------------------------------------------------
 
 export async function diagnosticoMailer(): Promise<{
-  modo: "smtp" | "ethereal" | "local" | "não iniciado";
+  modo: "resend" | "smtp" | "ethereal" | "local" | "não iniciado";
   smtpHost: string | null;
   smtpUser: string | null;
   etherealUser: string | null;
   from: string;
+  resendConfigured?: boolean;
 }> {
-  // Garante que mudanças nas env vars sejam detectadas e o singleton reiniciado
+  reloadEnv();
+  const apiKey = resendApiKey();
+  if (apiKey) {
+    console.log("[mailer] Modo Resend ativo (HTTPS/443).");
+    return {
+      modo: "resend",
+      smtpHost: null,
+      smtpUser: null,
+      etherealUser: null,
+      from: process.env.RESEND_FROM ?? "onboarding@resend.dev (padrão de teste)",
+      resendConfigured: true,
+    };
+  }
   await ensureTransport();
   const host = process.env.SMTP_HOST ?? null;
   const user = process.env.SMTP_USER ?? null;
@@ -129,7 +203,7 @@ export async function diagnosticoMailer(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Envio de e-mail de teste (qualquer destinatário, conteúdo simples)
+// Funções de envio públicas
 // ---------------------------------------------------------------------------
 
 export async function enviarEmailTeste(para: string): Promise<EnvioInfo> {
@@ -147,10 +221,6 @@ export async function enviarEmailTeste(para: string): Promise<EnvioInfo> {
     `,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Recuperação de senha
-// ---------------------------------------------------------------------------
 
 export async function enviarEmailRecuperacao(
   para: string,
@@ -176,10 +246,6 @@ export async function enviarEmailRecuperacao(
     `,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Boas-vindas (novo usuário)
-// ---------------------------------------------------------------------------
 
 export async function enviarEmailBoasVindas(
   para: string,
@@ -213,10 +279,6 @@ export async function enviarEmailBoasVindas(
     `,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Ocorrência
-// ---------------------------------------------------------------------------
 
 export async function enviarEmailOcorrencia({
   para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome, disciplinaNome, observacao,

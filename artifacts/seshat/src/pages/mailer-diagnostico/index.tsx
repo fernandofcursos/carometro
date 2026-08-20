@@ -10,11 +10,12 @@ import { Mail, CheckCircle2, AlertTriangle, Send, RefreshCw } from "lucide-react
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface MailerStatus {
-  modo: "smtp" | "ethereal" | "local" | "não iniciado";
+  modo: "resend" | "smtp" | "ethereal" | "local" | "não iniciado";
   smtpHost: string | null;
   smtpUser: string | null;
   etherealUser: string | null;
   from: string;
+  resendConfigured?: boolean;
 }
 
 interface TesteResult {
@@ -69,7 +70,7 @@ export default function MailerDiagnosticoPage() {
     },
   });
 
-  const modoCor = status?.modo === "smtp"
+  const modoCor = status?.modo === "smtp" || status?.modo === "resend"
     ? "bg-green-100 text-green-800 border-green-300"
     : status?.modo === "ethereal"
     ? "bg-amber-100 text-amber-800 border-amber-300"
@@ -105,7 +106,7 @@ export default function MailerDiagnosticoPage() {
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground w-32">Modo:</span>
               <Badge variant="outline" className={`capitalize ${modoCor}`}>
-                {status.modo === "smtp" && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                {(status.modo === "smtp" || status.modo === "resend") && <CheckCircle2 className="w-3 h-3 mr-1" />}
                 {(status.modo === "ethereal" || status.modo === "local") && <AlertTriangle className="w-3 h-3 mr-1" />}
                 {status.modo === "local" ? "captura local" : status.modo}
               </Badge>
@@ -152,6 +153,16 @@ export default function MailerDiagnosticoPage() {
                 <p>Sem acesso ao Ethereal. E-mails são processados e exibidos <strong>apenas nos logs do servidor</strong>.</p>
                 <p className="text-xs text-blue-600 mt-1">
                   Configure SMTP_HOST, SMTP_USER e SMTP_PASS para envio real.
+                </p>
+              </div>
+            )}
+            {status.modo === "resend" && (
+              <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800 space-y-1">
+                <p><CheckCircle2 className="w-4 h-4 inline mr-1" />Resend configurado — envio via API HTTPS (porta 443).</p>
+                <p className="text-xs text-green-700">Remetente: <code>{status.from}</code></p>
+                <p className="text-xs text-green-600">
+                  Em testes sem domínio verificado, use <code>onboarding@resend.dev</code> como remetente.
+                  Para domínio próprio, configure <code>RESEND_FROM</code> no .env após verificação em resend.com.
                 </p>
               </div>
             )}
