@@ -182,13 +182,16 @@ Assunto: `"Notificação de Ocorrência: {estudante} — {tipo}"`
 - Banner **âmbar** — "⚠️ Notificação de Ocorrência Disciplinar"
 - Parágrafo formal com referência à Portaria SEEDF nº 15/2015 e nº 180/2019
 
-**Com `textoPadrao`:** substitui placeholders e exibe como texto pré-formatado:
+**Com `textoPadrao`:** exibe apenas o texto com placeholders substituídos (sem saudação/intro duplicada):
 - `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
 
-**Sem `textoPadrao`:** template completo com três seções:
-1. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição em destaque)
-2. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV (advertência oral → transferência compulsória) + direito ao contraditório (Portaria SEEDF nº 180/2019 + ECA Lei 8.069/1990)
-3. **ORIENTAÇÕES AO RESPONSÁVEL** — caixa azul (#eff6ff) com prazo de 3 dias úteis para comparecer à Coordenação Pedagógica
+**Sem `textoPadrao`:** template completo — saudação + intro formal + três seções:
+1. Saudação "Prezado(a) Responsável..." + parágrafo formal com referência às Portarias SEEDF nº 15/2015 e nº 180/2019
+2. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição em destaque)
+3. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV + direito ao contraditório (Portaria SEEDF nº 180/2019 + ECA Lei 8.069/1990)
+4. **ORIENTAÇÕES AO RESPONSÁVEL** — caixa com cabeçalho azul escuro (#1e40af) e fundo azul claro (#eff6ff), prazo de 3 dias úteis para comparecer à Coordenação Pedagógica
+
+**Importante:** a saudação e o parágrafo formal NÃO ficam fora do bloco — estão dentro do bloco `!textoPadrao` para evitar duplicidade quando o textoPadrao já contém esses textos.
 
 - Assinatura: **Equipe Gestora / ETSM / SEEDF / Brasília – DF**
 

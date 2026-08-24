@@ -494,10 +494,22 @@ export async function enviarEmailOcorrencia({
     ? `<tr><td colspan="2" style="padding:8px 12px;color:#374151">✏️ <strong>Descrição da Ocorrência:</strong><div style="margin-top:8px;padding:10px 14px;background:#f9fafb;border-left:3px solid #f59e0b;color:#374151;font-style:italic">${observacao}</div></td></tr>`
     : "";
 
-  // Seção do corpo: usa texto padrão ou tabela de dados
+  // Seção do corpo: usa texto padrão ou template completo com seções institucionais
+  // Quando há textoPadrao, a saudação e intro formal ficam FORA para evitar duplicidade
   const htmlCorpoPrincipal = corpoTexto
-    ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.8;color:#374151;margin:16px 0">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.8;color:#374151;margin:0">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
     : `
+      <p style="margin:0 0 16px">Prezado(a) Responsável pelo Estudante <strong>${estudanteNome}</strong>,</p>
+      <p style="line-height:1.7;margin:0 0 16px">
+        Vimos por meio desta <strong>NOTIFICÁ-LO(A)</strong> formalmente de que foi registrada uma
+        <span style="background:#fef08a;padding:1px 4px;border-radius:2px">ocorrência</span>
+        disciplinar em nome do(a) referido(a) estudante junto à Equipe Gestora desta instituição de ensino,
+        conforme os termos do Regimento Escolar da Rede Pública de Ensino do Distrito Federal,
+        instituído pela Portaria SEEDF nº 15/2015, com alterações introduzidas pela Portaria SEEDF
+        nº 180/2019, publicada no DODF de 30 de maio de 2019.
+      </p>
+      <div style="height:1px;background:#e5e7eb;margin:16px 0"></div>
+
       <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid #e5e7eb;padding-bottom:4px">
         Dados da <span style="color:#f59e0b">Ocorrência</span>
       </p>
@@ -526,12 +538,14 @@ export async function enviarEmailOcorrencia({
       </p>
       <div style="height:16px;border-bottom:1px solid #e5e7eb;margin-bottom:16px"></div>
 
-      <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase">
-        Orientações ao Responsável
-      </p>
-      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px 16px;font-size:0.9em;line-height:1.7;color:#1e40af">
-        <p style="margin:0 0 8px">Esta notificação tem caráter pedagógico e formativo. A Escola Técnica de Santa Maria reafirma seu compromisso com um ambiente escolar seguro, respeitoso e propício ao aprendizado, conforme os princípios da cultura de paz estabelecidos pela SEEDF.</p>
-        <p style="margin:0">Orientamos que o(a) responsável compareça à Coordenação Pedagógica para acolhimento e esclarecimentos, no prazo de <strong>3 (três) dias úteis</strong> a partir do recebimento desta notificação. Dúvidas poderão ser encaminhadas diretamente à Equipe Gestora.</p>
+      <div style="border:1px solid #bfdbfe;border-radius:8px;overflow:hidden;margin:8px 0 16px">
+        <div style="background:#1e40af;padding:8px 16px">
+          <p style="margin:0;font-size:0.8em;font-weight:700;color:#ffffff;letter-spacing:0.08em;text-transform:uppercase">Orientações ao Responsável</p>
+        </div>
+        <div style="background:#eff6ff;padding:16px;font-size:0.9em;line-height:1.7;color:#1e3a5f">
+          <p style="margin:0 0 10px">Esta notificação tem caráter pedagógico e formativo. A Escola Técnica de Santa Maria reafirma seu compromisso com um ambiente escolar seguro, respeitoso e propício ao aprendizado, conforme os princípios da cultura de paz estabelecidos pela SEEDF.</p>
+          <p style="margin:0">Orientamos que o(a) responsável compareça à Coordenação Pedagógica para acolhimento e esclarecimentos, no prazo de <strong>3 (três) dias úteis</strong> a partir do recebimento desta notificação. Dúvidas poderão ser encaminhadas diretamente à Equipe Gestora.</p>
+        </div>
       </div>`;
 
   await enviar({
@@ -556,18 +570,6 @@ export async function enviarEmailOcorrencia({
 
         <!-- Corpo -->
         <div style="padding:24px;color:#1f2937">
-          <p style="margin:0 0 16px">Prezado(a) Responsável pelo Estudante <strong>${estudanteNome}</strong>,</p>
-          <p style="line-height:1.7;margin:0 0 16px">
-            Vimos por meio desta <strong>NOTIFICÁ-LO(A)</strong> formalmente de que foi registrada uma
-            <span style="background:#fef08a;padding:1px 4px;border-radius:2px">ocorrência</span>
-            disciplinar em nome do(a) referido(a) estudante junto à Equipe Gestora desta instituição de ensino,
-            conforme os termos do Regimento Escolar da Rede Pública de Ensino do Distrito Federal,
-            instituído pela Portaria SEEDF nº 15/2015, com alterações introduzidas pela Portaria SEEDF
-            nº 180/2019, publicada no DODF de 30 de maio de 2019.
-          </p>
-
-          <div style="height:1px;background:#e5e7eb;margin:16px 0"></div>
-
           ${htmlCorpoPrincipal}
 
           <p style="margin:20px 0 4px">Atenciosamente,</p>

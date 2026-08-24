@@ -131,19 +131,17 @@ Todos os e-mails transacionais seguem o padrão visual institucional da Escola T
 ### Ocorrência (`enviarEmailOcorrencia`)
 
 - Banner **âmbar** (#fef9c3 / #f59e0b) — "⚠️ Notificação de Ocorrência Disciplinar"
-- Parágrafo formal com referência à Portaria SEEDF nº 15/2015 e nº 180/2019 (DODF 30/05/2019)
 
-**Quando `textoPadrao` fornecido:** usa o texto do tipo com placeholders substituídos:
-- `{{NOME_ESTUDANTE}}` → nome do estudante
-- `{{DATA_OCORRENCIA}}` → data formatada pt-BR
-- `{{DATA_REGISTRO}}` → data atual
-- `{{TIPO_OCORRENCIA}}` → descrição do tipo
-- `{{DESCRICAO}}` → observação da ocorrência
+**Com `textoPadrao`:** exibe apenas o texto com placeholders substituídos (saudação/intro NÃO são adicionadas para evitar duplicidade):
+- `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
 
-**Quando sem `textoPadrao`:** exibe seções completas:
-1. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição)
-2. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV com medidas disciplinares + direito ao contraditório (Portaria SEEDF nº 180/2019 + ECA)
-3. **ORIENTAÇÕES AO RESPONSÁVEL** — caixa azul (#eff6ff) com prazo de 3 dias úteis para comparecer à Coordenação Pedagógica
+**Sem `textoPadrao`:** template completo — saudação + intro legal + seções:
+1. "Prezado(a) Responsável..." + parágrafo formal com referência às Portarias SEEDF nº 15/2015 e nº 180/2019
+2. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição)
+3. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV + direito ao contraditório + ECA
+4. **ORIENTAÇÕES AO RESPONSÁVEL** — box com cabeçalho azul escuro (#1e40af) e corpo azul claro (#eff6ff), prazo de 3 dias úteis
+
+> ⚠️ A saudação e intro formal ficam **dentro** do bloco `!textoPadrao` para não duplicar quando o texto padrão já as contém.
 
 - Assinatura: **Equipe Gestora / Escola Técnica de Santa Maria – ETSM / SEEDF / Brasília – DF**
 
