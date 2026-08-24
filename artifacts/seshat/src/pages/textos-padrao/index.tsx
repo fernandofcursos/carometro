@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -14,10 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Plus, Pencil, Trash2, FileText, Info, Bold, Italic, List, ListOrdered,
-  Upload, GripVertical,
-} from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Info, Upload, GripVertical } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -58,59 +56,7 @@ interface TextoPadraoInput {
   ativo: boolean;
 }
 
-const CORPO_MAX = 5000;
-
-// ---------------------------------------------------------------------------
-// Toolbar helpers — insere formatação markdown na posição do cursor
-// ---------------------------------------------------------------------------
-
-function aplicarFormatacao(
-  textarea: HTMLTextAreaElement,
-  setCorpo: (v: string) => void,
-  tipo: "bold" | "italic" | "ul" | "ol",
-) {
-  const { selectionStart: s, selectionEnd: e, value } = textarea;
-  const sel = value.slice(s, e);
-  let novo = value;
-  let cursorApos = s;
-
-  if (tipo === "bold") {
-    novo = value.slice(0, s) + `**${sel || "negrito"}**` + value.slice(e);
-    cursorApos = s + 2 + (sel || "negrito").length + 2;
-  } else if (tipo === "italic") {
-    novo = value.slice(0, s) + `_${sel || "itálico"}_` + value.slice(e);
-    cursorApos = s + 1 + (sel || "itálico").length + 1;
-  } else if (tipo === "ul") {
-    const linhas = (sel || "item").split("\n").map((l) => `- ${l}`).join("\n");
-    novo = value.slice(0, s) + linhas + value.slice(e);
-    cursorApos = s + linhas.length;
-  } else if (tipo === "ol") {
-    const linhas = (sel || "item").split("\n").map((l, i) => `${i + 1}. ${l}`).join("\n");
-    novo = value.slice(0, s) + linhas + value.slice(e);
-    cursorApos = s + linhas.length;
-  }
-
-  setCorpo(novo.slice(0, CORPO_MAX));
-  requestAnimationFrame(() => {
-    textarea.focus();
-    textarea.setSelectionRange(cursorApos, cursorApos);
-  });
-}
-
-function inserirNoCursor(
-  textarea: HTMLTextAreaElement,
-  setCorpo: (v: string) => void,
-  texto: string,
-) {
-  const pos = textarea.selectionStart ?? textarea.value.length;
-  const novo = textarea.value.slice(0, pos) + texto + textarea.value.slice(pos);
-  setCorpo(novo.slice(0, CORPO_MAX));
-  requestAnimationFrame(() => {
-    textarea.focus();
-    const novaCursor = pos + texto.length;
-    textarea.setSelectionRange(novaCursor, novaCursor);
-  });
-}
+const CORPO_MAX = 10000;
 
 // ---------------------------------------------------------------------------
 // TextoForm
@@ -132,31 +78,28 @@ function TextoForm({
   salvando: boolean;
 }) {
   const { toast } = useToast();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tipoOcorrenciaId, setTipoOcorrenciaId] = useState(inicial?.tipoOcorrenciaId ?? "");
   const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
   const [corpo, setCorpo] = useState(inicial?.corpo ?? "");
   const [ativo, setAtivo] = useState(inicial?.ativo ?? true);
-  const [dragOver, setDragOver] = useState(false);
   const [extraindo, setExtraindo] = useState(false);
+
+  // Referência ao método de inserção do editor rico
+  const insertRef = useRef<((text: string) => void) | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tipoOcorrenciaId || !titulo.trim() || !corpo.trim()) return;
-    onSalvar({ tipoOcorrenciaId, titulo: titulo.trim(), corpo: corpo.trim(), ativo });
+    const corpoTexto = corpo.replace(/<[^>]*>/g, "").trim();
+    if (!tipoOcorrenciaId || !titulo.trim() || !corpoTexto) return;
+    onSalvar({ tipoOcorrenciaId, titulo: titulo.trim(), corpo, ativo });
   };
 
-  // Drag-and-drop dos marcadores para a textarea
-  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
-    e.preventDefault();
-    setDragOver(false);
-    const ph = e.dataTransfer.getData("text/plain");
-    if (!ph || !textareaRef.current) return;
-    inserirNoCursor(textareaRef.current, setCorpo, ph);
+  const inserirPlaceholder = (ph: string) => {
+    insertRef.current?.(ph);
   };
 
-  // Upload de arquivo — extrai texto via API (docx/pdf) ou FileReader (md)
+  // Upload de arquivo — extrai texto via API (docx/pdf) ou FileReader (md/txt)
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -166,12 +109,23 @@ function TextoForm({
 
     if (ext === "md" || ext === "txt") {
       const texto = await file.text();
-      setCorpo(texto.slice(0, CORPO_MAX));
-      toast({ title: "Arquivo carregado", description: `${file.name} inserido no corpo do texto.` });
+      // Converte markdown básico para HTML para manter formatação no editor
+      const html = texto
+        .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+        .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+        .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/_(.+?)_/g, "<em>$1</em>")
+        .replace(/^- (.+)$/gm, "<li>$1</li>")
+        .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
+        .replace(/\n\n/g, "</p><p>")
+        .replace(/^(?!<[hup])/gm, "")
+        || `<p>${texto}</p>`;
+      setCorpo(html.slice(0, CORPO_MAX));
+      toast({ title: "Arquivo carregado", description: `${file.name} inserido no editor.` });
       return;
     }
 
-    // docx / pdf — enviar para o servidor extrair
     setExtraindo(true);
     try {
       const form = new FormData();
@@ -183,8 +137,9 @@ function TextoForm({
       });
       const data = await res.json() as { texto?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Erro ao extrair texto");
-      setCorpo((data.texto ?? "").slice(0, CORPO_MAX));
-      toast({ title: "Arquivo carregado", description: `${file.name} inserido no corpo do texto.` });
+      const html = `<p>${(data.texto ?? "").replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br>")}</p>`;
+      setCorpo(html.slice(0, CORPO_MAX));
+      toast({ title: "Arquivo carregado", description: `${file.name} inserido no editor.` });
     } catch (err) {
       toast({ title: "Erro ao carregar arquivo", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -223,87 +178,45 @@ function TextoForm({
         />
       </div>
 
-      {/* Corpo com toolbar de formatação */}
+      {/* Importar arquivo — acima do editor */}
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.txt,.docx,.pdf"
+          className="hidden"
+          onChange={handleUpload}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2 text-xs"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={extraindo}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          {extraindo ? "Extraindo…" : "Importar arquivo"}
+        </Button>
+        <span className="text-xs text-muted-foreground">.md · .txt · .docx · .pdf</span>
+      </div>
+
+      {/* Editor rico */}
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <Label htmlFor="corpo">Corpo do texto *</Label>
-          <span className={`text-xs ${corpo.length > CORPO_MAX - 200 ? "text-amber-600" : "text-muted-foreground"}`}>
-            {corpo.length}/{CORPO_MAX}
-          </span>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center gap-1 border border-input border-b-0 rounded-t-md bg-muted/40 px-2 py-1">
-          <Button
-            type="button" variant="ghost" size="sm"
-            className="h-7 w-7 p-0" title="Negrito (**texto**)"
-            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "bold")}
-          >
-            <Bold className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            type="button" variant="ghost" size="sm"
-            className="h-7 w-7 p-0" title="Itálico (_texto_)"
-            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "italic")}
-          >
-            <Italic className="w-3.5 h-3.5" />
-          </Button>
-          <div className="w-px h-4 bg-border mx-1" />
-          <Button
-            type="button" variant="ghost" size="sm"
-            className="h-7 w-7 p-0" title="Lista com marcadores"
-            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "ul")}
-          >
-            <List className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            type="button" variant="ghost" size="sm"
-            className="h-7 w-7 p-0" title="Lista numerada"
-            onClick={() => textareaRef.current && aplicarFormatacao(textareaRef.current, setCorpo, "ol")}
-          >
-            <ListOrdered className="w-3.5 h-3.5" />
-          </Button>
-          <div className="w-px h-4 bg-border mx-1" />
-          {/* Upload de arquivo */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".md,.txt,.docx,.pdf"
-            className="hidden"
-            onChange={handleUpload}
-          />
-          <Button
-            type="button" variant="ghost" size="sm"
-            className="h-7 px-2 gap-1.5 text-xs" title="Importar de arquivo (.md, .docx, .pdf)"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={extraindo}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            {extraindo ? "Extraindo…" : "Importar arquivo"}
-          </Button>
-          <span className="text-[10px] text-muted-foreground ml-1">.md .docx .pdf</span>
-        </div>
-
-        <textarea
-          ref={textareaRef}
-          id="corpo"
+        <Label className="mb-1 block">Corpo do texto *</Label>
+        <RichTextEditor
           value={corpo}
-          onChange={(e) => setCorpo(e.target.value.slice(0, CORPO_MAX))}
-          rows={8}
-          required
-          placeholder="Digite o texto modelo. Use a toolbar para formatar ou arraste um marcador para inserir."
-          className={`w-full rounded-b-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-y transition-colors ${dragOver ? "bg-amber-50 border-amber-400 ring-2 ring-amber-300" : ""}`}
-          onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
+          onChange={setCorpo}
+          maxLength={CORPO_MAX}
+          placeholder="Digite o texto modelo. Use a barra de formatação ou arraste um marcador."
         />
       </div>
 
-      {/* Marcadores — draggable */}
+      {/* Marcadores — draggable + clicáveis */}
       <div>
         <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
           <Info className="w-3 h-3" />
-          Clique para inserir ou <strong>arraste</strong> o marcador para a posição desejada no texto:
+          Clique para inserir ou <strong>arraste</strong> o marcador para a posição desejada:
         </p>
         <div className="flex flex-wrap gap-2">
           {placeholders.map((ph) => (
@@ -315,7 +228,7 @@ function TextoForm({
                 e.dataTransfer.setData("text/plain", ph.placeholder);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              onClick={() => textareaRef.current && inserirNoCursor(textareaRef.current, setCorpo, ph.placeholder)}
+              onClick={() => inserirPlaceholder(ph.placeholder)}
               className="text-xs px-2 py-1 rounded bg-muted hover:bg-amber-100 border border-border font-mono transition-colors cursor-grab active:cursor-grabbing flex items-center gap-1"
               title={`${ph.descricao} — clique para inserir ou arraste`}
             >
@@ -330,9 +243,7 @@ function TextoForm({
         <Switch id="ativo" checked={ativo} onCheckedChange={setAtivo} />
         <Label htmlFor="ativo">Texto ativo</Label>
         {ativo && (
-          <span className="text-xs text-muted-foreground">
-            (somente um texto ativo por tipo)
-          </span>
+          <span className="text-xs text-muted-foreground">(somente um texto ativo por tipo)</span>
         )}
       </div>
 
@@ -416,10 +327,11 @@ export default function TextosPadraoPage() {
 
   const textosFiltrados = textos.filter((t) => {
     const q = busca.toLowerCase();
+    const textoSimples = t.corpo.replace(/<[^>]*>/g, "");
     return (
       t.titulo.toLowerCase().includes(q) ||
       (t.tipoDescricao ?? "").toLowerCase().includes(q) ||
-      t.corpo.toLowerCase().includes(q)
+      textoSimples.toLowerCase().includes(q)
     );
   });
 
@@ -475,9 +387,11 @@ export default function TextosPadraoPage() {
                       {texto.ativo ? "Ativo" : "Inativo"}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap line-clamp-3">
-                    {texto.corpo}
-                  </p>
+                  {/* Preview em HTML renderizado */}
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none mt-2 line-clamp-3 text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: texto.corpo }}
+                  />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Switch
@@ -505,7 +419,7 @@ export default function TextosPadraoPage() {
       )}
 
       <Dialog open={dialogAberto} onOpenChange={setDialogAberto}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo texto padrão</DialogTitle>
           </DialogHeader>
@@ -520,7 +434,7 @@ export default function TextosPadraoPage() {
       </Dialog>
 
       <Dialog open={!!editando} onOpenChange={(open) => !open && setEditando(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar texto padrão</DialogTitle>
           </DialogHeader>

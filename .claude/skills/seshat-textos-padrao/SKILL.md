@@ -93,48 +93,57 @@ if (existente) return res.status(409).json({ error: "Já existe um texto padrão
 Toda a gestão de textos padrão reusa `tipos-ocorrencias:manage`.  
 `GET /placeholders` e `GET /tipo/:id` requerem apenas `requireAuth`.
 
-## Editor de Texto no Pop-up (TextoForm)
+## Editor de Texto Rico (TipTap)
 
-### Toolbar de formatação (markdown)
+O painel de edição usa **TipTap** (`@tiptap/react` + `@tiptap/starter-kit`) — editor WYSIWYG estilo Word.
 
-Inserida acima da textarea; formata o texto selecionado ou insere um exemplo:
+### Pacotes instalados em `@workspace/seshat`
 
-```typescript
-function aplicarFormatacao(textarea, setCorpo, tipo: "bold"|"italic"|"ul"|"ol") {
-  const { selectionStart: s, selectionEnd: e, value } = textarea;
-  // bold → **sel**, italic → _sel_, ul → - sel, ol → 1. sel
-  // usa requestAnimationFrame para restaurar foco e cursor após setCorpo
-}
+```
+@tiptap/react
+@tiptap/starter-kit
+@tiptap/extension-underline
+@tiptap/extension-text-align
+@tiptap/extension-placeholder
+@tiptap/extension-character-count
 ```
 
-Botões: `<Bold>`, `<Italic>`, `<List>`, `<ListOrdered>` (lucide-react).
+### Componente `RichTextEditor` (`src/components/ui/rich-text-editor.tsx`)
 
-### Marcadores com drag-and-drop
+```typescript
+<RichTextEditor
+  value={corpo}          // HTML string
+  onChange={setCorpo}    // recebe HTML atualizado
+  maxLength={10000}
+  placeholder="…"
+/>
+```
+
+**Toolbar:** Desfazer/Refazer · H1/H2/H3 · Negrito · Itálico · Sublinhado · Lista · Lista numerada · Alinhamento (E/C/D) · Linha horizontal · Contador de caracteres.
+
+**Drag-and-drop de marcadores:** o componente expõe `onDrop` — ao soltar um placeholder sobre o editor, chama `editor.chain().focus().insertContent(text).run()`.
+
+### Armazenamento
+
+O campo `corpo` armazena **HTML** gerado pelo TipTap. O mailer detecta se o conteúdo é HTML (começa com `<`) e renderiza diretamente no e-mail (sem escapar); texto plano legado é escapado e exibido com `white-space:pre-wrap`.
+
+### Marcadores — clique e drag-and-drop
 
 Chips `draggable` — `onDragStart` seta `dataTransfer.setData("text/plain", ph.placeholder)`.  
-Textarea tem `onDrop` que chama `inserirNoCursor(textarea, setCorpo, ph)`.  
-Clique também insere no cursor via `inserirNoCursor`.
-
-```typescript
-function inserirNoCursor(textarea, setCorpo, texto) {
-  const pos = textarea.selectionStart ?? textarea.value.length;
-  const novo = textarea.value.slice(0, pos) + texto + textarea.value.slice(pos);
-  setCorpo(novo.slice(0, CORPO_MAX));
-  requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(pos + texto.length, pos + texto.length); });
-}
-```
+O `RichTextEditor` captura o drop e chama `editor.commands.insertContent(text)`.  
+Clique chama `insertRef.current(ph.placeholder)` → `editor.chain().focus().insertContent(ph).run()`.
 
 ### Upload de arquivo (Importar)
 
-Botão na toolbar abre `<input type="file" accept=".md,.txt,.docx,.pdf" hidden>`.
+Botão "Importar arquivo" abre `<input type="file" accept=".md,.txt,.docx,.pdf" hidden>`.
 
 | Formato | Processamento |
 |---|---|
-| `.md` / `.txt` | `file.text()` no browser |
-| `.docx` | `POST /api/textos-padrao/extrair-texto` (multer + mammoth) |
-| `.pdf` | `POST /api/textos-padrao/extrair-texto` (multer + pdf-parse v2 PDFParse) |
+| `.md` / `.txt` | `file.text()` no browser → conversão básica markdown→HTML |
+| `.docx` | `POST /api/textos-padrao/extrair-texto` (multer + mammoth) → HTML simples |
+| `.pdf` | `POST /api/textos-padrao/extrair-texto` (multer + pdf-parse v2) → HTML simples |
 
-Texto extraído substitui o `corpo` inteiro (truncado em 5 000 chars).
+Texto extraído substitui o `corpo` inteiro (máx 10 000 chars).
 
 ### Endpoint de extração (API)
 
@@ -145,7 +154,7 @@ Texto extraído substitui o `corpo` inteiro (truncado em 5 000 chars).
 // Requer tipos-ocorrencias:manage; limite 5 MB
 ```
 
-Dependências adicionadas em `artifacts/api-server`: `mammoth`, `pdf-parse`, `multer`.
+Dependências em `artifacts/api-server`: `mammoth`, `pdf-parse`, `multer`.
 
 ## Integração com formulário de ocorrência
 

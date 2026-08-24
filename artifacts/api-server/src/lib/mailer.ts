@@ -471,9 +471,13 @@ export async function enviarEmailOcorrencia({
 
   const textoPlano = corpoTexto ?? observacao ?? "Nenhuma descrição registrada.";
 
-  // Corpo do e-mail: texto padrão do tipo (com placeholders) ou apenas a descrição da ocorrência
+  // Corpo do e-mail: texto padrão do tipo (pode ser HTML do editor rico ou texto plano)
+  // ou apenas a descrição da ocorrência quando não há texto padrão
+  const isHtml = corpoTexto ? /^<[a-z]/i.test(corpoTexto.trim()) : false;
   const htmlCorpoPrincipal = corpoTexto
-    ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.8;color:#374151;margin:0">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+    ? isHtml
+      ? `<div style="font-size:0.95em;line-height:1.8;color:#374151;margin:0">${corpoTexto}</div>`
+      : `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.8;color:#374151;margin:0">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
     : observacao
       ? `<p style="font-size:0.95em;line-height:1.8;color:#374151;margin:0">${observacao}</p>`
       : `<p style="font-size:0.9em;color:#6b7280;font-style:italic;margin:0">Nenhuma descrição registrada.</p>`;

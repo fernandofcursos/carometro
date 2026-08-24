@@ -22,7 +22,8 @@ Cada tipo de ocorrência pode ter **no máximo um texto ativo** por vez. Textos 
 | 3 | Soft delete: `deletadoEm` timestamp + `ativo = false` na remoção |
 | 4 | Placeholders são substituídos pelo servidor em `/render` ou pelo front ao usar o texto |
 | 5 | Permissão requerida: `tipos-ocorrencias:manage` (gestão + coordenação) |
-| 6 | Corpo máximo: 5 000 caracteres; título máximo: 200 caracteres |
+| 6 | Corpo máximo: 10 000 caracteres (HTML); título máximo: 200 caracteres |
+| 7 | O campo `corpo` armazena HTML gerado pelo editor rico (TipTap); o mailer detecta automaticamente se é HTML ou texto plano |
 
 ---
 
