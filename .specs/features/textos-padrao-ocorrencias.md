@@ -24,6 +24,7 @@ Cada tipo de ocorrência pode ter **no máximo um texto ativo** por vez. Textos 
 | 5 | Permissão requerida: `tipos-ocorrencias:manage` (gestão + coordenação) |
 | 6 | Corpo máximo: 10 000 caracteres (HTML); título máximo: 200 caracteres |
 | 7 | O campo `corpo` armazena HTML gerado pelo editor rico (TipTap); o mailer detecta automaticamente se é HTML ou texto plano |
+| 8 | Toolbar inclui alinhamento justificado e botão "Documento Anexado" (insere bloco `📎 Documento Anexado: ___`) |
 
 ---
 

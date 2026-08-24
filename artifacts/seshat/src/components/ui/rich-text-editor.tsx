@@ -6,8 +6,8 @@ import CharacterCount from "@tiptap/extension-character-count";
 import {
   Bold, Italic, Underline as UnderlineIcon,
   Heading1, Heading2, Heading3,
-  List, ListOrdered, AlignLeft, AlignCenter, AlignRight,
-  Undo2, Redo2, Minus,
+  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Undo2, Redo2, Minus, Paperclip,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   className?: string;
   onDrop?: (text: string) => void;
+  onInsertRef?: React.MutableRefObject<((text: string) => void) | null>;
 }
 
 type ToolbarButtonProps = {
@@ -52,6 +53,7 @@ export function RichTextEditor({
   placeholder = "Digite o texto aqui…",
   className,
   onDrop,
+  onInsertRef,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -71,10 +73,11 @@ export function RichTextEditor({
     },
   });
 
-  // Expõe método para inserir texto na posição do cursor
+  // Expõe método de inserção para o pai via ref
   const insertText = (text: string) => {
     editor?.chain().focus().insertContent(text).run();
   };
+  if (onInsertRef) onInsertRef.current = insertText;
 
   // Suporte a drop de placeholders no editor
   const handleDrop = (e: React.DragEvent) => {
@@ -180,6 +183,12 @@ export function RichTextEditor({
         >
           <AlignRight className="w-3.5 h-3.5" />
         </ToolBtn>
+        <ToolBtn
+          title="Justificar" active={editor.isActive({ textAlign: "justify" })}
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+        >
+          <AlignJustify className="w-3.5 h-3.5" />
+        </ToolBtn>
         <Divider />
 
         {/* Separador horizontal */}
@@ -188,6 +197,18 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
         >
           <Minus className="w-3.5 h-3.5" />
+        </ToolBtn>
+
+        {/* Documento Anexado */}
+        <ToolBtn
+          title="Inserir bloco 'Documento Anexado'"
+          onClick={() =>
+            editor.chain().focus().insertContent(
+              `<p><strong>📎 Documento Anexado:</strong> _______________________________________________</p>`
+            ).run()
+          }
+        >
+          <Paperclip className="w-3.5 h-3.5" />
         </ToolBtn>
 
         {/* Contador */}

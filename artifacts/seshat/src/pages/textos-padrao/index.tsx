@@ -209,6 +209,7 @@ function TextoForm({
           onChange={setCorpo}
           maxLength={CORPO_MAX}
           placeholder="Digite o texto modelo. Use a barra de formatação ou arraste um marcador."
+          onInsertRef={insertRef}
         />
       </div>
 

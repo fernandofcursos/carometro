@@ -119,9 +119,11 @@ O painel de edição usa **TipTap** (`@tiptap/react` + `@tiptap/starter-kit`) �
 />
 ```
 
-**Toolbar:** Desfazer/Refazer · H1/H2/H3 · Negrito · Itálico · Sublinhado · Lista · Lista numerada · Alinhamento (E/C/D) · Linha horizontal · Contador de caracteres.
+**Toolbar:** Desfazer/Refazer · H1/H2/H3 · Negrito · Itálico · Sublinhado · Lista · Lista numerada · Alinhamento (E/C/D/Justificado) · Linha horizontal · 📎 Documento Anexado · Contador de caracteres.
 
-**Drag-and-drop de marcadores:** o componente expõe `onDrop` — ao soltar um placeholder sobre o editor, chama `editor.chain().focus().insertContent(text).run()`.
+**Drag-and-drop de marcadores:** o componente expõe `onDrop` e `onInsertRef` — ao soltar um placeholder sobre o editor, chama `editor.chain().focus().insertContent(text).run()`. A prop `onInsertRef` recebe uma `MutableRefObject` que o pai usa para chamar `insertText(text)` externamente (clique nos chips de placeholder).
+
+**Documento Anexado:** botão 📎 na toolbar insere o bloco `<p><strong>📎 Documento Anexado:</strong> ___…___</p>` na posição do cursor, indicando onde um anexo deve ser referenciado no texto.
 
 ### Armazenamento
 
