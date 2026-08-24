@@ -145,7 +145,7 @@ Nota: `tsx watch` observa apenas arquivos-fonte, **não** o `.env`. Para que mud
 |---|---|
 | `enviarEmailRecuperacao(para, token, expiresAt, nomeUsuario?, codigoAcesso?)` | Recuperação de senha — template ETSM com tabela de dados, passo a passo e aviso de segurança |
 | `enviarEmailBoasVindas(para, codigoAcesso, senhaGerada, nome?)` | Novo usuário criado — template ETSM com tabela de credenciais e instruções |
-| `enviarEmailOcorrencia({para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome?, disciplinaNome?, observacao?, textoPadrao?})` | Ocorrência — usa texto padrão do tipo se disponível; fallback para template completo ETSM |
+| `enviarEmailOcorrencia({para, estudanteNome, tipoOcorrencia, dataOcorrencia, turnoNome?, disciplinaNome?, observacao?, textoPadrao?})` | Ocorrência — usa texto padrão se disponível; caso contrário, exibe apenas a descrição da ocorrência |
 | `enviarEmailTeste(para)` | Diagnóstico manual |
 | `diagnosticoMailer()` | Estado atual (modo, credenciais, resendConfigured?) |
 
@@ -180,18 +180,16 @@ Assunto: `"Recuperação de senha — Seshat ETSM"`
 Assunto: `"Notificação de Ocorrência: {estudante} — {tipo}"`
 
 - Banner **âmbar** — "⚠️ Notificação de Ocorrência Disciplinar"
-- Parágrafo formal com referência à Portaria SEEDF nº 15/2015 e nº 180/2019
 
-**Com `textoPadrao`:** exibe apenas o texto com placeholders substituídos (sem saudação/intro duplicada):
-- `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
+**Regra de conteúdo do corpo:**
 
-**Sem `textoPadrao`:** template completo — saudação + intro formal + três seções:
-1. Saudação "Prezado(a) Responsável..." + parágrafo formal com referência às Portarias SEEDF nº 15/2015 e nº 180/2019
-2. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição em destaque)
-3. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV + direito ao contraditório (Portaria SEEDF nº 180/2019 + ECA Lei 8.069/1990)
-4. **ORIENTAÇÕES AO RESPONSÁVEL** — caixa com cabeçalho azul escuro (#1e40af) e fundo azul claro (#eff6ff), prazo de 3 dias úteis para comparecer à Coordenação Pedagógica
+| Condição | Corpo do e-mail |
+|---|---|
+| Tipo **com texto padrão vinculado** | Texto padrão com placeholders substituídos |
+| Tipo **sem texto padrão** | Apenas a `observacao` (descrição da ocorrência) |
+| Sem texto padrão e sem observação | "Nenhuma descrição registrada." |
 
-**Importante:** a saudação e o parágrafo formal NÃO ficam fora do bloco — estão dentro do bloco `!textoPadrao` para evitar duplicidade quando o textoPadrao já contém esses textos.
+**Placeholders no texto padrão:** `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
 
 - Assinatura: **Equipe Gestora / ETSM / SEEDF / Brasília – DF**
 

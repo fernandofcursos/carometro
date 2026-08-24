@@ -132,16 +132,16 @@ Todos os e-mails transacionais seguem o padrão visual institucional da Escola T
 
 - Banner **âmbar** (#fef9c3 / #f59e0b) — "⚠️ Notificação de Ocorrência Disciplinar"
 
-**Com `textoPadrao`:** exibe apenas o texto com placeholders substituídos (saudação/intro NÃO são adicionadas para evitar duplicidade):
+**Regra de conteúdo:**
+
+| Condição | Corpo do e-mail |
+|---|---|
+| Tipo de ocorrência **com texto padrão vinculado** | Texto padrão com placeholders substituídos |
+| Tipo de ocorrência **sem texto padrão** | Apenas a `observacao` (descrição) da ocorrência |
+| Sem texto padrão e sem observação | "Nenhuma descrição registrada." |
+
+**Placeholders substituídos no texto padrão:**
 - `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
-
-**Sem `textoPadrao`:** template completo — saudação + intro legal + seções:
-1. "Prezado(a) Responsável..." + parágrafo formal com referência às Portarias SEEDF nº 15/2015 e nº 180/2019
-2. **DADOS DA OCORRÊNCIA** — tabela com ícones (nome, datas, tipo, turno, disciplina, descrição)
-3. **FUNDAMENTAÇÃO E POSSÍVEIS SANÇÕES** — lista romana I–IV + direito ao contraditório + ECA
-4. **ORIENTAÇÕES AO RESPONSÁVEL** — box com cabeçalho azul escuro (#1e40af) e corpo azul claro (#eff6ff), prazo de 3 dias úteis
-
-> ⚠️ A saudação e intro formal ficam **dentro** do bloco `!textoPadrao` para não duplicar quando o texto padrão já as contém.
 
 - Assinatura: **Equipe Gestora / Escola Técnica de Santa Maria – ETSM / SEEDF / Brasília – DF**
 

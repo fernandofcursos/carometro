@@ -469,84 +469,14 @@ export async function enviarEmailOcorrencia({
         .replace(/\{\{DESCRICAO\}\}/g, observacao ?? "")
     : null;
 
-  const linhas = [
-    `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600;width:35%">Tipo</td><td style="padding:8px 12px;background:#fffbeb">${tipoOcorrencia}</td></tr>`,
-    `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Data</td><td style="padding:8px 12px;background:#fffbeb">${dataFormatada}</td></tr>`,
-    turnoNome ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Turno</td><td style="padding:8px 12px;background:#fffbeb">${turnoNome}</td></tr>` : "",
-    disciplinaNome ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Disciplina</td><td style="padding:8px 12px;background:#fffbeb">${disciplinaNome}</td></tr>` : "",
-    observacao ? `<tr><td style="padding:8px 12px;background:#fef3c7;font-weight:600">Descrição</td><td style="padding:8px 12px;background:#fffbeb">${observacao}</td></tr>` : "",
-  ].filter(Boolean).join("\n");
+  const textoPlano = corpoTexto ?? observacao ?? "Nenhuma descrição registrada.";
 
-  const textoPlano = corpoTexto
-    ?? `Notificação de Ocorrência Disciplinar\n\nPrezado(a) Responsável pelo Estudante ${estudanteNome},\n\nVimos por meio desta NOTIFICÁ-LO(A) formalmente de que foi registrada uma ocorrência disciplinar conforme os termos do Regimento Escolar da Rede Pública de Ensino do Distrito Federal.\n\nDADOS DA OCORRÊNCIA\nNome do Estudante: ${estudanteNome}\nTipo: ${tipoOcorrencia}\nData da Ocorrência: ${dataFormatada}${turnoNome ? `\nTurno: ${turnoNome}` : ""}${disciplinaNome ? `\nDisciplina: ${disciplinaNome}` : ""}${observacao ? `\nDescrição: ${observacao}` : ""}\n\nAtenciosamente,\nEquipe Gestora\nEscola Técnica de Santa Maria – ETSM`;
-
-  // Linhas da tabela de dados da ocorrência
-  const linhasDados = [
-    `<tr><td style="padding:8px 12px;color:#374151;width:200px">📋 Nome do Estudante:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${estudanteNome}</td></tr>`,
-    `<tr><td style="padding:8px 12px;color:#374151">📅 Data do Registro:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${new Date().toLocaleDateString("pt-BR")}</td></tr>`,
-    `<tr><td style="padding:8px 12px;color:#374151">📅 Data da Ocorrência:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${dataFormatada}</td></tr>`,
-    `<tr><td style="padding:8px 12px;color:#374151">⚠️ Tipo de Ocorrência:</td><td style="padding:8px 12px;font-weight:700;color:#111827">${tipoOcorrencia}</td></tr>`,
-    turnoNome ? `<tr><td style="padding:8px 12px;color:#374151">🏫 Turno:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${turnoNome}</td></tr>` : "",
-    disciplinaNome ? `<tr><td style="padding:8px 12px;color:#374151">📚 Disciplina:</td><td style="padding:8px 12px;font-weight:600;color:#111827">${disciplinaNome}</td></tr>` : "",
-  ].filter(Boolean).join("");
-
-  const htmlDescricao = observacao
-    ? `<tr><td colspan="2" style="padding:8px 12px;color:#374151">✏️ <strong>Descrição da Ocorrência:</strong><div style="margin-top:8px;padding:10px 14px;background:#f9fafb;border-left:3px solid #f59e0b;color:#374151;font-style:italic">${observacao}</div></td></tr>`
-    : "";
-
-  // Seção do corpo: usa texto padrão ou template completo com seções institucionais
-  // Quando há textoPadrao, a saudação e intro formal ficam FORA para evitar duplicidade
+  // Corpo do e-mail: texto padrão do tipo (com placeholders) ou apenas a descrição da ocorrência
   const htmlCorpoPrincipal = corpoTexto
     ? `<div style="white-space:pre-wrap;font-size:0.95em;line-height:1.8;color:#374151;margin:0">${corpoTexto.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
-    : `
-      <p style="margin:0 0 16px">Prezado(a) Responsável pelo Estudante <strong>${estudanteNome}</strong>,</p>
-      <p style="line-height:1.7;margin:0 0 16px">
-        Vimos por meio desta <strong>NOTIFICÁ-LO(A)</strong> formalmente de que foi registrada uma
-        <span style="background:#fef08a;padding:1px 4px;border-radius:2px">ocorrência</span>
-        disciplinar em nome do(a) referido(a) estudante junto à Equipe Gestora desta instituição de ensino,
-        conforme os termos do Regimento Escolar da Rede Pública de Ensino do Distrito Federal,
-        instituído pela Portaria SEEDF nº 15/2015, com alterações introduzidas pela Portaria SEEDF
-        nº 180/2019, publicada no DODF de 30 de maio de 2019.
-      </p>
-      <div style="height:1px;background:#e5e7eb;margin:16px 0"></div>
-
-      <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid #e5e7eb;padding-bottom:4px">
-        Dados da <span style="color:#f59e0b">Ocorrência</span>
-      </p>
-      <table style="border-collapse:collapse;width:100%;font-size:0.9em">
-        ${linhasDados}${htmlDescricao}
-      </table>
-      <div style="height:16px;border-bottom:1px solid #e5e7eb;margin-bottom:16px"></div>
-
-      <p style="margin:16px 0 8px;font-size:0.8em;font-weight:700;color:#374151;letter-spacing:0.08em;text-transform:uppercase">
-        Fundamentação e Possíveis Sanções
-      </p>
-      <p style="font-size:0.9em;line-height:1.7;color:#374151">
-        A conduta registrada poderá ensejar a aplicação de medidas disciplinares, as quais serão graduadas conforme a gravidade e a eventual reincidência, nos termos do Regimento Escolar da SEEDF:
-      </p>
-      <ol style="font-size:0.9em;line-height:1.9;color:#374151;padding-left:24px" type="I">
-        <li>Advertência oral ou retirada de sala de aula;</li>
-        <li>Advertência escrita, com ciência dos pais ou responsáveis (para estudantes menores de idade);</li>
-        <li>Suspensão de até 3 (três) dias letivos;</li>
-        <li>Transferência compulsória, nos casos em que o ato for considerado prejudicial à ordem escolar e ao desenvolvimento integral do estudante.</li>
-      </ol>
-      <p style="font-size:0.9em;line-height:1.7;color:#374151">
-        Em conformidade com o Regimento Escolar (Portaria SEEDF nº 180/2019), fica assegurado ao estudante o direito ao <strong>CONTRADITÓRIO E À AMPLA DEFESA</strong>, podendo manifestar-se por escrito em prazo a ser definido pela Equipe Gestora.
-      </p>
-      <p style="font-size:0.9em;line-height:1.7;color:#374151">
-        Os pais ou responsáveis legais têm o direito e o dever de acompanhar as medidas disciplinares aplicadas, conforme previsto no mesmo regimento e no Estatuto da Criança e do Adolescente – ECA (Lei Federal nº 8.069/1990).
-      </p>
-      <div style="height:16px;border-bottom:1px solid #e5e7eb;margin-bottom:16px"></div>
-
-      <div style="border:1px solid #bfdbfe;border-radius:8px;overflow:hidden;margin:8px 0 16px">
-        <div style="background:#1e40af;padding:8px 16px">
-          <p style="margin:0;font-size:0.8em;font-weight:700;color:#ffffff;letter-spacing:0.08em;text-transform:uppercase">Orientações ao Responsável</p>
-        </div>
-        <div style="background:#eff6ff;padding:16px;font-size:0.9em;line-height:1.7;color:#1e3a5f">
-          <p style="margin:0 0 10px">Esta notificação tem caráter pedagógico e formativo. A Escola Técnica de Santa Maria reafirma seu compromisso com um ambiente escolar seguro, respeitoso e propício ao aprendizado, conforme os princípios da cultura de paz estabelecidos pela SEEDF.</p>
-          <p style="margin:0">Orientamos que o(a) responsável compareça à Coordenação Pedagógica para acolhimento e esclarecimentos, no prazo de <strong>3 (três) dias úteis</strong> a partir do recebimento desta notificação. Dúvidas poderão ser encaminhadas diretamente à Equipe Gestora.</p>
-        </div>
-      </div>`;
+    : observacao
+      ? `<p style="font-size:0.95em;line-height:1.8;color:#374151;margin:0">${observacao}</p>`
+      : `<p style="font-size:0.9em;color:#6b7280;font-style:italic;margin:0">Nenhuma descrição registrada.</p>`;
 
   await enviar({
     to: para,
