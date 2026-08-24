@@ -18,7 +18,8 @@ export const ocorrenciasTable = pgTable("ocorrencias", {
   observacao:               varchar("observacao", { length: 300 }),
   cienteEm:                 timestamp("ciente_em", { withTimezone: true }),
   cientePorId:              uuid("ciente_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
-  notificacaoPaisEnviadaEm: timestamp("notificacao_pais_enviada_em", { withTimezone: true }),
+  notificacaoPaisEnviadaEm:      timestamp("notificacao_pais_enviada_em",      { withTimezone: true }),
+  notificacaoEstudanteEnviadaEm: timestamp("notificacao_estudante_enviada_em", { withTimezone: true }),
   criadoEm:                 timestamp("criado_em",     { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm:             timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
   deletadoEm:               timestamp("deletado_em",   { withTimezone: true }),
@@ -26,7 +27,7 @@ export const ocorrenciasTable = pgTable("ocorrencias", {
 
 export const insertOcorrenciaSchema = createInsertSchema(ocorrenciasTable, {
   observacao: z.string().max(300).optional().nullable(),
-}).omit({ id: true, criadoEm: true, atualizadoEm: true, deletadoEm: true, cienteEm: true, cientePorId: true, notificacaoPaisEnviadaEm: true });
+}).omit({ id: true, criadoEm: true, atualizadoEm: true, deletadoEm: true, cienteEm: true, cientePorId: true, notificacaoPaisEnviadaEm: true, notificacaoEstudanteEnviadaEm: true });
 
 export type InsertOcorrencia = z.infer<typeof insertOcorrenciaSchema>;
 export type Ocorrencia = typeof ocorrenciasTable.$inferSelect;

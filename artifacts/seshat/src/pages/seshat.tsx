@@ -86,7 +86,9 @@ type Ocorrencia = {
   turnoNome: string | null;
   cienteEm: string | null;
   cientePorId: string | null;
-  notificacaoPaisEnviadaEm: string | null;
+  notificacaoPaisEnviadaEm:      string | null;
+  notificacaoEstudanteEnviadaEm: string | null;
+  estudanteMenor?: boolean;
 };
 
 // ── Lista de ocorrências ──────────────────────────────────────────────────────
@@ -155,6 +157,9 @@ function OcorrenciaItem({
             {ocorrencia.notificacaoPaisEnviadaEm && (
               <span className="ml-2 text-blue-600">· Responsáveis notificados</span>
             )}
+            {ocorrencia.notificacaoEstudanteEnviadaEm && !ocorrencia.notificacaoPaisEnviadaEm && (
+              <span className="ml-2 text-blue-600">· Estudante notificado</span>
+            )}
           </p>
           {jaTemCiencia && (
             <p className="text-xs text-green-700">
@@ -175,18 +180,28 @@ function OcorrenciaItem({
             {isEstudante && estudanteMenor && !jaTemCiencia && (
               <p className="text-xs text-orange-600">A ciência deve ser registrada pelo responsável.</p>
             )}
-            {canCreate && (
-              <Button
-                variant="outline"
-                size="sm"
-                className={`h-7 text-xs ${ocorrencia.notificacaoPaisEnviadaEm ? "text-muted-foreground" : ""}`}
-                onClick={() => onNotificar(ocorrencia.id)}
-                title={ocorrencia.notificacaoPaisEnviadaEm ? `Notificado em ${formatarData(ocorrencia.notificacaoPaisEnviadaEm)} — clique para reenviar` : "Enviar e-mail para responsáveis"}
-              >
-                <Send className="w-3 h-3 mr-1" />
-                {ocorrencia.notificacaoPaisEnviadaEm ? "Reenviar e-mail" : "Notificar responsáveis"}
-              </Button>
-            )}
+            {canCreate && (() => {
+              const jaMenorNotif = !!ocorrencia.notificacaoPaisEnviadaEm;
+              const jaAdultoNotif = !!ocorrencia.notificacaoEstudanteEnviadaEm;
+              const jaNotificado = estudanteMenor ? jaMenorNotif : jaAdultoNotif;
+              const dataNotif = estudanteMenor
+                ? ocorrencia.notificacaoPaisEnviadaEm
+                : ocorrencia.notificacaoEstudanteEnviadaEm;
+              const titlePrimeiro = estudanteMenor ? "Enviar e-mail para responsáveis" : "Enviar e-mail para o estudante";
+              const titleReenvio = `Notificado em ${formatarData(dataNotif ?? "")} — clique para reenviar`;
+              return (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-7 text-xs ${jaNotificado ? "text-muted-foreground" : ""}`}
+                  onClick={() => onNotificar(ocorrencia.id)}
+                  title={jaNotificado ? titleReenvio : titlePrimeiro}
+                >
+                  <Send className="w-3 h-3 mr-1" />
+                  {jaNotificado ? "Reenviar e-mail" : (estudanteMenor ? "Notificar responsáveis" : "Notificar estudante")}
+                </Button>
+              );
+            })()}
             {canCreate && (
               <Button
                 variant="ghost"
@@ -308,10 +323,13 @@ function EstudanteModal({
     }),
   });
 
-  // Notificar responsáveis
+  // Notificar — rota depende se o estudante é menor ou maior de idade
   const notificarMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BASE}/api/ocorrencias/${id}/notificar-pais`, {
+      const rota = estudanteMenor
+        ? `/api/ocorrencias/${id}/notificar-pais`
+        : `/api/ocorrencias/${id}/notificar-estudante`;
+      const res = await fetch(`${BASE}${rota}`, {
         method: "POST", credentials: "include",
       });
       const body = await res.json().catch(() => ({}));
@@ -319,12 +337,12 @@ function EstudanteModal({
       return body;
     },
     onSuccess: (data) => {
-      toast({ title: data?.mensagem ?? "E-mail enviado aos responsáveis." });
+      toast({ title: data?.mensagem ?? "E-mail enviado com sucesso." });
       refetchOcorrencias();
     },
     onError: (err) => toast({
       title: "Erro ao notificar",
-      description: err instanceof Error ? err.message : "Verifique se o estudante possui e-mail de responsável cadastrado.",
+      description: err instanceof Error ? err.message : "Verifique se o estudante possui e-mail cadastrado.",
       variant: "destructive",
     }),
   });

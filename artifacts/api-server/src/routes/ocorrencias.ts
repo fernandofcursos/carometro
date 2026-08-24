@@ -92,12 +92,13 @@ async function fetchOcorrenciaFull(id: string) {
       registradoPorId:          ocorrenciasTable.registradoPorId,
       cienteEm:                 ocorrenciasTable.cienteEm,
       cientePorId:              ocorrenciasTable.cientePorId,
-      notificacaoPaisEnviadaEm: ocorrenciasTable.notificacaoPaisEnviadaEm,
-      tipoDescricao:            tiposOcorrenciasTable.descricao,
-      estudanteNome:            estudantesTable.nome,
-      disciplinaNome:           disciplinasTable.nome,
-      turnoNome:                turnosTable.nome,
-      registradoPorNome:        usuariosTable.nome,
+      notificacaoPaisEnviadaEm:      ocorrenciasTable.notificacaoPaisEnviadaEm,
+      notificacaoEstudanteEnviadaEm: ocorrenciasTable.notificacaoEstudanteEnviadaEm,
+      tipoDescricao:                 tiposOcorrenciasTable.descricao,
+      estudanteNome:                 estudantesTable.nome,
+      disciplinaNome:                disciplinasTable.nome,
+      turnoNome:                     turnosTable.nome,
+      registradoPorNome:             usuariosTable.nome,
     })
     .from(ocorrenciasTable)
     .leftJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
@@ -235,6 +236,11 @@ async function notificarEstudante(
   const enviados = await enviarParaEmails(
     rows.map((r) => r.email), ocorrenciaId, estudanteId, turnoNome, disciplinaNome, false,
   );
+  if (enviados > 0) {
+    await db.update(ocorrenciasTable)
+      .set({ notificacaoEstudanteEnviadaEm: new Date(), atualizadoEm: new Date() })
+      .where(eq(ocorrenciasTable.id, ocorrenciaId));
+  }
   return { enviados, semDestinatarios: false };
 }
 
@@ -256,12 +262,13 @@ router.get("/", requirePermissao("ocorrencias:view"), async (req: Request, res: 
         registradoPorId:          ocorrenciasTable.registradoPorId,
         cienteEm:                 ocorrenciasTable.cienteEm,
         cientePorId:              ocorrenciasTable.cientePorId,
-        notificacaoPaisEnviadaEm: ocorrenciasTable.notificacaoPaisEnviadaEm,
-        tipoDescricao:            tiposOcorrenciasTable.descricao,
-        estudanteNome:            estudantesTable.nome,
-        disciplinaNome:           disciplinasTable.nome,
-        turnoNome:                turnosTable.nome,
-        registradoPorNome:        usuariosTable.nome,
+        notificacaoPaisEnviadaEm:      ocorrenciasTable.notificacaoPaisEnviadaEm,
+        notificacaoEstudanteEnviadaEm: ocorrenciasTable.notificacaoEstudanteEnviadaEm,
+        tipoDescricao:                 tiposOcorrenciasTable.descricao,
+        estudanteNome:                 estudantesTable.nome,
+        disciplinaNome:                disciplinasTable.nome,
+        turnoNome:                     turnosTable.nome,
+        registradoPorNome:             usuariosTable.nome,
       })
       .from(ocorrenciasTable)
       .leftJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
@@ -468,7 +475,7 @@ router.post("/:id/notificar-pais", requirePermissao("ocorrencias:create"), async
 
     const resultado = await notificarPais(ocorr.id, ocorr.estudanteId, ocorr.turnoNome, ocorr.disciplinaNome);
 
-    if (resultado.semResponsaveis) {
+    if (resultado.semDestinatarios) {
       return res.status(422).json({ error: "Este estudante não possui e-mails de responsável cadastrados." });
     }
 
@@ -479,6 +486,29 @@ router.post("/:id/notificar-pais", requirePermissao("ocorrencias:create"), async
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao notificar responsáveis." });
+  }
+});
+
+// ── POST /api/ocorrencias/:id/notificar-estudante ─────────────────────────────
+
+router.post("/:id/notificar-estudante", requirePermissao("ocorrencias:create"), async (req: Request, res: Response) => {
+  try {
+    const ocorr = await fetchOcorrenciaFull(String(req.params.id));
+    if (!ocorr) return res.status(404).json({ error: "Ocorrência não encontrada." });
+
+    const resultado = await notificarEstudante(ocorr.id, ocorr.estudanteId, ocorr.turnoNome, ocorr.disciplinaNome);
+
+    if (resultado.semDestinatarios) {
+      return res.status(422).json({ error: "Este estudante não possui e-mail próprio cadastrado." });
+    }
+
+    res.json({
+      ok: true,
+      enviados: resultado.enviados,
+      mensagem: "E-mail enviado com sucesso.",
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao notificar estudante." });
   }
 });
 

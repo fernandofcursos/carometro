@@ -68,11 +68,11 @@ Status: `"ativo"` | `"inativo"` (enum `status_ocorrencia`)
 
 Ao registrar uma ocorrência, o sistema envia e-mail automaticamente com base na idade do estudante:
 
-| Condição | Destinatário |
-|---|---|
-| **Menor de 18 anos** | Responsáveis cadastrados (`estudante_emails.tipo = 'responsavel'`) |
-| **Maior ou igual a 18 anos** | Próprio estudante (`estudante_emails.tipo = 'proprio'`) |
-| `enviarEmailPais: true` no body | Força envio para responsáveis (independente da idade) |
+| Condição | Destinatário | Campo atualizado |
+|---|---|---|
+| **Menor de 18 anos** | Responsáveis (`estudante_emails.tipo = 'responsavel'`) | `notificacaoPaisEnviadaEm` |
+| **Maior ou igual a 18 anos** | Próprio estudante (`estudante_emails.tipo = 'proprio'`) | `notificacaoEstudanteEnviadaEm` |
+| `enviarEmailPais: true` no body | Força envio para responsáveis (independente da idade) | `notificacaoPaisEnviadaEm` |
 
 **Verificação de idade:**
 1. Usa `estudantes.data_nascimento` (primária)
@@ -92,40 +92,65 @@ Ao registrar uma ocorrência, o sistema envia e-mail automaticamente com base na
 
 ### POST /api/ocorrencias/:id/notificar-pais
 
-Reenvio manual para responsáveis via `enviarEmailOcorrencia()`.  
+Reenvio manual para responsáveis.  
 **Requer:** `ocorrencias:create`
 
-**Comportamento:**
-- Busca emails de responsáveis na tabela `estudante_emails` onde `tipo = 'responsavel'`
-- Envia para todos os responsáveis encontrados; falhas individuais são logadas mas não interrompem os demais
-- Permite reenvio a qualquer momento (sem bloqueio após primeiro envio)
-- Atualiza `ocorrencias.notificacao_pais_enviada_em` apenas se ao menos 1 e-mail for enviado com sucesso
+- Busca `estudante_emails.tipo = 'responsavel'`
+- Atualiza `notificacaoPaisEnviadaEm` se ≥ 1 enviado
+- Mensagem de sucesso: `"E-mail enviado para N responsável(is)."`
 
-**Respostas:**
 ```typescript
-// 200 — sucesso (≥ 1 e-mail enviado)
-{ ok: true, enviados: number, mensagem: string }
-
-// 422 — nenhum responsável com e-mail cadastrado
-{ error: "Nenhum responsável com e-mail cadastrado para este estudante." }
-
-// 404 — ocorrência não encontrada
-{ error: "Ocorrência não encontrada." }
+// 200 { ok: true, enviados: number, mensagem: string }
+// 422 { error: "Este estudante não possui e-mails de responsável cadastrados." }
+// 404 { error: "Ocorrência não encontrada." }
 ```
 
-### Campo `notificacaoPaisEnviadaEm`
+### POST /api/ocorrencias/:id/notificar-estudante
 
-Incluído no GET `/api/ocorrencias` como `notificacaoPaisEnviadaEm: string | null`.  
-Usado no frontend para exibir data do último envio e alterar label do botão.
+Reenvio manual para o próprio estudante (maior de 18 anos).  
+**Requer:** `ocorrencias:create`
+
+- Busca `estudante_emails.tipo = 'proprio'`
+- Atualiza `notificacaoEstudanteEnviadaEm` se ≥ 1 enviado
+- Mensagem de sucesso: `"E-mail enviado com sucesso."`
+
+```typescript
+// 200 { ok: true, enviados: number, mensagem: string }
+// 422 { error: "Este estudante não possui e-mail próprio cadastrado." }
+// 404 { error: "Ocorrência não encontrada." }
+```
+
+### Campos de notificação
+
+Incluídos no GET `/api/ocorrencias`:
+
+| Campo | Tipo | Quando é preenchido |
+|---|---|---|
+| `notificacaoPaisEnviadaEm` | `string \| null` | Último envio para responsáveis (menor de 18) |
+| `notificacaoEstudanteEnviadaEm` | `string \| null` | Último envio para o próprio estudante (maior de 18) |
+
+**Migration necessária:**
+```sql
+ALTER TABLE ocorrencias
+  ADD COLUMN IF NOT EXISTS notificacao_estudante_enviada_em TIMESTAMPTZ;
+```
+Script: `scripts/migrate-notificacao-estudante.sql`
 
 ---
 
 ## Comportamento no Carômetro (seshat.tsx)
 
-- Botão **"Notificar responsáveis"** aparece para usuários com `ocorrencias:create`
-- Após primeiro envio, exibe **"Reenviar e-mail"** com tooltip mostrando data do último envio
-- Toast exibe `data.mensagem` retornado pela API
-- Erro 422 → toast destrutivo "Nenhum responsável com e-mail"
+| Situação | Label do botão | Tooltip |
+|---|---|---|
+| Menor, nunca notificado | "Notificar responsáveis" | "Enviar e-mail para responsáveis" |
+| Menor, já notificado | "Reenviar e-mail" | data do último envio |
+| Maior, nunca notificado | "Notificar estudante" | "Enviar e-mail para o estudante" |
+| Maior, já notificado | "Reenviar e-mail" | data do último envio |
+
+- Toast de sucesso para menor: mensagem da API (`"E-mail enviado para N responsável(is)."`)
+- Toast de sucesso para maior: `"E-mail enviado com sucesso."`
+- Erro 422 → toast destrutivo com mensagem da API
+- Mutation chama `/notificar-pais` para menores e `/notificar-estudante` para maiores
 
 ---
 
