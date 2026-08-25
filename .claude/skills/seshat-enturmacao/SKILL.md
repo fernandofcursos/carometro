@@ -68,6 +68,16 @@ matriculasTable: {
 - Remoção via AlertDialog → `DELETE /api/matriculas/:id`
 - `apiMsg(err, fallback)`: extrai `err.data?.error` para exibir no toast
 
+## Cópia de senha — tratamento de erro obrigatório
+
+`NovoUsuarioDialog` usa `navigator.clipboard.writeText()`. Sempre incluir `.catch()` para evitar "Uncaught (in promise)" quando o clipboard é bloqueado por extensão, foco perdido ou contexto inseguro:
+
+```typescript
+navigator.clipboard.writeText(senhaGerada)
+  .then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); })
+  .catch(() => {}); // silencioso — não há ação alternativa necessária
+```
+
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |

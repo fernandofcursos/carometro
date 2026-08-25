@@ -66,6 +66,8 @@ function NovoUsuarioDialog({
     navigator.clipboard.writeText(senhaGerada).then(() => {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
+    }).catch(() => {
+      // clipboard bloqueado (extensão, foco perdido, contexto inseguro)
     });
   }
 

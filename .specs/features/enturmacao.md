@@ -132,6 +132,20 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 - Campo `registro` aceita somente dígitos (replace `/\D/g`)
 - Remoção via AlertDialog → `DELETE /api/matriculas/:id`
 
+### Cópia de senha provisória (`NovoUsuarioDialog`)
+
+Ao criar um usuário durante enturmação, é exibido um dialog com a senha provisória e botão de copiar.  
+A cópia usa `navigator.clipboard.writeText()` com `.catch()` silencioso — evita "Uncaught (in promise)" quando a API de clipboard é bloqueada por extensão do browser, perda de foco ou contexto inseguro.
+
+```typescript
+navigator.clipboard.writeText(senhaGerada).then(() => {
+  setCopiado(true);
+  setTimeout(() => setCopiado(false), 2000);
+}).catch(() => {
+  // clipboard bloqueado — ignora silenciosamente
+});
+```
+
 ---
 
 ## Menu (layout.tsx)
