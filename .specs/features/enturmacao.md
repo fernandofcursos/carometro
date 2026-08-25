@@ -17,9 +17,11 @@ O menu lateral exibe o grupo **"Enturmação"** com o item **"Estudantes"** apon
 |---|---|
 | 1 | **Um curso por estudante**: o estudante só pode estar enturmado em **um único curso**. Não é possível ter enturmações em cursos diferentes ao mesmo tempo. |
 | 2 | **Proibido dois cursos simultâneos**: tentativa de enturmar em turma de curso diferente do atual resulta em erro 422. |
-| 3 | **Disciplinas do semestre atual**: o estudante pode cursar **uma ou mais disciplinas** do seu semestre atual dentro do seu curso de enturmação (sem restrição adicional). |
+| 3 | **Disciplinas do semestre atual**: o estudante pode cursar **uma ou todas as disciplinas** do curso, selecionadas no momento da enturmação ou posteriormente. |
 | 4 | **Disciplina de semestre anterior**: o estudante pode cursar **uma única disciplina** de semestre anterior ao seu atual, desde que seja no **turno contrário** ao da sua enturmação principal. Esta regra é validada na camada de `usuario_disciplinas`. |
 | 5 | **Registro numérico**: o registro do estudante é um número fornecido externamente (não calculado pelo sistema), obrigatório na enturmação, máximo 20 dígitos. |
+| 6 | **Visibilidade**: a página mostra **todos os estudantes** — com ou sem enturmação ativa. Estudantes sem matrícula aparecem na lista com a seção de disciplinas vazia e o formulário de enturmação disponível. |
+| 7 | **Opção padrão de disciplinas**: ao enturmar, a seleção padrão é **"Todas as disciplinas"** do curso. O usuário pode restringir para disciplinas específicas. |
 
 ---
 
@@ -56,7 +58,11 @@ Disciplinas cursadas pelo estudante (disciplinas do semestre atual e eventual di
 ### GET /api/matriculas
 **Requer:** `estudantes:manage`
 
-Retorna todos os usuários com role `estudante` e suas matrículas ativas.
+Retorna **todos os estudantes** (com ou sem matrícula ativa), com suas matrículas e disciplinas cursadas.
+
+A lista é composta pela UNIÃO de:
+- Usuários com role `estudante` (mesmo sem matrícula)
+- Usuários que tenham ao menos uma matrícula ativa (mesmo que a role tenha sido removida)
 
 ```typescript
 Array<{
@@ -75,6 +81,12 @@ Array<{
     semestre: number;
     ativo: boolean;
     criadoEm: string;
+  }>;
+  disciplinas: Array<{      // disciplinas cursadas pelo estudante
+    disciplinaOfertaId: string;
+    disciplinaNome: string;
+    cursoNome: string;
+    turnoNome: string;
   }>;
 }>
 ```
@@ -132,23 +144,47 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 ## Frontend (`/enturmacao`)
 
 - Rota: `/enturmacao` — visível no menu para `estudantes:manage`
-- Lista todos os usuários com **matrícula ativa** (não filtra por role — evita estudantes "fantasmas")
-- Cada card é expansível (accordion): matrículas ativas + formulário de nova enturmação
+- Lista **todos os estudantes** (role `estudante` ou com matrícula ativa), incluindo os ainda não enturmados
+- Cada card é expansível (accordion) com três seções: **matrículas ativas**, **disciplinas cursadas** e **formulário de enturmação**
 - Campo `registro` aceita somente dígitos (replace `/\D/g`)
-- Remoção via AlertDialog → `DELETE /api/matriculas/:id`
+- Remoção de matrícula via AlertDialog → `DELETE /api/matriculas/:id`
+
+### Seleção de Disciplinas na Enturmação
+
+Ao expandir o card do estudante, é exibida uma seção de **Disciplinas** com:
+
+| Elemento | Comportamento |
+|---|---|
+| Agrupamento | Disciplinas agrupadas por **Curso** e depois por **Turno** |
+| Opção padrão | **"Todas as disciplinas"** — selecionado por padrão ao enturmar |
+| Seleção individual | Checkbox por disciplina dentro de cada grupo Curso/Turno |
+| Toggle "Todas" | Ao marcar "Todas as disciplinas", todas as disciplinas do curso são selecionadas; desmarcar volta para seleção individual |
+| Persistência | Seleção salva via `POST /api/usuario-disciplinas` (bulk) |
+
+**Estrutura visual de agrupamento:**
+
+```
+▸ Técnico em Informática
+  ▸ Manhã
+    [✓] Todas as disciplinas
+    [ ] Programação Web
+    [ ] Banco de Dados
+  ▸ Tarde
+    [ ] Redes de Computadores
+▸ Técnico em Administração
+  ▸ Noite
+    [✓] Todas as disciplinas
+```
 
 ### Cópia de senha provisória (`NovoUsuarioDialog`)
 
-Ao criar um usuário durante enturmação, é exibido um dialog com a senha provisória e botão de copiar.  
 A cópia usa `navigator.clipboard.writeText()` com `.catch()` silencioso — evita "Uncaught (in promise)" quando a API de clipboard é bloqueada por extensão do browser, perda de foco ou contexto inseguro.
 
 ```typescript
 navigator.clipboard.writeText(senhaGerada).then(() => {
   setCopiado(true);
   setTimeout(() => setCopiado(false), 2000);
-}).catch(() => {
-  // clipboard bloqueado — ignora silenciosamente
-});
+}).catch(() => {});
 ```
 
 ---

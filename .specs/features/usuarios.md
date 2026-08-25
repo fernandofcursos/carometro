@@ -33,6 +33,39 @@ CRUD de usuários do sistema com suporte a roles, disciplinas, foto e credenciai
 - Roles de estudante exigem `dataNascimento`
 - Roles incompatíveis entre si retornam HTTP 422 com mensagem descritiva
 
+### Seleção de Disciplinas para Estudantes
+
+Ao criar ou editar um usuário com role `estudante`, o painel exibe um **modal de seleção de disciplinas** com as seguintes regras:
+
+| Regra | Detalhe |
+|---|---|
+| **Agrupamento** | Disciplinas exibidas agrupadas por **Curso** e depois por **Turno** |
+| **Opção padrão** | **"Todas as disciplinas"** é o valor padrão — seleciona todas as disciplinas disponíveis do curso |
+| **Seleção individual** | O usuário pode desmarcar "Todas" e selecionar disciplinas específicas via checkbox |
+| **Toggle "Todas"** | Marcar "Todas as disciplinas" seleciona automaticamente todas do grupo Curso/Turno; desmarcar remove a seleção em bloco |
+| **Persistência** | Disciplinas salvas via `disciplinaOfertaIds[]` no POST/PATCH ou via `PUT /api/usuario-disciplinas` (bulk) |
+
+**Estrutura visual do modal:**
+
+```
+Modal: Selecionar Disciplinas
+
+▸ Técnico em Informática
+  ▸ Manhã
+    [✓] Todas as disciplinas
+    [✓] Programação Web
+    [✓] Banco de Dados
+  ▸ Tarde
+    [ ] Redes de Computadores
+
+▸ Técnico em Administração
+  ▸ Noite
+    [ ] Todas as disciplinas
+    [ ] Contabilidade
+```
+
+> A opção "Todas as disciplinas" por grupo Curso/Turno é um atalho de seleção — não é uma entidade salva no banco; resulta em múltiplos registros em `usuario_disciplinas`, um por disciplina do grupo.
+
 ### Foto
 - Armazenada criptografada (AES-256-CBC) em `bytea` no banco
 - Tamanho máximo: ~3.7 MB (base64 ~5 MB)

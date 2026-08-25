@@ -20,9 +20,10 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 |---|---|
 | **Um curso** | Estudante só pode estar em **um único curso**. Validado em `POST /api/matriculas` |
 | **Sem dois cursos simultâneos** | Bloqueia enturmação em curso diferente do atual → 422 |
-| **Disciplinas do semestre atual** | Pode cursar uma ou mais; sem restrição adicional |
+| **Disciplinas** | Pode cursar **uma ou todas** as disciplinas do curso; opção padrão é "Todas as disciplinas" |
 | **Disciplina de semestre anterior** | Uma única, em **turno contrário** ao da turma principal; validada em `usuario_disciplinas` |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
+| **Visibilidade** | A página lista **todos os estudantes** — com ou sem matrícula ativa |
 
 ## Schema (`lib/db/src/schema/matriculas.ts`)
 
@@ -40,18 +41,20 @@ matriculasTable: {
 
 ## GET /api/matriculas — query
 
-**Base: `matriculas`** — não usa a role `estudante` como filtro.  
-Isso evita estudantes "fantasmas": matriculados no banco mas invisíveis porque a role não existia na hora da enturmação.
+Retorna **todos os estudantes** — com ou sem matrícula ativa.  
+A lista é a UNIÃO de:
+1. Usuários com role `estudante` (mesmo sem matrícula)
+2. Usuários com matrícula ativa (mesmo que a role tenha sido removida)
+
+Implementação: LEFT JOIN de `usuariosRoles(estudante)` com `matriculas`, ou UNION das duas queries, deduplicado por `usuarioId`.
+
+Cada item inclui:
+- `matriculas[]` — matrículas ativas do estudante (vazio se não enturmado)
+- `disciplinas[]` — disciplinas cursadas via `usuario_disciplinas`, com `disciplinaNome`, `cursoNome`, `turnoNome`
 
 ```typescript
-db.select({...})
-  .from(matriculasTable)
-  .innerJoin(usuariosTable, ...)
-  .innerJoin(turmasTable, ...)
-  .innerJoin(cursosTable, ...)
-  .where(and(isNull(matriculasTable.deletadoEm), isNull(usuariosTable.deletadoEm)))
-  .orderBy(usuariosTable.nome, matriculasTable.ano, matriculasTable.semestre)
-// Resultado agrupado por usuário via Map
+// Estratégia: buscar todos com role estudante + LEFT JOIN matriculas
+// + buscar todos com matricula ativa sem role → UNION deduplicada
 ```
 
 ## POST /api/matriculas — fluxo
@@ -86,11 +89,37 @@ db.select({...})
 
 ## Frontend (`artifacts/seshat/src/pages/enturmacao/index.tsx`)
 
-- `EnturmacaoPage`: lista de estudantes com busca local
-- `EstudanteCard`: accordion — matrículas ativas + `MatriculaForm`
-- `MatriculaForm`: Turma + Registro (somente dígitos) + Ano + Semestre
-- Remoção via AlertDialog → `DELETE /api/matriculas/:id`
+- `EnturmacaoPage`: lista **todos** os estudantes (com e sem matrícula), busca local por nome
+- `EstudanteCard`: accordion com três seções:
+  1. **Matrículas ativas** (vazio se não enturmado)
+  2. **Disciplinas cursadas** — agrupadas por Curso e Turno
+  3. **Formulário de enturmação** (`MatriculaForm`)
+- `MatriculaForm`: Turma + Registro + Ano + Semestre + **seleção de disciplinas**
+- Remoção de matrícula via AlertDialog → `DELETE /api/matriculas/:id`
 - `apiMsg(err, fallback)`: extrai `err.data?.error` para exibir no toast
+
+### Seleção de Disciplinas
+
+Componente `DisciplinasSelector` exibido dentro do `EstudanteCard` e no `MatriculaForm`:
+
+```
+Estrutura visual:
+▸ [Curso A]
+  ▸ [Turno Manhã]
+    [✓] Todas as disciplinas   ← toggle que seleciona/deseleciona todas do grupo
+    [✓] Disciplina X
+    [✓] Disciplina Y
+  ▸ [Turno Tarde]
+    [ ] Todas as disciplinas
+    [ ] Disciplina Z
+```
+
+**Comportamento:**
+- Ao abrir sem seleção prévia: "Todas as disciplinas" marcado por padrão para cada grupo
+- Marcar "Todas as disciplinas": seleciona todos os checkboxes do grupo Curso/Turno
+- Desmarcar "Todas as disciplinas": desmarca todos do grupo
+- Marcar/desmarcar disciplina individual: atualiza o estado de "Todas" do grupo (indeterminate se parcial)
+- Salvar: `POST /api/usuario-disciplinas` com array de `disciplinaOfertaIds`
 
 ## Cópia de senha — tratamento de erro obrigatório
 
