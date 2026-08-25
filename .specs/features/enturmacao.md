@@ -15,12 +15,15 @@ O menu lateral exibe o grupo **"Enturmação"** com o item **"Estudantes"** apon
 
 | # | Regra |
 |---|---|
-| 1 | **Uma única matrícula ativa**: o estudante só pode estar enturmado em **um único curso**, em **um único turno**. Não é possível ter duas matrículas ativas simultaneamente, mesmo em cursos ou turnos diferentes. |
-| 2 | **Proibido dois cursos mesmo em turnos diferentes**: tentativa de enturmar um estudante que já possui matrícula ativa resulta em erro 422. O admin deve remover a enturmação atual antes de enturmar em outro curso. |
-| 3 | **Disciplinas**: o estudante pode cursar **uma ou todas as disciplinas** do curso ao qual está enturmado. A seleção é feita na página de enturmação, agrupada por Curso e Turno. |
-| 4 | **Opção padrão de disciplinas**: ao enturmar, a seleção padrão é **"Todas as disciplinas"** do curso. O admin pode restringir para disciplinas específicas. |
-| 5 | **Registro numérico**: o registro do estudante é um número fornecido externamente (não calculado pelo sistema), obrigatório na enturmação, máximo 20 dígitos. |
-| 6 | **Visibilidade**: a página mostra **todos os estudantes** — com ou sem enturmação ativa. Estudantes sem matrícula aparecem na lista com o formulário de enturmação disponível. |
+| 1 | **Mesmo curso, turnos diferentes**: o estudante pode estar enturmado em **até 2 turmas**, desde que sejam do **mesmo curso** e de **turnos distintos**. |
+| 2 | **Proibido cursos diferentes**: não é possível enturmar em cursos distintos. Se o estudante já tem matrícula ativa, a nova turma deve pertencer ao mesmo curso. |
+| 3 | **Proibido mesmo turno**: dentro do mesmo curso, não é permitido enturmar em duas turmas do mesmo turno. A verificação é feita via `turma_turnos`. |
+| 4 | **Máximo 2 enturmações ativas**: mesmo no mesmo curso, o limite é 2 matrículas ativas simultaneamente. |
+| 5 | **Módulo menor — máximo 2 disciplinas**: cursos com `modulo_menor = true` limitam a seleção de disciplinas a **no máximo 2** por estudante. Verificado na API (`PUT /api/usuario-disciplinas/:usuarioId`) e reforçado na UI (checkbox desabilitado ao atingir o limite). |
+| 6 | **Disciplinas**: o estudante pode cursar **uma ou todas as disciplinas** do curso. Para módulo menor, o máximo é 2. |
+| 7 | **Opção padrão de disciplinas**: ao enturmar sem seleção prévia, a UI inicializa com **todas as disciplinas** selecionadas (para cursos normais). |
+| 8 | **Registro numérico**: fornecido externamente, obrigatório, máximo 20 dígitos. |
+| 9 | **Visibilidade**: a página lista **todos os estudantes** — com ou sem enturmação. |
 
 ---
 
@@ -44,7 +47,7 @@ usuarios (role estudante) (1) ──< matriculas >── (1) turmas → cursos
 | `criadoEm` | timestamptz | default now() |
 | `atualizadoEm` | timestamptz | default now() |
 | `deletadoEm` | timestamptz | soft delete |
-| UNIQUE parcial | — | (usuarioId, ano, semestre) WHERE deletadoEm IS NULL — só linhas ativas participam da unicidade |
+| UNIQUE parcial | — | (usuarioId, turmaId) WHERE deletadoEm IS NULL — "uq_matricula_usuario_turma" — impede matrícula duplicada na mesma turma |
 
 ### Relação com disciplinas
 
@@ -131,9 +134,12 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 | `registro` não numérico | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | `semestre` inválido | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Estudante com matrícula ativa | 422 | "Este estudante já está enturmado em '&lt;curso&gt; — &lt;turma&gt;' (&lt;ano&gt;/&lt;sem&gt;º sem.). Remova a enturmação atual antes de enturmar em outro curso." |
-| Conflito DB parcial (23505 / uq_matricula_ativo) | 409 | "Este estudante já possui uma matrícula ativa. Remova a enturmação atual antes de enturmar em outro curso." |
+| Curso diferente do atual | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes." |
+| Limite de 2 matrículas ativas | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
+| Mesmo turno no mesmo curso | 422 | "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno. Só é permitido em turnos diferentes." |
+| Conflito DB (23505 / uq_matricula_usuario_turma) | 409 | "Este estudante já está matriculado nesta turma." |
 | Matrícula duplicada (23505 genérico) | 409 | "Este estudante já está enturmado nesta turma neste período." |
+| Módulo menor — mais de 2 disciplinas | 422 | "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso." |
 | FK inválida (23503) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |
 | Schema desatualizado (42703) | 500 | "Erro de schema no banco de dados. Execute as migrações pendentes." |
 | Erro interno | 500 | "Erro interno ao salvar a enturmação. Tente novamente." |

@@ -89,6 +89,48 @@ BEGIN
   END IF;
 END $$;
 
+-- ── Migração: substituir uq_matricula_ativo (ano/semestre) por uq_matricula_usuario_turma ──
+--
+-- Nova regra: estudante pode estar em 2 turmas do mesmo curso em turnos diferentes.
+-- O índice parcial passa a garantir unicidade por (usuarioId, turmaId), não por
+-- (usuarioId, ano, semestre). A restrição de "mesmo turno" é verificada em app-level.
+
+DO $$
+BEGIN
+  -- Remove índice parcial antigo (ano, semestre)
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'matriculas' AND indexname = 'uq_matricula_ativo'
+  ) THEN
+    DROP INDEX uq_matricula_ativo;
+    RAISE NOTICE 'matriculas: índice uq_matricula_ativo (ano/semestre) removido.';
+  END IF;
+
+  -- Cria índice parcial novo (usuarioId, turmaId)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'matriculas' AND indexname = 'uq_matricula_usuario_turma'
+  ) THEN
+    CREATE UNIQUE INDEX uq_matricula_usuario_turma
+      ON matriculas (usuario_id, turma_id)
+      WHERE deletado_em IS NULL;
+    RAISE NOTICE 'matriculas: índice uq_matricula_usuario_turma criado.';
+  END IF;
+END $$;
+
+-- ── Migração: adicionar coluna modulo_menor em cursos ─────────────────────────
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'cursos' AND column_name = 'modulo_menor'
+  ) THEN
+    ALTER TABLE cursos ADD COLUMN modulo_menor BOOLEAN NOT NULL DEFAULT FALSE;
+    RAISE NOTICE 'cursos: coluna modulo_menor adicionada.';
+  END IF;
+END $$;
+
 DO $$
 BEGIN
   RAISE NOTICE 'Tabela matriculas: OK';

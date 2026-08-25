@@ -21,7 +21,9 @@ export const matriculasTable = pgTable("matriculas", {
   // Partial unique index: um estudante só pode ter UMA matrícula ativa.
   // Linhas soft-deleted (deletadoEm IS NOT NULL) ficam fora da unicidade,
   // permitindo reenturmação após remoção sem 23505 fantasma.
-  uniqueIndex("uq_matricula_ativo").on(t.usuarioId, t.ano, t.semestre).where(sql`${t.deletadoEm} IS NULL`),
+  // Um estudante não pode estar matriculado na mesma turma mais de uma vez (ativo).
+  // A regra de "mesmo curso, turnos diferentes" é verificada em app-level (API).
+  uniqueIndex("uq_matricula_usuario_turma").on(t.usuarioId, t.turmaId).where(sql`${t.deletadoEm} IS NULL`),
   check("ck_semestre", sql`${t.semestre} IN (1, 2)`),
 ]);
 

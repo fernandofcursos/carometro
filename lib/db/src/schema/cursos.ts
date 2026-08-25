@@ -7,6 +7,8 @@ export const cursosTable = pgTable("cursos", {
   sigla: varchar("sigla", { length: 4 }).notNull().unique(),
   nome: text("nome").notNull().unique(),
   descricao: text("descricao"),
+  // Cursos de módulo menor têm limite de 2 disciplinas por estudante
+  moduloMenor: boolean("modulo_menor").notNull().default(false),
   ativo: boolean("ativo").notNull().default(true),
   criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),

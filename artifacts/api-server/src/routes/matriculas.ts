@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import {
   db, matriculasTable, turmasTable, cursosTable,
   rolesTable, usuariosRolesTable, usuariosTable,
-  estudantesTable,
+  estudantesTable, turmaTurnosTable,
   usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, turnosTable,
   eq, isNull, and, sql,
 } from "@workspace/db";
@@ -58,8 +58,8 @@ function matriculaErrorMessage(err: unknown): { status: number; error: string } 
   const causeMsg = String((err as { cause?: unknown })?.cause ?? "");
   const code = pgCode(err);
 
-  if (code === "23505" && (msg.includes("uq_matricula_ativo") || causeMsg.includes("uq_matricula_ativo"))) {
-    return { status: 409, error: "Este estudante já possui uma matrícula ativa. Remova a enturmação atual antes de enturmar em outro curso." };
+  if (code === "23505" && (msg.includes("uq_matricula_usuario_turma") || causeMsg.includes("uq_matricula_usuario_turma"))) {
+    return { status: 409, error: "Este estudante já está matriculado nesta turma." };
   }
   if (code === "23505") {
     return { status: 409, error: "Este estudante já está enturmado nesta turma neste período." };
@@ -308,13 +308,24 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
       }
     }
 
-    // ── Regra: apenas UMA matrícula ativa por estudante ──────────────────────
-    // Um estudante não pode estar enturmado em dois cursos, mesmo em turnos
-    // ou semestres diferentes. Verifica qualquer matrícula ativa (sem filtro
-    // de ano/semestre) antes do INSERT.
-    const [matriculaAtiva] = await db
+    // ── Regras de enturmação múltipla ────────────────────────────────────────
+    // Regra 1: Não é permitido enturmar em cursos diferentes.
+    // Regra 2: No mesmo curso, é permitido enturmar em até 2 turmas de turnos DISTINTOS.
+    // Regra 3: Não é permitido enturmar em turmas do mesmo turno.
+
+    // Turnos da nova turma
+    const novosTurnos = await db
+      .select({ turnoId: turmaTurnosTable.turnoId })
+      .from(turmaTurnosTable)
+      .where(eq(turmaTurnosTable.turmaId, body.turmaId));
+    const novosTurnoIds = new Set(novosTurnos.map((t) => t.turnoId));
+
+    // Matrículas ativas do estudante
+    const matriculasAtivas = await db
       .select({
         id:         matriculasTable.id,
+        turmaId:    matriculasTable.turmaId,
+        cursoId:    cursosTable.id,
         cursoNome:  cursosTable.nome,
         turmaSigla: turmasTable.sigla,
         ano:        matriculasTable.ano,
@@ -323,16 +334,38 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
       .from(matriculasTable)
       .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
       .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .where(and(
-        eq(matriculasTable.usuarioId, usuarioId),
-        isNull(matriculasTable.deletadoEm),
-      ))
-      .limit(1);
+      .where(and(eq(matriculasTable.usuarioId, usuarioId), isNull(matriculasTable.deletadoEm)));
 
-    if (matriculaAtiva) {
-      return res.status(422).json({
-        error: `Este estudante já está enturmado em "${matriculaAtiva.cursoNome} — ${matriculaAtiva.turmaSigla}" (${matriculaAtiva.ano}/${matriculaAtiva.semestre}º sem.). Remova a enturmação atual antes de enturmar em outro curso.`,
-      });
+    if (matriculasAtivas.length > 0) {
+      // Regra 1: Todos os cursos devem ser iguais
+      const cursoDiferente = matriculasAtivas.find((m) => m.cursoId !== turmaAlvo.cursoId);
+      if (cursoDiferente) {
+        return res.status(422).json({
+          error: `Este estudante já está enturmado no curso "${cursoDiferente.cursoNome}". Não é possível enturmar em cursos diferentes. Remova a enturmação atual primeiro.`,
+        });
+      }
+
+      // Regra 2: Máximo 2 matrículas no mesmo curso
+      if (matriculasAtivas.length >= 2) {
+        return res.status(422).json({
+          error: `Este estudante já possui 2 enturmações ativas no curso "${turmaAlvo.cursoNome}" (limite máximo). Remova uma enturmação antes de adicionar outra.`,
+        });
+      }
+
+      // Regra 3: Turno deve ser diferente das matrículas existentes
+      for (const mat of matriculasAtivas) {
+        const turnosExistentes = await db
+          .select({ turnoId: turmaTurnosTable.turnoId })
+          .from(turmaTurnosTable)
+          .where(eq(turmaTurnosTable.turmaId, mat.turmaId));
+
+        const conflito = turnosExistentes.some((t) => novosTurnoIds.has(t.turnoId));
+        if (conflito) {
+          return res.status(422).json({
+            error: `Este estudante já está enturmado na turma "${mat.turmaSigla}" neste turno. No mesmo curso, só é permitido enturmar em turnos diferentes.`,
+          });
+        }
+      }
     }
 
     // ── Criar matrícula ───────────────────────────────────────────────────────

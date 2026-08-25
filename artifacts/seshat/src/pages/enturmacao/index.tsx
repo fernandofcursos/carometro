@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap, Plus, Trash2, UserCheck, ChevronDown, ChevronRight, UserPlus, Copy, Check, BookOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -58,6 +59,7 @@ type Oferta = {
   disciplinaNome: string;
   cursoId: string;
   cursoNome: string;
+  moduloMenor: boolean;
   turnoId: string;
   turnoNome: string;
 };
@@ -102,10 +104,10 @@ function DisciplinasSelector({
 
   // Agrupamento: Curso → Turno → Ofertas
   const grupos = useMemo(() => {
-    const byCurso = new Map<string, { cursoId: string; cursoNome: string; turnos: Map<string, { turnoId: string; turnoNome: string; ofertas: Oferta[] }> }>();
+    const byCurso = new Map<string, { cursoId: string; cursoNome: string; moduloMenor: boolean; turnos: Map<string, { turnoId: string; turnoNome: string; ofertas: Oferta[] }> }>();
     for (const o of ofertas) {
       if (!byCurso.has(o.cursoId)) {
-        byCurso.set(o.cursoId, { cursoId: o.cursoId, cursoNome: o.cursoNome, turnos: new Map() });
+        byCurso.set(o.cursoId, { cursoId: o.cursoId, cursoNome: o.cursoNome, moduloMenor: o.moduloMenor, turnos: new Map() });
       }
       const curso = byCurso.get(o.cursoId)!;
       if (!curso.turnos.has(o.turnoId)) {
@@ -115,6 +117,16 @@ function DisciplinasSelector({
     }
     return [...byCurso.values()].map((c) => ({ ...c, turnos: [...c.turnos.values()] }));
   }, [ofertas]);
+
+  // Para módulo menor: quantas disciplinas do curso estão selecionadas
+  function contSelecionadosCurso(cursoId: string): number {
+    return ofertas.filter((o) => o.cursoId === cursoId && selecionados.has(o.id)).length;
+  }
+
+  function toggleOfertaComLimite(o: Oferta) {
+    if (!selecionados.has(o.id) && o.moduloMenor && contSelecionadosCurso(o.cursoId) >= 2) return;
+    toggleOferta(o.id);
+  }
 
   function toggleOferta(id: string) {
     setSelecionados((prev) => {
@@ -170,48 +182,72 @@ function DisciplinasSelector({
 
   return (
     <div className="space-y-3">
-      {grupos.map((curso) => (
-        <div key={curso.cursoId} className="border rounded-md overflow-hidden">
-          <div className="bg-muted/40 px-3 py-2 text-xs font-semibold">{curso.cursoNome}</div>
-          {curso.turnos.map((turno) => {
-            const state = turnoState(turno.ofertas);
-            return (
-              <div key={turno.turnoId} className="px-3 pb-2">
-                <div className="flex items-center gap-2 py-2 border-b last:border-0">
-                  <Checkbox
-                    id={`turno-${turno.turnoId}`}
-                    checked={state === "all"}
-                    data-state={state === "partial" ? "indeterminate" : undefined}
-                    onCheckedChange={() => toggleTurno(turno.ofertas)}
-                    className="shrink-0"
-                  />
-                  <label
-                    htmlFor={`turno-${turno.turnoId}`}
-                    className="text-xs font-medium cursor-pointer select-none"
-                  >
-                    {turno.turnoNome} — Todas as disciplinas
-                  </label>
+      {grupos.map((curso) => {
+        const sel = contSelecionadosCurso(curso.cursoId);
+        const atingiuLimite = curso.moduloMenor && sel >= 2;
+        return (
+          <div key={curso.cursoId} className="border rounded-md overflow-hidden">
+            <div className="bg-muted/40 px-3 py-2 text-xs font-semibold flex items-center gap-2">
+              {curso.cursoNome}
+              {curso.moduloMenor && (
+                <span className={cn(
+                  "ml-auto text-[0.65rem] px-1.5 py-0.5 rounded font-medium",
+                  atingiuLimite
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-blue-100 text-blue-700",
+                )}>
+                  Módulo menor · {sel}/2 disciplinas
+                </span>
+              )}
+            </div>
+            {curso.turnos.map((turno) => {
+              const state = turnoState(turno.ofertas);
+              return (
+                <div key={turno.turnoId} className="px-3 pb-2">
+                  <div className="flex items-center gap-2 py-2 border-b last:border-0">
+                    <Checkbox
+                      id={`turno-${turno.turnoId}`}
+                      checked={state === "all"}
+                      data-state={state === "partial" ? "indeterminate" : undefined}
+                      onCheckedChange={() => toggleTurno(turno.ofertas)}
+                      className="shrink-0"
+                      disabled={curso.moduloMenor}
+                    />
+                    <label
+                      htmlFor={`turno-${turno.turnoId}`}
+                      className={cn("text-xs font-medium cursor-pointer select-none", curso.moduloMenor && "opacity-50 cursor-not-allowed")}
+                    >
+                      {turno.turnoNome} — Todas as disciplinas
+                    </label>
+                  </div>
+                  <div className="pl-6 space-y-1.5 pt-1.5">
+                    {turno.ofertas.map((o) => {
+                      const bloqueado = atingiuLimite && !selecionados.has(o.id);
+                      return (
+                        <div key={o.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`oferta-${o.id}`}
+                            checked={selecionados.has(o.id)}
+                            onCheckedChange={() => toggleOfertaComLimite(o)}
+                            disabled={bloqueado}
+                            className="shrink-0"
+                          />
+                          <label
+                            htmlFor={`oferta-${o.id}`}
+                            className={cn("text-xs cursor-pointer select-none", bloqueado && "opacity-40 cursor-not-allowed")}
+                          >
+                            {o.disciplinaNome}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="pl-6 space-y-1.5 pt-1.5">
-                  {turno.ofertas.map((o) => (
-                    <div key={o.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`oferta-${o.id}`}
-                        checked={selecionados.has(o.id)}
-                        onCheckedChange={() => toggleOferta(o.id)}
-                        className="shrink-0"
-                      />
-                      <label htmlFor={`oferta-${o.id}`} className="text-xs cursor-pointer select-none">
-                        {o.disciplinaNome}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              );
+            })}
+          </div>
+        );
+      })}
       <Button
         size="sm"
         className="h-8 text-xs"
@@ -645,8 +681,8 @@ export default function EnturmacaoPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">Enturmação — Estudantes</h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie a enturmação dos estudantes. Cada estudante é enturmado em um único curso.
-          Pode cursar uma ou todas as disciplinas do curso.
+          Gerencie a enturmação dos estudantes. Um estudante pode estar enturmado em até 2 turmas do mesmo curso, desde que sejam de turnos diferentes.
+          Cursos de módulo menor limitam a seleção a 2 disciplinas.
         </p>
       </div>
 

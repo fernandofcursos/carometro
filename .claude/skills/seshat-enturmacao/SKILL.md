@@ -18,9 +18,11 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 
 | Regra | Detalhe |
 |---|---|
-| **Uma matrícula ativa** | Estudante só pode ter **uma única matrícula ativa** — um curso, um turno. Verificado antes do INSERT via query (isNull deletadoEm). → 422 se já existe. |
-| **Proibido dois cursos mesmo em turnos diferentes** | Não importa o turno — se há matrícula ativa, nova enturmação é bloqueada até o admin remover a atual. |
-| **Disciplinas** | Pode cursar **uma ou todas** as disciplinas do curso; opção padrão é "Todas as disciplinas" |
+| **Até 2 matrículas ativas** | Estudante pode ter **no máximo 2 matrículas ativas**, desde que no **mesmo curso** e em **turnos diferentes**. |
+| **Proibido cursos diferentes** | Se já existe matrícula ativa, a nova turma deve pertencer ao mesmo curso. → 422 se curso diferente. |
+| **Proibido mesmo turno** | No mesmo curso, não é permitido enturmar em turmas do mesmo turno. Verificado via JOIN `turma_turnos`. → 422 se mesmo turno. |
+| **Módulo menor — max 2 disciplinas** | Cursos com `moduloMenor = true` limitam a seleção a 2 disciplinas. Validado na API (PUT usuario-disciplinas) e reforçado na UI (checkbox desabilitado). |
+| **Disciplinas** | Pode cursar **uma ou todas** as disciplinas do curso; para módulo menor, limite é 2. |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
 | **Visibilidade** | A página lista **todos os estudantes** — com ou sem matrícula ativa |
 
@@ -34,8 +36,9 @@ matriculasTable: {
   ano (integer NOT NULL), semestre (smallint NOT NULL, CHECK IN (1,2)),
   ativo (boolean, default true),
   criadoEm, atualizadoEm, deletadoEm
-  // Índice parcial — exclui soft-deletes da unicidade:
-  UNIQUE (usuarioId, ano, semestre) WHERE deletadoEm IS NULL  → "uq_matricula_ativo"
+  // Índice parcial: impede matrícula duplicada na mesma turma (ativo):
+  UNIQUE (usuarioId, turmaId) WHERE deletadoEm IS NULL  → "uq_matricula_usuario_turma"
+  // Regras de "mesmo curso / turnos diferentes" são verificadas em app-level.
 }
 ```
 
@@ -81,8 +84,11 @@ Cada item inclui:
 | ZodError `registro` | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Matrícula ativa já existe (app-level) | 422 | "Este estudante já está enturmado em '&lt;curso&gt; — &lt;turma&gt;' (&lt;ano&gt;/&lt;sem&gt;). Remova a enturmação atual antes de enturmar em outro curso." |
-| 23505 + uq_matricula_ativo | 409 | "Este estudante já possui uma matrícula ativa. Remova a enturmação atual antes de enturmar em outro curso." |
+| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes." |
+| Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
+| Mesmo turno (app-level) | 422 | "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno. Só é permitido em turnos diferentes." |
+| Módulo menor > 2 disciplinas | 422 | "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso." |
+| 23505 + uq_matricula_usuario_turma | 409 | "Este estudante já está matriculado nesta turma." |
 | 23505 genérico | 409 | "Este estudante já está enturmado nesta turma neste período." |
 | 23503 (FK) | 400 | "Turma ou estudante inválidos." |
 | 23502 (NOT NULL) | 400 | "Dados obrigatórios não informados." |

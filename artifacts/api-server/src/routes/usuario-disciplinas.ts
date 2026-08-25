@@ -15,13 +15,14 @@ router.get("/ofertas", requirePermissao("estudantes:manage"), async (_req: Reque
   try {
     const rows = await db
       .select({
-        id:           disciplinaOfertasTable.id,
-        disciplinaId: disciplinaOfertasTable.disciplinaId,
+        id:             disciplinaOfertasTable.id,
+        disciplinaId:   disciplinaOfertasTable.disciplinaId,
         disciplinaNome: disciplinasTable.nome,
-        cursoId:      disciplinaOfertasTable.cursoId,
-        cursoNome:    cursosTable.nome,
-        turnoId:      disciplinaOfertasTable.turnoId,
-        turnoNome:    turnosTable.nome,
+        cursoId:        disciplinaOfertasTable.cursoId,
+        cursoNome:      cursosTable.nome,
+        moduloMenor:    cursosTable.moduloMenor,
+        turnoId:        disciplinaOfertasTable.turnoId,
+        turnoNome:      turnosTable.nome,
       })
       .from(disciplinaOfertasTable)
       .innerJoin(disciplinasTable, eq(disciplinaOfertasTable.disciplinaId, disciplinasTable.id))
@@ -55,6 +56,34 @@ router.put("/:usuarioId", requirePermissao("estudantes:manage"), async (req: Req
   try {
     const usuarioId = String(req.params.usuarioId);
     const ids = (req.body as { disciplinaOfertaIds?: string[] }).disciplinaOfertaIds ?? [];
+
+    // Regra: módulo menor — máximo 2 disciplinas por curso
+    if (ids.length > 0) {
+      const ofertaRows = await db
+        .select({ id: disciplinaOfertasTable.id, cursoId: disciplinaOfertasTable.cursoId, moduloMenor: cursosTable.moduloMenor })
+        .from(disciplinaOfertasTable)
+        .innerJoin(cursosTable, eq(disciplinaOfertasTable.cursoId, cursosTable.id))
+        .where(eq(disciplinaOfertasTable.ativo, true));
+
+      const ofertaMap = new Map(ofertaRows.map((r) => [r.id, r]));
+      const contPorCurso = new Map<string, { count: number; moduloMenor: boolean }>();
+
+      for (const id of ids) {
+        const oferta = ofertaMap.get(id);
+        if (!oferta) continue;
+        const entry = contPorCurso.get(oferta.cursoId) ?? { count: 0, moduloMenor: oferta.moduloMenor };
+        entry.count++;
+        contPorCurso.set(oferta.cursoId, entry);
+      }
+
+      for (const [, entry] of contPorCurso) {
+        if (entry.moduloMenor && entry.count > 2) {
+          return res.status(422).json({
+            error: "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso.",
+          });
+        }
+      }
+    }
 
     // Remove todas as disciplinas atuais e insere as novas (bulk replace)
     await db.delete(usuarioDisciplinasTable)
