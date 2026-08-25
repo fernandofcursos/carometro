@@ -28,9 +28,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const MODULOS = ["I", "II", "III", "IV", "V", "VI"] as const;
+type Modulo = typeof MODULOS[number];
+
 type Turno = { id: string; nome: string };
 type Turma = {
   id: string; sigla: string; descricao: string;
+  modulo: Modulo | null;
   cursoId: string; cursoNome: string | null;
   turnos: Turno[];
   ano?: number | null; semestre?: number | null;
@@ -58,6 +62,7 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
   const [sigla, setSigla] = useState(turma.sigla);
   const [descricao, setDescricao] = useState(turma.descricao);
   const [cursoId, setCursoId] = useState(turma.cursoId);
+  const [modulo, setModulo] = useState<Modulo | "">(turma.modulo ?? "");
   const [turnoIds, setTurnoIds] = useState<string[]>(turma.turnos.map((t) => t.id));
 
   const { data: turnos } = useListTurnos();
@@ -67,9 +72,9 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
   const { toast } = useToast();
 
   const save = () => {
-    if (!sigla.trim() || !descricao.trim() || !cursoId || turnoIds.length === 0) return;
+    if (!sigla.trim() || !descricao.trim() || !cursoId || !modulo || turnoIds.length === 0) return;
     updateTurma.mutate(
-      { id: turma.id, data: { sigla: sigla.trim(), descricao: descricao.trim(), cursoId, turnoIds } },
+      { id: turma.id, data: { sigla: sigla.trim(), descricao: descricao.trim(), cursoId, modulo, turnoIds } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListTurmasQueryKey() });
@@ -83,7 +88,7 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
 
   const cancel = () => {
     setSigla(turma.sigla); setDescricao(turma.descricao);
-    setCursoId(turma.cursoId); setTurnoIds(turma.turnos.map((t) => t.id));
+    setCursoId(turma.cursoId); setModulo(turma.modulo ?? ""); setTurnoIds(turma.turnos.map((t) => t.id));
     setEditing(false);
   };
 
@@ -100,19 +105,28 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
             <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} className="h-8 text-sm bg-background" />
           </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Curso</Label>
-          <Select value={cursoId} onValueChange={setCursoId}>
-            <SelectTrigger className="h-8 text-sm bg-background"><SelectValue /></SelectTrigger>
-            <SelectContent>{cursos?.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-          </Select>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Curso</Label>
+            <Select value={cursoId} onValueChange={setCursoId}>
+              <SelectTrigger className="h-8 text-sm bg-background"><SelectValue /></SelectTrigger>
+              <SelectContent>{cursos?.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Módulo <span className="text-destructive">*</span></Label>
+            <Select value={modulo} onValueChange={(v) => setModulo(v as Modulo)}>
+              <SelectTrigger className="h-8 text-sm bg-background"><SelectValue placeholder="Selecione…" /></SelectTrigger>
+              <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>Módulo {m}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Turnos (selecione ao menos um)</Label>
           <TurnoCheckboxes turnos={turnos ?? []} selected={turnoIds} onChange={setTurnoIds} />
         </div>
         <div className="flex gap-2">
-          <Button size="sm" onClick={save} disabled={updateTurma.isPending || turnoIds.length === 0} className="h-7 px-3 text-xs">
+          <Button size="sm" onClick={save} disabled={updateTurma.isPending || !modulo || turnoIds.length === 0} className="h-7 px-3 text-xs">
             <Check className="w-3 h-3 mr-1" />Salvar
           </Button>
           <Button size="sm" variant="ghost" onClick={cancel} className="h-7 px-3 text-xs">
@@ -132,6 +146,11 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
         <p className="font-medium text-sm truncate">{turma.descricao}</p>
         <div className="flex flex-wrap gap-1 mt-1">
           <span className="text-xs bg-violet-100 text-violet-700 px-2 rounded-full">{turma.cursoNome}</span>
+          {turma.modulo && (
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 rounded-full font-semibold">
+              Módulo {turma.modulo}
+            </span>
+          )}
           {turma.turnos.map((t) => (
             <Badge key={t.id} variant="secondary" className="text-xs px-2 py-0">{t.nome}</Badge>
           ))}
@@ -167,6 +186,7 @@ export default function TurmasList() {
   const [sigla, setSigla] = useState("");
   const [descricao, setDescricao] = useState("");
   const [selectedCursoId, setSelectedCursoId] = useState("");
+  const [selectedModulo, setSelectedModulo] = useState<Modulo | "">("");
   const [selectedTurnoIds, setSelectedTurnoIds] = useState<string[]>([]);
 
   const { data: turmas, isLoading } = useListTurmas();
@@ -179,12 +199,12 @@ export default function TurmasList() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sigla.trim() || !descricao.trim() || !selectedCursoId || selectedTurnoIds.length === 0) return;
+    if (!sigla.trim() || !descricao.trim() || !selectedCursoId || !selectedModulo || selectedTurnoIds.length === 0) return;
     createTurma.mutate(
-      { data: { sigla: sigla.trim(), descricao: descricao.trim(), cursoId: selectedCursoId, turnoIds: selectedTurnoIds } },
+      { data: { sigla: sigla.trim(), descricao: descricao.trim(), cursoId: selectedCursoId, modulo: selectedModulo, turnoIds: selectedTurnoIds } },
       {
         onSuccess: () => {
-          setSigla(""); setDescricao(""); setSelectedCursoId(""); setSelectedTurnoIds([]);
+          setSigla(""); setDescricao(""); setSelectedCursoId(""); setSelectedModulo(""); setSelectedTurnoIds([]);
           queryClient.invalidateQueries({ queryKey: getListTurmasQueryKey() });
           toast({ title: "Turma criada com sucesso" });
         },
@@ -229,12 +249,21 @@ export default function TurmasList() {
                 <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: Informática 1º Ano A" className="bg-background" required />
               </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Curso</Label>
-              <Select value={selectedCursoId} onValueChange={setSelectedCursoId}>
-                <SelectTrigger className="bg-background"><SelectValue placeholder="Selecione o curso" /></SelectTrigger>
-                <SelectContent>{cursos?.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Curso</Label>
+                <Select value={selectedCursoId} onValueChange={setSelectedCursoId}>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder="Selecione o curso" /></SelectTrigger>
+                  <SelectContent>{cursos?.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Módulo <span className="text-destructive">*</span></Label>
+                <Select value={selectedModulo} onValueChange={(v) => setSelectedModulo(v as Modulo)}>
+                  <SelectTrigger className="bg-background"><SelectValue placeholder="Selecione o módulo" /></SelectTrigger>
+                  <SelectContent>{MODULOS.map((m) => <SelectItem key={m} value={m}>Módulo {m}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Turnos (selecione ao menos um)</Label>
@@ -242,7 +271,7 @@ export default function TurmasList() {
             </div>
             <Button
               type="submit"
-              disabled={!sigla.trim() || !descricao.trim() || !selectedCursoId || selectedTurnoIds.length === 0 || createTurma.isPending}
+              disabled={!sigla.trim() || !descricao.trim() || !selectedCursoId || !selectedModulo || selectedTurnoIds.length === 0 || createTurma.isPending}
             >
               <Plus className="w-4 h-4 mr-2" />Adicionar Turma
             </Button>

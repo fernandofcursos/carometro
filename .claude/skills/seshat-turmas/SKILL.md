@@ -15,8 +15,10 @@ turmas (N) >── cursos (1)
 turmasTable: {
   id, sigla (varchar 30, NOT NULL, único por curso),
   descricao (text, NOT NULL), cursoId (FK → cursos),
+  modulo (varchar 4, nullable in DB, required in API — enum 'I'|'II'|'III'|'IV'|'V'|'VI'),
   ano (integer, nullable), semestre (smallint, nullable),
   ativo (boolean, default true), criadoEm, atualizadoEm, deletadoEm
+  // constraint ck_turma_modulo CHECK modulo IN ('I','II','III','IV','V','VI')
 }
 
 turmaTurnosTable: {
@@ -33,7 +35,7 @@ turmaTurnosTable: {
 
 ```typescript
 // body
-{ sigla, descricao, cursoId, turnoIds: string[], ano?, semestre?, ativo? }
+{ sigla, descricao, cursoId, modulo: "I"|"II"|"III"|"IV"|"V"|"VI", turnoIds: string[], ano?, semestre?, ativo? }
 
 // fluxo
 1. insertTurmaSchema.parse(req.body)      → valida e separa turnoIds
@@ -52,6 +54,8 @@ Substitui os turnos completamente: `DELETE turma_turnos WHERE turmaId = id` → 
 | Erro | Mensagem ao usuário |
 |---|---|
 | ZodError em `turnoIds` | "Selecione ao menos um turno para a turma." |
+| ZodError em `modulo` | "Selecione o módulo da turma (I a VI)." |
+| 23514 / ck_turma_modulo | "Módulo inválido. Valores aceitos: I, II, III, IV, V, VI." |
 | ZodError em `cursoId` | "Selecione um curso válido." |
 | ZodError em `sigla` | "Sigla inválida (máx. 30 caracteres)." |
 | ZodError em `descricao` | "Informe a descrição da turma." |

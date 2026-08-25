@@ -19,6 +19,7 @@ turmas (N) >── cursos (1)
 | `sigla` | varchar(30) | NOT NULL, único por curso |
 | `descricao` | text | NOT NULL |
 | `curso_id` | uuid FK | NOT NULL → cursos |
+| `modulo` | varchar(4) | CHECK IN ('I','II','III','IV','V','VI') — obrigatório na criação, seleção única |
 | `ano` | integer | opcional |
 | `semestre` | smallint | opcional (1 ou 2) |
 | `ativo` | boolean | default true |
@@ -61,6 +62,7 @@ Array<{
   sigla: string;
   descricao: string;
   cursoId: string;
+  modulo: "I" | "II" | "III" | "IV" | "V" | "VI";   // obrigatório, seleção única
   turnoIds: string[];   // ao menos 1 obrigatório
   ano?: number;
   semestre?: number;
@@ -82,6 +84,7 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 ## Regras de Negócio
 
 - **Ao menos um turno obrigatório** — `turnoIds.length >= 1`
+- **Módulo obrigatório** — deve ser um de: `I`, `II`, `III`, `IV`, `V`, `VI`. Seleção única por turma. Validado via Zod (`z.enum`) na camada de API e reforçado por constraint `ck_turma_modulo` no banco.
 - **Sigla única por curso** — constraint `uq_turmas_sigla_curso(sigla, cursoId)`
 - Mesma sigla pode existir em cursos diferentes
 - Soft delete não impede estudantes de manter `turmaId` para histórico
@@ -91,10 +94,12 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 | Situação | Status | Mensagem ao usuário |
 |---|---|---|
 | `turnoIds` vazio ou ausente | 400 | "Selecione ao menos um turno para a turma." |
+| `modulo` ausente ou valor inválido | 400 | "Selecione o módulo da turma (I a VI)." |
 | `cursoId` inválido (Zod) | 400 | "Selecione um curso válido." |
 | `sigla` inválida | 400 | "Sigla inválida (máx. 30 caracteres)." |
 | `descricao` ausente | 400 | "Informe a descrição da turma." |
 | Sigla duplicada no mesmo curso (23505) | 409 | "Já existe uma turma com esta sigla neste curso." |
+| Módulo fora do enum (23514 / ck_turma_modulo) | 400 | "Módulo inválido. Valores aceitos: I, II, III, IV, V, VI." |
 | turnoId inexistente (23503) | 400 | "Um dos turnos selecionados não existe. Atualize a página e tente novamente." |
 | cursoId inexistente (23503) | 400 | "O curso selecionado não existe. Atualize a página e tente novamente." |
 | Erro interno | 500 | "Erro interno ao salvar a turma. Tente novamente." |
