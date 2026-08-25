@@ -88,6 +88,32 @@ const [existente] = await db.select({ id: textosPadraoOcorrenciasTable.id })
 if (existente) return res.status(409).json({ error: "Já existe um texto padrão ativo..." });
 ```
 
+## Regra Indiscutível — Caixa "Orientações ao Responsável"
+
+**Todo texto padrão para ocorrências DEVE conter** uma seção de orientações estilizada como caixa com duas áreas:
+
+| Elemento | Cor | Descrição |
+|---|---|---|
+| Título | `#1e40af` (azul médio) | "Orientações ao Responsável" — texto branco, negrito |
+| Corpo | `#eff6ff` (azul claro) | Texto de orientação, borda `#bfdbfe`, texto `#1e3a5f` |
+
+Paleta idêntica ao texto padrão "Advertência Verbal" — padrão obrigatório para todos os textos de ocorrência.
+
+**HTML de referência (colar no editor TipTap via modo HTML ou template):**
+
+```html
+<div style="border:1px solid #bfdbfe;border-radius:8px;overflow:hidden;margin:16px 0">
+  <div style="background:#1e40af;color:#fff;font-weight:bold;padding:8px 16px;font-size:0.9em">
+    Orientações ao Responsável
+  </div>
+  <div style="background:#eff6ff;padding:12px 16px;color:#1e3a5f;font-size:0.9em;line-height:1.6">
+    [texto de orientação]
+  </div>
+</div>
+```
+
+> O editor TipTap não impõe esse bloco automaticamente — é responsabilidade do administrador incluí-lo ao criar/editar o texto padrão.
+
 ## Permissão
 
 Toda a gestão de textos padrão reusa `tipos-ocorrencias:manage`.  

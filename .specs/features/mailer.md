@@ -143,6 +143,18 @@ Todos os e-mails transacionais seguem o padrão visual institucional da Escola T
 **Placeholders substituídos no texto padrão:**
 - `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
 
+**Regra Indiscutível — Caixa "Orientações ao Responsável":**
+
+Todo texto padrão deve conter uma seção de orientações dentro de uma caixa estilizada:
+
+| Elemento | Estilo |
+|---|---|
+| **Título da caixa** | "Orientações ao Responsável" — fundo `#1e40af` (azul médio), texto branco |
+| **Corpo da caixa** | Fundo `#eff6ff` (azul claro), borda `#bfdbfe`, texto `#1e3a5f` |
+| **Contêiner** | `border: 1px solid #bfdbfe`, `border-radius: 8px`, `overflow: hidden` |
+
+Esta paleta é idêntica ao texto padrão "Advertência Verbal" e deve ser mantida em todos os textos de ocorrência.
+
 - Assinatura: **Equipe Gestora / Escola Técnica de Santa Maria – ETSM / SEEDF / Brasília – DF**
 
 ---

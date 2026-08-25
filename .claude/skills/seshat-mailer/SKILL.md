@@ -191,6 +191,17 @@ Assunto: `"Notificação de Ocorrência: {estudante} — {tipo}"`
 
 **Placeholders no texto padrão:** `{{NOME_ESTUDANTE}}`, `{{DATA_OCORRENCIA}}`, `{{DATA_REGISTRO}}`, `{{TIPO_OCORRENCIA}}`, `{{DESCRICAO}}`
 
+**Regra Indiscutível — Caixa "Orientações ao Responsável":**
+
+Todo texto padrão deve conter o bloco de orientações estilizado. O mailer renderiza o HTML do `corpo` diretamente — o estilo da caixa é definido no conteúdo do texto padrão, não no mailer.
+
+| Elemento | Cor |
+|---|---|
+| Título "Orientações ao Responsável" | `#1e40af` (azul médio), texto branco |
+| Corpo da caixa | `#eff6ff` (azul claro), borda `#bfdbfe` |
+
+Paleta idêntica ao texto padrão "Advertência Verbal" — obrigatória em todos os textos de ocorrência.
+
 - Assinatura: **Equipe Gestora / ETSM / SEEDF / Brasília – DF**
 
 ## Página de Diagnóstico UI

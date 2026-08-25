@@ -13,6 +13,33 @@ Cada tipo de ocorrência pode ter **no máximo um texto ativo** por vez. Textos 
 
 ---
 
+## Regra Indiscutível — Caixa "Orientações ao Responsável"
+
+**Todo texto padrão para ocorrências DEVE conter uma seção destinada a orientações aos pais e responsáveis**, exibida como uma caixa com borda e fundo colorido:
+
+| Elemento | Estilo |
+|---|---|
+| **Título** | "Orientações ao Responsável" com fundo **azul médio** (`#1e40af`) e texto branco |
+| **Corpo** | Área de texto com fundo **azul claro** (`#eff6ff`) e borda `#bfdbfe` |
+| **Contêiner** | `border: 1px solid #bfdbfe`, `border-radius: 8px`, `overflow: hidden` |
+
+Esta paleta é **idêntica ao texto padrão "Advertência Verbal"** e deve ser mantida como padrão em todos os textos de ocorrência. O editor TipTap não impõe esse HTML — é responsabilidade do administrador incluir o bloco no conteúdo do texto padrão.
+
+### Estrutura HTML de referência para a caixa
+
+```html
+<div style="border:1px solid #bfdbfe;border-radius:8px;overflow:hidden;margin:16px 0">
+  <div style="background:#1e40af;color:#fff;font-weight:bold;padding:8px 16px;font-size:0.9em">
+    Orientações ao Responsável
+  </div>
+  <div style="background:#eff6ff;padding:12px 16px;color:#1e3a5f;font-size:0.9em;line-height:1.6">
+    [texto de orientação ao responsável]
+  </div>
+</div>
+```
+
+---
+
 ## Regras de Negócio
 
 | # | Regra |
@@ -25,6 +52,7 @@ Cada tipo de ocorrência pode ter **no máximo um texto ativo** por vez. Textos 
 | 6 | Corpo máximo: 10 000 caracteres (HTML); título máximo: 200 caracteres |
 | 7 | O campo `corpo` armazena HTML gerado pelo editor rico (TipTap); o mailer detecta automaticamente se é HTML ou texto plano |
 | 8 | Toolbar inclui alinhamento justificado e botão "Documento Anexado" (insere bloco `📎 Documento Anexado: ___`) |
+| 9 | **Todo texto padrão deve conter a caixa "Orientações ao Responsável"** com fundo azul médio no título e azul claro no corpo (ver Regra Indiscutível acima) |
 
 ---
 
