@@ -103,7 +103,6 @@ export function Acessibilidade() {
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent
           className="max-w-xl p-0 gap-0 overflow-hidden max-h-[90vh] flex flex-col"
-          aria-describedby={undefined}
         >
           <div className="bg-zinc-900 text-white px-6 py-3 flex items-center justify-between">
             <div className="flex-1" />
@@ -310,14 +309,25 @@ function useGuiaLeitura(ativo: boolean) {
     const linha = document.createElement("div");
     linha.setAttribute("aria-hidden", "true");
     linha.style.cssText =
-      "position:fixed;left:0;right:0;height:3px;background:#facc15;pointer-events:none;z-index:9999;box-shadow:0 0 6px rgba(0,0,0,.3);";
+      "position:fixed;left:0;right:0;height:3px;background:#facc15;pointer-events:none;z-index:9999;box-shadow:0 0 6px rgba(0,0,0,.3);top:-9999px;";
     document.body.appendChild(linha);
-    const onMove = (e: MouseEvent) => {
-      linha.style.top = `${e.clientY}px`;
+    const mover = (y: number) => { linha.style.top = `${y}px`; };
+    const onMouse = (e: MouseEvent) => mover(e.clientY);
+    const onFocus = (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (el?.getBoundingClientRect) mover(el.getBoundingClientRect().top);
     };
-    window.addEventListener("mousemove", onMove);
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (t) mover(t.clientY);
+    };
+    window.addEventListener("mousemove", onMouse);
+    window.addEventListener("focusin", onFocus);
+    window.addEventListener("touchmove", onTouch, { passive: true });
     return () => {
-      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mousemove", onMouse);
+      window.removeEventListener("focusin", onFocus);
+      window.removeEventListener("touchmove", onTouch);
       linha.remove();
     };
   }, [ativo]);
@@ -329,20 +339,35 @@ function useMascaraLeitura(ativo: boolean) {
     const top = document.createElement("div");
     const bottom = document.createElement("div");
     const base = "position:fixed;left:0;right:0;background:rgba(0,0,0,.7);pointer-events:none;z-index:9998;";
-    top.style.cssText = base + "top:0;";
-    bottom.style.cssText = base + "bottom:0;";
+    top.style.cssText = base + "top:0;height:0;";
+    bottom.style.cssText = base + "bottom:0;height:0;";
     top.setAttribute("aria-hidden", "true");
     bottom.setAttribute("aria-hidden", "true");
     document.body.append(top, bottom);
-    const onMove = (e: MouseEvent) => {
-      const altura = 120;
-      const y = e.clientY;
-      top.style.height = `${Math.max(0, y - altura / 2)}px`;
-      bottom.style.height = `${Math.max(0, window.innerHeight - y - altura / 2)}px`;
+    const ALTURA = 120;
+    const atualizar = (y: number) => {
+      top.style.height = `${Math.max(0, y - ALTURA / 2)}px`;
+      bottom.style.height = `${Math.max(0, window.innerHeight - y - ALTURA / 2)}px`;
     };
-    window.addEventListener("mousemove", onMove);
+    const onMouse = (e: MouseEvent) => atualizar(e.clientY);
+    const onFocus = (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (el?.getBoundingClientRect) {
+        const r = el.getBoundingClientRect();
+        atualizar(r.top + r.height / 2);
+      }
+    };
+    const onTouch = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (t) atualizar(t.clientY);
+    };
+    window.addEventListener("mousemove", onMouse);
+    window.addEventListener("focusin", onFocus);
+    window.addEventListener("touchmove", onTouch, { passive: true });
     return () => {
-      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mousemove", onMouse);
+      window.removeEventListener("focusin", onFocus);
+      window.removeEventListener("touchmove", onTouch);
       top.remove();
       bottom.remove();
     };

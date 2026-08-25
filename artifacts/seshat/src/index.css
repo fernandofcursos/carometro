@@ -175,29 +175,87 @@
 }
 
 /* ===== Acessibilidade ===== */
+
+/* Skip link — link de salto para o conteúdo principal (leitor de tela) */
+.a11y-skip-link {
+  position: fixed;
+  top: -9999px;
+  left: 0;
+  z-index: 99999;
+  background: #1d4ed8;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1rem;
+  padding: 12px 20px;
+  border-radius: 0 0 8px 0;
+  text-decoration: none;
+  transition: top 0.1s;
+}
+.a11y-skip-link:focus {
+  top: 0;
+}
+
+/* ── Alto contraste ─────────────────────────────────────────────────────────
+   Usa sobrescrita de variáveis CSS — NÃO usa filter: para não criar
+   stacking context que quebra position:fixed (sidebar, modais, dropdowns).  */
 html.a11y-high-contrast {
-  filter: contrast(1.35);
+  --background: 0 0% 0%;
+  --foreground: 60 100% 50%;
+  --card: 0 0% 6%;
+  --card-foreground: 60 100% 50%;
+  --card-border: 60 70% 40%;
+  --border: 60 70% 40%;
+  --input: 0 0% 12%;
+  --ring: 60 100% 50%;
+  --primary: 60 100% 50%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 60 100% 50%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 75%;
+  --accent: 0 0% 12%;
+  --accent-foreground: 60 100% 50%;
+  --destructive: 0 100% 60%;
+  --destructive-foreground: 0 0% 0%;
+  --sidebar: 0 0% 4%;
+  --sidebar-foreground: 60 100% 50%;
+  --sidebar-border: 60 70% 40%;
+  --sidebar-primary: 60 100% 50%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 0 0% 12%;
+  --sidebar-accent-foreground: 60 100% 50%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 60 100% 50%;
+  --popover-border: 60 70% 40%;
+  color-scheme: dark;
 }
-html.a11y-invert {
+
+/* ── Filtros de cor ──────────────────────────────────────────────────────────
+   Aplicados no body (não no html) para reduzir impacto no stacking context.
+   Elementos portados pelo Radix (dialogs, tooltips) ficam fora do filtro —
+   comportamento aceitável; não quebram position:fixed do layout principal. */
+html.a11y-invert body {
   filter: invert(1) hue-rotate(180deg);
 }
-html.a11y-invert img,
-html.a11y-invert video,
-html.a11y-invert picture {
+html.a11y-invert body img,
+html.a11y-invert body video,
+html.a11y-invert body picture {
   filter: invert(1) hue-rotate(180deg);
 }
-html.a11y-grayscale {
+html.a11y-grayscale body {
   filter: grayscale(1);
 }
-html.a11y-low-saturation {
+html.a11y-low-saturation body {
   filter: saturate(0.5);
 }
-html.a11y-high-saturation {
+html.a11y-high-saturation body {
   filter: saturate(1.8);
 }
-html.a11y-colorblind {
+/* Filtro deuteranopia (deficiência em percepção do verde) */
+html.a11y-colorblind body {
   filter: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='cb'><feColorMatrix type='matrix' values='0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0'/></filter></svg>#cb");
 }
+
 html.a11y-light {
   color-scheme: light;
 }
@@ -220,8 +278,8 @@ html.a11y-readable-font * {
 html.a11y-highlight-links a {
   text-decoration: underline !important;
   text-underline-offset: 3px;
-  background: rgba(250, 204, 21, 0.25) !important;
-  outline: 1px dashed rgba(0, 0, 0, 0.3);
+  background: rgba(250, 204, 21, 0.35) !important;
+  outline: 2px dashed rgba(0, 0, 0, 0.5);
 }
 html.a11y-highlight-headings h1,
 html.a11y-highlight-headings h2,
@@ -233,11 +291,12 @@ html.a11y-highlight-headings h6 {
   outline-offset: 4px;
   padding: 2px 4px;
 }
+/* ocultar-imagens: display:none colapsa o espaço; visibility:hidden deixava lacunas */
 html.a11y-hide-images img,
 html.a11y-hide-images picture,
-html.a11y-hide-images svg,
+html.a11y-hide-images svg:not([data-a11y-keep]),
 html.a11y-hide-images video {
-  visibility: hidden !important;
+  display: none !important;
 }
 html.a11y-cursor-large,
 html.a11y-cursor-large * {
@@ -253,18 +312,39 @@ html.a11y-keyboard-nav *:focus,
 html.a11y-keyboard-nav *:focus-visible {
   outline: 3px solid #facc15 !important;
   outline-offset: 2px !important;
+  box-shadow: 0 0 0 5px rgba(250, 204, 21, 0.3) !important;
 }
-html.a11y-screen-reader [aria-hidden="true"] {
-  display: none !important;
+/* leitor-tela: a regra anterior (display:none em aria-hidden) escondia ícones
+   decorativos quebrando o layout. Substituída por reforço de foco e skip link. */
+html.a11y-screen-reader *:focus,
+html.a11y-screen-reader *:focus-visible {
+  outline: 3px solid #2563eb !important;
+  outline-offset: 3px !important;
+}
+html.a11y-screen-reader main,
+html.a11y-screen-reader [role="main"] {
+  outline: 2px dashed transparent;
+}
+/* tooltips: position:relative no elemento pai para o ::after se posicionar corretamente */
+html.a11y-show-titles [title] {
+  position: relative;
 }
 html.a11y-show-titles [title]:hover::after {
   content: attr(title);
   position: absolute;
-  background: #111;
-  color: #fff;
+  left: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: #111827;
+  color: #f9fafb;
   font-size: 12px;
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: 4px;
   z-index: 99999;
-  margin-top: 1.5rem;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
 }

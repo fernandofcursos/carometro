@@ -394,14 +394,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </button>
           )}
           <StatusPill />
-          <div className="hidden md:block">
-            <Acessibilidade />
-          </div>
+          <Acessibilidade />
         </header>
-        <main className={cn(
-          "flex-1 w-full animate-in fade-in duration-300",
-          isMobile ? "p-4 pb-24 max-w-none" : "p-4 md:p-8 max-w-7xl mx-auto"
-        )}>
+        <main
+          id="conteudo-principal"
+          className={cn(
+            "flex-1 w-full animate-in fade-in duration-300",
+            isMobile ? "p-4 pb-24 max-w-none" : "p-4 md:p-8 max-w-7xl mx-auto"
+          )}
+        >
           {children}
         </main>
       </div>

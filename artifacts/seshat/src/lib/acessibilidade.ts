@@ -62,8 +62,8 @@ export type Feature = {
 export const FEATURES: Record<FeatureId, Feature> = {
   "leitor-tela": {
     id: "leitor-tela",
-    titulo: "Ajuste de Leitor de Tela",
-    descricao: "Tornar o site compatível para usuários com leitor de tela",
+    titulo: "Leitor de tela",
+    descricao: "Adiciona skip link e reforça indicadores de foco para compatibilidade com leitores de tela (NVDA, JAWS, VoiceOver).",
     icone: Ear,
     htmlClass: "a11y-screen-reader",
   },
@@ -98,10 +98,10 @@ export const FEATURES: Record<FeatureId, Feature> = {
   "alto-contraste": {
     id: "alto-contraste",
     titulo: "Alto contraste",
-    descricao: "Aumenta o contraste entre texto e fundo.",
+    descricao: "Tema preto e amarelo de alto contraste real — não usa filter, não quebra o layout.",
     icone: Contrast,
     htmlClass: "a11y-high-contrast",
-    grupo: "contraste",
+    grupo: "visual",
   },
   "contraste-invertido": {
     id: "contraste-invertido",
@@ -109,7 +109,7 @@ export const FEATURES: Record<FeatureId, Feature> = {
     descricao: "Inverte as cores da página.",
     icone: Palette,
     htmlClass: "a11y-invert",
-    grupo: "contraste",
+    grupo: "visual",
   },
   "tons-cinza": {
     id: "tons-cinza",
@@ -117,7 +117,7 @@ export const FEATURES: Record<FeatureId, Feature> = {
     descricao: "Remove todas as cores da página.",
     icone: Droplets,
     htmlClass: "a11y-grayscale",
-    grupo: "saturacao",
+    grupo: "visual",
   },
   "modo-escuro": {
     id: "modo-escuro",
@@ -125,7 +125,7 @@ export const FEATURES: Record<FeatureId, Feature> = {
     descricao: "Fundo escuro com texto claro.",
     icone: Moon,
     htmlClass: "dark",
-    grupo: "tema",
+    grupo: "visual",
   },
   "modo-claro": {
     id: "modo-claro",
@@ -133,7 +133,7 @@ export const FEATURES: Record<FeatureId, Feature> = {
     descricao: "Fundo claro com texto escuro.",
     icone: Sun,
     htmlClass: "a11y-light",
-    grupo: "tema",
+    grupo: "visual",
   },
   "saturacao-baixa": {
     id: "saturacao-baixa",
@@ -141,7 +141,7 @@ export const FEATURES: Record<FeatureId, Feature> = {
     descricao: "Reduz a intensidade das cores.",
     icone: Droplets,
     htmlClass: "a11y-low-saturation",
-    grupo: "saturacao",
+    grupo: "visual",
   },
   "saturacao-alta": {
     id: "saturacao-alta",
@@ -149,12 +149,12 @@ export const FEATURES: Record<FeatureId, Feature> = {
     descricao: "Aumenta a intensidade das cores.",
     icone: Droplets,
     htmlClass: "a11y-high-saturation",
-    grupo: "saturacao",
+    grupo: "visual",
   },
   "filtro-daltonismo": {
     id: "filtro-daltonismo",
-    titulo: "Filtro de daltonismo",
-    descricao: "Aplica filtro para auxiliar usuários daltônicos.",
+    titulo: "Filtro deuteranopia",
+    descricao: "Aplica filtro de correção para deuteranopia (deficiência em percepção do verde).",
     icone: Palette,
     htmlClass: "a11y-colorblind",
   },
@@ -289,7 +289,7 @@ export type Profile = {
 };
 
 export const PROFILES: Profile[] = [
-  { id: "cega", titulo: "Pessoa cega", features: ["leitor-tela", "estrutura-pagina"] },
+  { id: "cega", titulo: "Pessoa cega", features: ["leitor-tela", "navegacao-teclado", "estrutura-pagina", "pausar-animacoes"] },
   { id: "motora", titulo: "Pessoa com deficiência motora", features: ["navegacao-teclado", "cursor-grande", "pausar-animacoes"] },
   { id: "daltonismo", titulo: "Pessoa com daltonismo", features: ["filtro-daltonismo"] },
   { id: "baixa-visao", titulo: "Pessoa com baixa visão", features: ["texto-maior", "alto-contraste", "cursor-grande", "destacar-titulos"] },
@@ -329,6 +329,24 @@ export function salvar(state: A11yState) {
   );
 }
 
+const SKIP_LINK_ID = "a11y-skip-to-main";
+
+function gerarSkipLink() {
+  let link = document.getElementById(SKIP_LINK_ID) as HTMLAnchorElement | null;
+  if (!link) {
+    link = document.createElement("a");
+    link.id = SKIP_LINK_ID;
+    link.href = "#conteudo-principal";
+    link.className = "a11y-skip-link";
+    link.textContent = "Ir para o conteúdo principal";
+    document.body.insertBefore(link, document.body.firstChild);
+  }
+}
+
+function removerSkipLink() {
+  document.getElementById(SKIP_LINK_ID)?.remove();
+}
+
 export function aplicar(state: A11yState) {
   const html = document.documentElement;
   const todasClasses = Object.values(FEATURES)
@@ -338,6 +356,12 @@ export function aplicar(state: A11yState) {
   for (const id of state.features) {
     const cls = FEATURES[id].htmlClass;
     if (cls) html.classList.add(cls);
+  }
+  // Skip link: injetado no DOM quando leitor-tela está ativo
+  if (state.features.has("leitor-tela")) {
+    gerarSkipLink();
+  } else {
+    removerSkipLink();
   }
 }
 
