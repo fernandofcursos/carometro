@@ -112,6 +112,20 @@ Paleta idêntica ao texto padrão "Advertência Verbal" — padrão obrigatório
 </div>
 ```
 
+**Bloco padrão já com o texto institucional da ETSM** (usar como base em todos os textos de ocorrência):
+
+```html
+<div style="border:1px solid #bfdbfe;border-radius:8px;overflow:hidden;margin:16px 0">
+  <div style="background:#1e40af;color:#fff;font-weight:bold;padding:8px 16px;font-size:0.9em">
+    Orientações ao Responsável
+  </div>
+  <div style="background:#eff6ff;padding:12px 16px;color:#1e3a5f;font-size:0.9em;line-height:1.6">
+    <p style="margin:0 0 10px 0">Esta notificação tem caráter pedagógico e formativo. A Escola Técnica de Santa Maria reafirma seu compromisso com um ambiente escolar seguro, respeitoso e propício ao aprendizado, conforme os princípios da cultura de paz estabelecidos pela SEEDF.</p>
+    <p style="margin:0">Orientamos que o(a) responsável compareça à Coordenação Pedagógica para acolhimento e esclarecimentos, no prazo de 3 (três) dias úteis a partir do recebimento desta notificação. Dúvidas poderão ser encaminhadas diretamente à Equipe Gestora.</p>
+  </div>
+</div>
+```
+
 > O editor TipTap não impõe esse bloco automaticamente — é responsabilidade do administrador incluí-lo ao criar/editar o texto padrão.
 
 ## Permissão
