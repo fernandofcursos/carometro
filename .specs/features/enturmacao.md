@@ -15,13 +15,12 @@ O menu lateral exibe o grupo **"Enturmação"** com o item **"Estudantes"** apon
 
 | # | Regra |
 |---|---|
-| 1 | **Um curso por estudante**: o estudante só pode estar enturmado em **um único curso**. Não é possível ter enturmações em cursos diferentes ao mesmo tempo. |
-| 2 | **Proibido dois cursos simultâneos**: tentativa de enturmar em turma de curso diferente do atual resulta em erro 422. |
-| 3 | **Disciplinas do semestre atual**: o estudante pode cursar **uma ou todas as disciplinas** do curso, selecionadas no momento da enturmação ou posteriormente. |
-| 4 | **Disciplina de semestre anterior**: o estudante pode cursar **uma única disciplina** de semestre anterior ao seu atual, desde que seja no **turno contrário** ao da sua enturmação principal. Esta regra é validada na camada de `usuario_disciplinas`. |
+| 1 | **Uma única matrícula ativa**: o estudante só pode estar enturmado em **um único curso**, em **um único turno**. Não é possível ter duas matrículas ativas simultaneamente, mesmo em cursos ou turnos diferentes. |
+| 2 | **Proibido dois cursos mesmo em turnos diferentes**: tentativa de enturmar um estudante que já possui matrícula ativa resulta em erro 422. O admin deve remover a enturmação atual antes de enturmar em outro curso. |
+| 3 | **Disciplinas**: o estudante pode cursar **uma ou todas as disciplinas** do curso ao qual está enturmado. A seleção é feita na página de enturmação, agrupada por Curso e Turno. |
+| 4 | **Opção padrão de disciplinas**: ao enturmar, a seleção padrão é **"Todas as disciplinas"** do curso. O admin pode restringir para disciplinas específicas. |
 | 5 | **Registro numérico**: o registro do estudante é um número fornecido externamente (não calculado pelo sistema), obrigatório na enturmação, máximo 20 dígitos. |
-| 6 | **Visibilidade**: a página mostra **todos os estudantes** — com ou sem enturmação ativa. Estudantes sem matrícula aparecem na lista com a seção de disciplinas vazia e o formulário de enturmação disponível. |
-| 7 | **Opção padrão de disciplinas**: ao enturmar, a seleção padrão é **"Todas as disciplinas"** do curso. O usuário pode restringir para disciplinas específicas. |
+| 6 | **Visibilidade**: a página mostra **todos os estudantes** — com ou sem enturmação ativa. Estudantes sem matrícula aparecem na lista com o formulário de enturmação disponível. |
 
 ---
 
@@ -45,7 +44,7 @@ usuarios (role estudante) (1) ──< matriculas >── (1) turmas → cursos
 | `criadoEm` | timestamptz | default now() |
 | `atualizadoEm` | timestamptz | default now() |
 | `deletadoEm` | timestamptz | soft delete |
-| UNIQUE | — | (usuarioId, turmaId, ano, semestre) |
+| UNIQUE parcial | — | (usuarioId, ano, semestre) WHERE deletadoEm IS NULL — só linhas ativas participam da unicidade |
 
 ### Relação com disciplinas
 
@@ -132,9 +131,9 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 | `registro` não numérico | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | `semestre` inválido | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Estudante já em outro curso | 422 | "Este estudante já está enturmado em '&lt;nome&gt;'. Um estudante só pode estar enturmado em um curso." |
-| Matrícula no mesmo semestre (23505 / uq_matricula_semestre) | 409 | "Este estudante já está enturmado em outro curso neste semestre." |
-| Matrícula duplicada (23505) | 409 | "Este estudante já está enturmado nesta turma neste semestre." |
+| Estudante com matrícula ativa | 422 | "Este estudante já está enturmado em '&lt;curso&gt; — &lt;turma&gt;' (&lt;ano&gt;/&lt;sem&gt;º sem.). Remova a enturmação atual antes de enturmar em outro curso." |
+| Conflito DB parcial (23505 / uq_matricula_ativo) | 409 | "Este estudante já possui uma matrícula ativa. Remova a enturmação atual antes de enturmar em outro curso." |
+| Matrícula duplicada (23505 genérico) | 409 | "Este estudante já está enturmado nesta turma neste período." |
 | FK inválida (23503) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |
 | Schema desatualizado (42703) | 500 | "Erro de schema no banco de dados. Execute as migrações pendentes." |
 | Erro interno | 500 | "Erro interno ao salvar a enturmação. Tente novamente." |

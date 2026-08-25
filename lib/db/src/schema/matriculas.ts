@@ -18,8 +18,10 @@ export const matriculasTable = pgTable("matriculas", {
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
   deletadoEm:   timestamp("deletado_em",   { withTimezone: true }),
 }, (t) => [
-  // Um estudante só pode ter uma enturmação por semestre (independente de turma ou curso)
-  uniqueIndex("uq_matricula_semestre").on(t.usuarioId, t.ano, t.semestre),
+  // Partial unique index: um estudante só pode ter UMA matrícula ativa.
+  // Linhas soft-deleted (deletadoEm IS NOT NULL) ficam fora da unicidade,
+  // permitindo reenturmação após remoção sem 23505 fantasma.
+  uniqueIndex("uq_matricula_ativo").on(t.usuarioId, t.ano, t.semestre).where(sql`${t.deletadoEm} IS NULL`),
   check("ck_semestre", sql`${t.semestre} IN (1, 2)`),
 ]);
 

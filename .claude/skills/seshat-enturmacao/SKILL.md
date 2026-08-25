@@ -18,10 +18,9 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 
 | Regra | Detalhe |
 |---|---|
-| **Um curso** | Estudante só pode estar em **um único curso**. Validado em `POST /api/matriculas` |
-| **Sem dois cursos simultâneos** | Bloqueia enturmação em curso diferente do atual → 422 |
+| **Uma matrícula ativa** | Estudante só pode ter **uma única matrícula ativa** — um curso, um turno. Verificado antes do INSERT via query (isNull deletadoEm). → 422 se já existe. |
+| **Proibido dois cursos mesmo em turnos diferentes** | Não importa o turno — se há matrícula ativa, nova enturmação é bloqueada até o admin remover a atual. |
 | **Disciplinas** | Pode cursar **uma ou todas** as disciplinas do curso; opção padrão é "Todas as disciplinas" |
-| **Disciplina de semestre anterior** | Uma única, em **turno contrário** ao da turma principal; validada em `usuario_disciplinas` |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
 | **Visibilidade** | A página lista **todos os estudantes** — com ou sem matrícula ativa |
 
@@ -35,9 +34,12 @@ matriculasTable: {
   ano (integer NOT NULL), semestre (smallint NOT NULL, CHECK IN (1,2)),
   ativo (boolean, default true),
   criadoEm, atualizadoEm, deletadoEm
-  UNIQUE (usuarioId, turmaId, ano, semestre)
+  // Índice parcial — exclui soft-deletes da unicidade:
+  UNIQUE (usuarioId, ano, semestre) WHERE deletadoEm IS NULL  → "uq_matricula_ativo"
 }
 ```
+
+> **Por que índice parcial?** Sem o `WHERE deletadoEm IS NULL`, linhas soft-deleted bloqueiam reenturmação com erro 23505 ("enturmado fantasma") — o estudante aparece como livre na UI mas o banco recusa o INSERT.
 
 ## GET /api/matriculas — query
 
@@ -79,9 +81,9 @@ Cada item inclui:
 | ZodError `registro` | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Outro curso ativo | 422 | "Este estudante já está enturmado em '...'." |
-| 23505 + uq_matricula_semestre | 409 | "Este estudante já está enturmado em outro curso neste semestre." |
-| 23505 | 409 | "Este estudante já está enturmado nesta turma neste semestre." |
+| Matrícula ativa já existe (app-level) | 422 | "Este estudante já está enturmado em '&lt;curso&gt; — &lt;turma&gt;' (&lt;ano&gt;/&lt;sem&gt;). Remova a enturmação atual antes de enturmar em outro curso." |
+| 23505 + uq_matricula_ativo | 409 | "Este estudante já possui uma matrícula ativa. Remova a enturmação atual antes de enturmar em outro curso." |
+| 23505 genérico | 409 | "Este estudante já está enturmado nesta turma neste período." |
 | 23503 (FK) | 400 | "Turma ou estudante inválidos." |
 | 23502 (NOT NULL) | 400 | "Dados obrigatórios não informados." |
 | 42703 (coluna inexistente) | 500 | "Erro de schema no banco. Execute as migrações." |

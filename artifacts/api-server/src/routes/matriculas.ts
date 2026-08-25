@@ -58,11 +58,11 @@ function matriculaErrorMessage(err: unknown): { status: number; error: string } 
   const causeMsg = String((err as { cause?: unknown })?.cause ?? "");
   const code = pgCode(err);
 
-  if (code === "23505" && (msg.includes("uq_matricula_semestre") || causeMsg.includes("uq_matricula_semestre"))) {
-    return { status: 409, error: "Este estudante já está enturmado em outro curso neste semestre." };
+  if (code === "23505" && (msg.includes("uq_matricula_ativo") || causeMsg.includes("uq_matricula_ativo"))) {
+    return { status: 409, error: "Este estudante já possui uma matrícula ativa. Remova a enturmação atual antes de enturmar em outro curso." };
   }
   if (code === "23505") {
-    return { status: 409, error: "Este estudante já está enturmado nesta turma neste semestre." };
+    return { status: 409, error: "Este estudante já está enturmado nesta turma neste período." };
   }
   if (code === "23503") {
     return { status: 400, error: "Turma ou estudante inválidos. Atualize a página e tente novamente." };
@@ -308,27 +308,30 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
       }
     }
 
-    // ── Regra: um único semestre por estudante (independente de curso ou turno) ─
-    const [matriculaNoSemestre] = await db
+    // ── Regra: apenas UMA matrícula ativa por estudante ──────────────────────
+    // Um estudante não pode estar enturmado em dois cursos, mesmo em turnos
+    // ou semestres diferentes. Verifica qualquer matrícula ativa (sem filtro
+    // de ano/semestre) antes do INSERT.
+    const [matriculaAtiva] = await db
       .select({
-        id:        matriculasTable.id,
-        cursoNome: cursosTable.nome,
+        id:         matriculasTable.id,
+        cursoNome:  cursosTable.nome,
         turmaSigla: turmasTable.sigla,
+        ano:        matriculasTable.ano,
+        semestre:   matriculasTable.semestre,
       })
       .from(matriculasTable)
       .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
       .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
       .where(and(
         eq(matriculasTable.usuarioId, usuarioId),
-        eq(matriculasTable.ano, body.ano),
-        eq(matriculasTable.semestre, body.semestre),
         isNull(matriculasTable.deletadoEm),
       ))
       .limit(1);
 
-    if (matriculaNoSemestre) {
+    if (matriculaAtiva) {
       return res.status(422).json({
-        error: `Este estudante já está enturmado em "${matriculaNoSemestre.cursoNome} — ${matriculaNoSemestre.turmaSigla}" no ${body.semestre}º semestre de ${body.ano}. Um estudante só pode ter uma enturmação por semestre.`,
+        error: `Este estudante já está enturmado em "${matriculaAtiva.cursoNome} — ${matriculaAtiva.turmaSigla}" (${matriculaAtiva.ano}/${matriculaAtiva.semestre}º sem.). Remova a enturmação atual antes de enturmar em outro curso.`,
       });
     }
 

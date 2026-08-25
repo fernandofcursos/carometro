@@ -8,6 +8,7 @@
 BEGIN;
 
 -- Cria tabela se não existir (nova instalação)
+-- Já usa o índice parcial correto para instalações novas
 CREATE TABLE IF NOT EXISTS matriculas (
   id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   usuario_id    uuid        NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
@@ -19,11 +20,10 @@ CREATE TABLE IF NOT EXISTS matriculas (
   criado_em     timestamptz NOT NULL DEFAULT now(),
   atualizado_em timestamptz NOT NULL DEFAULT now(),
   deletado_em   timestamptz,
-  CONSTRAINT uq_matricula_semestre UNIQUE (usuario_id, ano, semestre),
-  CONSTRAINT ck_semestre           CHECK  (semestre IN (1, 2))
+  CONSTRAINT ck_semestre CHECK (semestre IN (1, 2))
 );
 
--- Migração: remover coluna 'principal' se existir (schema antigo)
+-- ── Migração: remover coluna 'principal' se existir (schema antigo) ───────────
 DO $$
 BEGIN
   IF EXISTS (
@@ -35,7 +35,7 @@ BEGIN
   END IF;
 END $$;
 
--- Migração: substituir constraint antiga (4 colunas) pela nova (3 colunas)
+-- ── Migração: substituir constraint antiga (4 colunas → 3 colunas) ────────────
 DO $$
 BEGIN
   IF EXISTS (
@@ -43,15 +43,49 @@ BEGIN
     WHERE table_name = 'matriculas' AND constraint_name = 'uq_matricula'
   ) THEN
     ALTER TABLE matriculas DROP CONSTRAINT uq_matricula;
-    RAISE NOTICE 'matriculas: constraint uq_matricula removida.';
+    RAISE NOTICE 'matriculas: constraint uq_matricula (antiga, 4 colunas) removida.';
   END IF;
+END $$;
 
-  IF NOT EXISTS (
+-- ── Migração CRÍTICA: trocar constraint não-parcial pelo índice parcial ────────
+--
+-- Motivo: UNIQUE (usuario_id, ano, semestre) sem WHERE inclui linhas
+-- soft-deleted (deletado_em IS NOT NULL). Ao reenturmar um estudante após
+-- remoção de matrícula, o PostgreSQL disparava 23505 mesmo a linha sendo
+-- "deletada" logicamente — causando "estudante já enturmado" fantasma.
+--
+-- Solução: índice parcial UNIQUE WHERE deletado_em IS NULL — linhas
+-- soft-deleted saem da unicidade e não bloqueiam reenturmação.
+
+DO $$
+BEGIN
+  -- Remove constraint não-parcial (criada pelo script antigo ou pelo Drizzle push)
+  IF EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE table_name = 'matriculas' AND constraint_name = 'uq_matricula_semestre'
   ) THEN
-    ALTER TABLE matriculas ADD CONSTRAINT uq_matricula_semestre UNIQUE (usuario_id, ano, semestre);
-    RAISE NOTICE 'matriculas: constraint uq_matricula_semestre criada.';
+    ALTER TABLE matriculas DROP CONSTRAINT uq_matricula_semestre;
+    RAISE NOTICE 'matriculas: constraint uq_matricula_semestre (não-parcial) removida.';
+  END IF;
+
+  -- Remove índice não-parcial se existir como index (não como constraint)
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'matriculas' AND indexname = 'uq_matricula_semestre'
+  ) THEN
+    DROP INDEX uq_matricula_semestre;
+    RAISE NOTICE 'matriculas: index uq_matricula_semestre (não-parcial) removido.';
+  END IF;
+
+  -- Cria índice parcial: só linhas ativas participam da unicidade
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE tablename = 'matriculas' AND indexname = 'uq_matricula_ativo'
+  ) THEN
+    CREATE UNIQUE INDEX uq_matricula_ativo
+      ON matriculas (usuario_id, ano, semestre)
+      WHERE deletado_em IS NULL;
+    RAISE NOTICE 'matriculas: índice parcial uq_matricula_ativo criado.';
   END IF;
 END $$;
 
