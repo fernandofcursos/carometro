@@ -34,20 +34,15 @@
       </div>
     </div>
     <div id="root"></div>
-    <script src="https://cdn.jsdelivr.net/gh/spbgovbr-vlibras/vlibras-portal@sgd/app/vlibras-plugin.js" defer></script>
-    <script>
-      window.addEventListener("load", function () {
-        try {
-          if (window.VLibras && window.VLibras.Widget) {
-            new window.VLibras.Widget("https://cdn.jsdelivr.net/gh/spbgovbr-vlibras/vlibras-portal@sgd/app");
-          } else {
-            console.warn("VLibras: plugin não carregou");
-          }
-        } catch (e) {
-          console.warn("VLibras: falha ao inicializar", e);
-        }
-      });
-    </script>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- VLibras — plugin oficial do governo (vlibras.gov.br) -->
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+    <script>
+      try {
+        new window.VLibras.Widget("https://vlibras.gov.br/app");
+      } catch (e) {
+        console.warn("VLibras: falha ao inicializar", e);
+      }
+    </script>
   </body>
 </html>
