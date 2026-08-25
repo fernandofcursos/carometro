@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useListTurmas } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@workspace/api-client-react";
@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Plus, Trash2, UserCheck, ChevronDown, ChevronRight, UserPlus, Copy, Check } from "lucide-react";
+import { GraduationCap, Plus, Trash2, UserCheck, ChevronDown, ChevronRight, UserPlus, Copy, Check, BookOpen } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -19,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Matricula = {
   id: string;
@@ -34,12 +37,32 @@ type Matricula = {
   criadoEm: string;
 };
 
+type DisciplinaAtual = {
+  disciplinaOfertaId: string;
+  disciplinaNome: string;
+  cursoNome: string;
+  turnoNome: string;
+};
+
 type Estudante = {
   id: string;
   nome: string | null;
   criadoEm: string;
   matriculas: Matricula[];
+  disciplinas: DisciplinaAtual[];
 };
+
+type Oferta = {
+  id: string;
+  disciplinaId: string;
+  disciplinaNome: string;
+  cursoId: string;
+  cursoNome: string;
+  turnoId: string;
+  turnoNome: string;
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function apiMsg(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
@@ -52,6 +75,154 @@ function apiMsg(err: unknown, fallback: string): string {
 
 const anoAtual = new Date().getFullYear();
 const anosOptions = Array.from({ length: 6 }, (_, i) => anoAtual - 1 + i);
+
+// ── DisciplinasSelector ───────────────────────────────────────────────────────
+
+function DisciplinasSelector({
+  usuarioId,
+  ofertas,
+  disciplinasAtuais,
+  onSaved,
+}: {
+  usuarioId: string;
+  ofertas: Oferta[];
+  disciplinasAtuais: string[];
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+
+  // Seleção local — inicializa com as disciplinas atuais do usuário,
+  // ou com TODAS as ofertas se o usuário ainda não tem nenhuma.
+  const [selecionados, setSelecionados] = useState<Set<string>>(() => {
+    if (disciplinasAtuais.length > 0) {
+      return new Set(disciplinasAtuais);
+    }
+    return new Set(ofertas.map((o) => o.id));
+  });
+
+  // Agrupamento: Curso → Turno → Ofertas
+  const grupos = useMemo(() => {
+    const byCurso = new Map<string, { cursoId: string; cursoNome: string; turnos: Map<string, { turnoId: string; turnoNome: string; ofertas: Oferta[] }> }>();
+    for (const o of ofertas) {
+      if (!byCurso.has(o.cursoId)) {
+        byCurso.set(o.cursoId, { cursoId: o.cursoId, cursoNome: o.cursoNome, turnos: new Map() });
+      }
+      const curso = byCurso.get(o.cursoId)!;
+      if (!curso.turnos.has(o.turnoId)) {
+        curso.turnos.set(o.turnoId, { turnoId: o.turnoId, turnoNome: o.turnoNome, ofertas: [] });
+      }
+      curso.turnos.get(o.turnoId)!.ofertas.push(o);
+    }
+    return [...byCurso.values()].map((c) => ({ ...c, turnos: [...c.turnos.values()] }));
+  }, [ofertas]);
+
+  function toggleOferta(id: string) {
+    setSelecionados((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleTurno(turnoOfertas: Oferta[]) {
+    const ids = turnoOfertas.map((o) => o.id);
+    const allSelected = ids.every((id) => selecionados.has(id));
+    setSelecionados((prev) => {
+      const next = new Set(prev);
+      if (allSelected) { ids.forEach((id) => next.delete(id)); }
+      else { ids.forEach((id) => next.add(id)); }
+      return next;
+    });
+  }
+
+  function turnoState(turnoOfertas: Oferta[]): "all" | "none" | "partial" {
+    const ids = turnoOfertas.map((o) => o.id);
+    const count = ids.filter((id) => selecionados.has(id)).length;
+    if (count === 0) return "none";
+    if (count === ids.length) return "all";
+    return "partial";
+  }
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/usuario-disciplinas/${usuarioId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ disciplinaOfertaIds: [...selecionados] }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw Object.assign(new Error(body.error ?? "Erro"), { data: body });
+      }
+    },
+    onSuccess: () => { toast({ title: "Disciplinas salvas" }); onSaved(); },
+    onError: (err: unknown) => toast({
+      title: "Erro ao salvar disciplinas",
+      description: apiMsg(err, "Tente novamente."),
+      variant: "destructive",
+    }),
+  });
+
+  if (ofertas.length === 0) {
+    return <p className="text-xs text-muted-foreground">Nenhuma disciplina disponível.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {grupos.map((curso) => (
+        <div key={curso.cursoId} className="border rounded-md overflow-hidden">
+          <div className="bg-muted/40 px-3 py-2 text-xs font-semibold">{curso.cursoNome}</div>
+          {curso.turnos.map((turno) => {
+            const state = turnoState(turno.ofertas);
+            return (
+              <div key={turno.turnoId} className="px-3 pb-2">
+                <div className="flex items-center gap-2 py-2 border-b last:border-0">
+                  <Checkbox
+                    id={`turno-${turno.turnoId}`}
+                    checked={state === "all"}
+                    data-state={state === "partial" ? "indeterminate" : undefined}
+                    onCheckedChange={() => toggleTurno(turno.ofertas)}
+                    className="shrink-0"
+                  />
+                  <label
+                    htmlFor={`turno-${turno.turnoId}`}
+                    className="text-xs font-medium cursor-pointer select-none"
+                  >
+                    {turno.turnoNome} — Todas as disciplinas
+                  </label>
+                </div>
+                <div className="pl-6 space-y-1.5 pt-1.5">
+                  {turno.ofertas.map((o) => (
+                    <div key={o.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`oferta-${o.id}`}
+                        checked={selecionados.has(o.id)}
+                        onCheckedChange={() => toggleOferta(o.id)}
+                        className="shrink-0"
+                      />
+                      <label htmlFor={`oferta-${o.id}`} className="text-xs cursor-pointer select-none">
+                        {o.disciplinaNome}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      <Button
+        size="sm"
+        className="h-8 text-xs"
+        onClick={() => salvar.mutate()}
+        disabled={salvar.isPending}
+      >
+        <Check className="w-3 h-3 mr-1" />Salvar disciplinas
+      </Button>
+    </div>
+  );
+}
 
 // ── Dialog exibido quando um novo usuário é criado ────────────────────────────
 
@@ -98,7 +269,7 @@ function NovoUsuarioDialog({
   );
 }
 
-// ── Formulário de enturmação — usado tanto no acordeão quanto na criação ──────
+// ── Formulário de enturmação ──────────────────────────────────────────────────
 
 function MatriculaForm({
   estudante,
@@ -118,7 +289,6 @@ function MatriculaForm({
   const { data: turmas } = useListTurmas();
   const { toast } = useToast();
 
-  // Modo: se `estudante` for passado, usa usuarioId; senão, usa email
   const modoEmail = !estudante;
 
   const criar = useMutation({
@@ -202,9 +372,9 @@ function MatriculaForm({
               <SelectValue placeholder="Selecione a turma…" />
             </SelectTrigger>
             <SelectContent>
-              {turmas?.map((t) => (
+              {turmas?.map((t: { id: string; sigla: string; cursoNome?: string }) => (
                 <SelectItem key={t.id} value={t.id} className="text-xs">
-                  {t.sigla} — {(t as { cursoNome?: string }).cursoNome ?? ""}
+                  {t.sigla} — {t.cursoNome ?? ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -251,8 +421,9 @@ function MatriculaForm({
 
 function EstudanteCard({
   estudante,
+  ofertas,
   onRefresh,
-}: { estudante: Estudante; onRefresh: () => void }) {
+}: { estudante: Estudante; ofertas: Oferta[]; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [novoUsuario, setNovoUsuario] = useState<{ senhaGerada: string; nome: string | null } | null>(null);
   const { toast } = useToast();
@@ -312,7 +483,8 @@ function EstudanteCard({
         </button>
 
         {expanded && (
-          <div className="px-4 pb-4 space-y-3">
+          <div className="px-4 pb-4 space-y-4">
+            {/* Enturmações ativas */}
             {ativas.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enturmações ativas</p>
@@ -347,6 +519,21 @@ function EstudanteCard({
                     </AlertDialog>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Disciplinas */}
+            {ofertas.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5" />Disciplinas cursadas
+                </p>
+                <DisciplinasSelector
+                  usuarioId={estudante.id}
+                  ofertas={ofertas}
+                  disciplinasAtuais={estudante.disciplinas.map((d) => d.disciplinaOfertaId)}
+                  onSaved={onRefresh}
+                />
               </div>
             )}
 
@@ -438,6 +625,15 @@ export default function EnturmacaoPage() {
     },
   });
 
+  const { data: ofertas = [] } = useQuery<Oferta[]>({
+    queryKey: ["usuario-disciplinas-ofertas"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/usuario-disciplinas/ofertas`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["matriculas"] });
 
   const filtrados = (estudantes ?? []).filter((e) =>
@@ -450,7 +646,7 @@ export default function EnturmacaoPage() {
         <h1 className="text-3xl font-bold tracking-tight text-primary">Enturmação — Estudantes</h1>
         <p className="text-muted-foreground mt-2">
           Gerencie a enturmação dos estudantes. Cada estudante é enturmado em um único curso.
-          Pode cursar disciplinas do semestre atual e uma disciplina de semestre anterior (em turno diferente).
+          Pode cursar uma ou todas as disciplinas do curso.
         </p>
       </div>
 
@@ -472,7 +668,7 @@ export default function EnturmacaoPage() {
           <div className="text-center py-12 border border-dashed rounded-lg bg-card">
             <GraduationCap className="w-12 h-12 text-muted-foreground opacity-30 mx-auto mb-3" />
             <p className="text-muted-foreground font-medium">
-              {busca ? "Nenhum estudante encontrado para esta busca." : "Nenhum estudante enturmado."}
+              {busca ? "Nenhum estudante encontrado para esta busca." : "Nenhum estudante cadastrado."}
             </p>
             {!busca && (
               <p className="text-xs text-muted-foreground mt-1">
@@ -482,7 +678,7 @@ export default function EnturmacaoPage() {
           </div>
         ) : (
           filtrados.map((e) => (
-            <EstudanteCard key={e.id} estudante={e} onRefresh={refresh} />
+            <EstudanteCard key={e.id} estudante={e} ofertas={ofertas} onRefresh={refresh} />
           ))
         )}
       </div>

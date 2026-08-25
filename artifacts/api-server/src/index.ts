@@ -19,6 +19,7 @@ import usuariosRouter from "./routes/usuarios.js";
 // SDD Dia 3: estudantes, carômetro e import
 import estudantesRouter from "./routes/estudantes.js";
 import matriculasRouter from "./routes/matriculas.js";
+import usuarioDisciplinasRouter from "./routes/usuario-disciplinas.js";
 import seshatRouter from "./routes/seshat.js";
 import importRouter from "./routes/import.js";
 import statsRouter from "./routes/stats.js";
@@ -57,6 +58,7 @@ app.use("/api/usuarios", usuariosRouter);
 // SDD Dia 3: rotas implementadas
 app.use("/api/estudantes", estudantesRouter);
 app.use("/api/matriculas", matriculasRouter);
+app.use("/api/usuario-disciplinas", usuarioDisciplinasRouter);
 app.use("/api/carometro", seshatRouter);
 app.use("/api/import", importRouter);
 app.use("/api/stats", statsRouter);

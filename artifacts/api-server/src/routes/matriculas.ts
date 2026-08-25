@@ -6,7 +6,8 @@ import {
   db, matriculasTable, turmasTable, cursosTable,
   rolesTable, usuariosRolesTable, usuariosTable,
   estudantesTable,
-  eq, isNull, and,
+  usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, turnosTable,
+  eq, isNull, and, sql,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
@@ -107,45 +108,69 @@ const enturmarSchema = z.object({
 });
 
 // ── GET /api/matriculas ───────────────────────────────────────────────────────
-// Lista baseada em matriculas ativas — não depende da role 'estudante' para exibir.
-// Isso evita estudantes "fantasmas": matriculados no banco mas invisíveis na UI
-// porque a role 'estudante' não existia no momento da enturmação.
+// Retorna TODOS os estudantes: usuários com role 'estudante' + usuários com
+// matrícula ativa (UNION deduplicada). Inclui disciplinas cursadas por cada um.
 
 router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res: Response) => {
   try {
-    const rows = await db
+    // 1. Usuários com role 'estudante' (mesmo sem matrícula)
+    const comRole = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, criadoEm: usuariosTable.criadoEm })
+      .from(usuariosTable)
+      .innerJoin(usuariosRolesTable, eq(usuariosRolesTable.usuarioId, usuariosTable.id))
+      .innerJoin(rolesTable, and(eq(rolesTable.id, usuariosRolesTable.roleId), eq(rolesTable.nome, "estudante")))
+      .where(isNull(usuariosTable.deletadoEm));
+
+    // 2. Usuários com matrícula ativa (mesmo sem role)
+    const comMatricula = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, criadoEm: usuariosTable.criadoEm })
+      .from(usuariosTable)
+      .innerJoin(matriculasTable, and(
+        eq(matriculasTable.usuarioId, usuariosTable.id),
+        isNull(matriculasTable.deletadoEm),
+      ))
+      .where(isNull(usuariosTable.deletadoEm));
+
+    // UNION deduplicada por id
+    const map = new Map<string, { id: string; nome: string | null; criadoEm: Date; matriculas: unknown[]; disciplinas: unknown[] }>();
+    for (const u of [...comRole, ...comMatricula]) {
+      if (!map.has(u.id)) {
+        map.set(u.id, { id: u.id, nome: u.nome, criadoEm: u.criadoEm, matriculas: [], disciplinas: [] });
+      }
+    }
+
+    if (map.size === 0) {
+      return res.json([]);
+    }
+
+    const ids = [...map.keys()];
+
+    // 3. Matrículas ativas dos estudantes encontrados
+    const matRows = await db
       .select({
-        usuarioId:      usuariosTable.id,
-        usuarioNome:    usuariosTable.nome,
-        usuarioCriadoEm: usuariosTable.criadoEm,
-        matId:          matriculasTable.id,
-        turmaId:        matriculasTable.turmaId,
-        turmaSigla:     turmasTable.sigla,
-        cursoId:        cursosTable.id,
-        cursoNome:      cursosTable.nome,
-        registro:       matriculasTable.registro,
-        ano:            matriculasTable.ano,
-        semestre:       matriculasTable.semestre,
-        ativo:          matriculasTable.ativo,
-        matCriadoEm:    matriculasTable.criadoEm,
+        usuarioId:   matriculasTable.usuarioId,
+        matId:       matriculasTable.id,
+        turmaId:     matriculasTable.turmaId,
+        turmaSigla:  turmasTable.sigla,
+        cursoId:     cursosTable.id,
+        cursoNome:   cursosTable.nome,
+        registro:    matriculasTable.registro,
+        ano:         matriculasTable.ano,
+        semestre:    matriculasTable.semestre,
+        ativo:       matriculasTable.ativo,
+        matCriadoEm: matriculasTable.criadoEm,
       })
       .from(matriculasTable)
-      .innerJoin(usuariosTable, eq(matriculasTable.usuarioId, usuariosTable.id))
-      .innerJoin(turmasTable,   eq(matriculasTable.turmaId,   turmasTable.id))
-      .innerJoin(cursosTable,   eq(turmasTable.cursoId,       cursosTable.id))
+      .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
+      .innerJoin(cursosTable, eq(turmasTable.cursoId,     cursosTable.id))
       .where(and(
+        sql`${matriculasTable.usuarioId} = ANY(ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}])`,
         isNull(matriculasTable.deletadoEm),
-        isNull(usuariosTable.deletadoEm),
       ))
-      .orderBy(usuariosTable.nome, matriculasTable.ano, matriculasTable.semestre);
+      .orderBy(matriculasTable.ano, matriculasTable.semestre);
 
-    // Agrupar por usuário
-    const map = new Map<string, { id: string; nome: string | null; criadoEm: Date; matriculas: unknown[] }>();
-    for (const r of rows) {
-      if (!map.has(r.usuarioId)) {
-        map.set(r.usuarioId, { id: r.usuarioId, nome: r.usuarioNome, criadoEm: r.usuarioCriadoEm, matriculas: [] });
-      }
-      map.get(r.usuarioId)!.matriculas.push({
+    for (const r of matRows) {
+      map.get(r.usuarioId)?.matriculas.push({
         id:        r.matId,
         usuarioId: r.usuarioId,
         turmaId:   r.turmaId,
@@ -160,7 +185,37 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
       });
     }
 
-    res.json([...map.values()]);
+    // 4. Disciplinas cursadas por cada estudante
+    const discRows = await db
+      .select({
+        usuarioId:        usuarioDisciplinasTable.usuarioId,
+        disciplinaOfertaId: usuarioDisciplinasTable.disciplinaOfertaId,
+        disciplinaNome:   disciplinasTable.nome,
+        cursoNome:        cursosTable.nome,
+        turnoNome:        turnosTable.nome,
+      })
+      .from(usuarioDisciplinasTable)
+      .innerJoin(disciplinaOfertasTable, eq(usuarioDisciplinasTable.disciplinaOfertaId, disciplinaOfertasTable.id))
+      .innerJoin(disciplinasTable, eq(disciplinaOfertasTable.disciplinaId, disciplinasTable.id))
+      .innerJoin(cursosTable,      eq(disciplinaOfertasTable.cursoId,      cursosTable.id))
+      .innerJoin(turnosTable,      eq(disciplinaOfertasTable.turnoId,      turnosTable.id))
+      .where(sql`${usuarioDisciplinasTable.usuarioId} = ANY(ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}])`);
+
+    for (const d of discRows) {
+      map.get(d.usuarioId)?.disciplinas.push({
+        disciplinaOfertaId: d.disciplinaOfertaId,
+        disciplinaNome:     d.disciplinaNome,
+        cursoNome:          d.cursoNome,
+        turnoNome:          d.turnoNome,
+      });
+    }
+
+    // Ordenar por nome
+    const result = [...map.values()].sort((a, b) =>
+      (a.nome ?? "").localeCompare(b.nome ?? "", "pt-BR")
+    );
+
+    return res.json(result);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar enturmações" });
   }
