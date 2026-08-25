@@ -47,17 +47,25 @@ function matriculaErrorMessage(err: unknown): { status: number; error: string } 
     };
     return { status: 400, error: msgs[String(first?.path[0])] ?? (first?.message ?? "Dados inválidos.") };
   }
-  const msg = err instanceof Error ? err.message : "";
-  if (msg.includes("uq_matricula_semestre") || (msg.includes("23505") && msg.includes("semestre"))) {
+  const msg = err instanceof Error ? err.message : String(err);
+  const code = (err as { code?: string })?.code ?? "";
+  if (msg.includes("uq_matricula_semestre") || (code === "23505" && msg.includes("semestre"))) {
     return { status: 409, error: "Este estudante já está enturmado em outro curso neste semestre." };
   }
-  if (msg.includes("23505")) {
+  if (code === "23505" || msg.includes("23505")) {
     return { status: 409, error: "Este estudante já está enturmado nesta turma neste semestre." };
   }
-  if (msg.includes("23503")) {
+  if (code === "23503" || msg.includes("23503")) {
     return { status: 400, error: "Turma ou estudante inválidos. Atualize a página e tente novamente." };
   }
-  return { status: 500, error: "Erro interno ao salvar a enturmação. Tente novamente." };
+  if (code === "23502" || msg.includes("23502")) {
+    return { status: 400, error: "Dados obrigatórios não informados. Verifique turma, registro, ano e semestre." };
+  }
+  if (code === "42703" || msg.includes("column") && msg.includes("does not exist")) {
+    return { status: 500, error: "Erro de schema no banco de dados. Execute as migrações pendentes." };
+  }
+  const devDetail = process.env.NODE_ENV !== "production" ? ` [${msg}]` : "";
+  return { status: 500, error: `Erro interno ao salvar a enturmação. Tente novamente.${devDetail}` };
 }
 
 async function getEstudanteRoleId(): Promise<string | null> {
@@ -326,6 +334,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
       ...(senhaGerada ? { senhaGerada } : {}),
     });
   } catch (err) {
+    console.error("[matriculas] POST error:", err);
     const { status, error } = matriculaErrorMessage(err);
     res.status(status).json({ error });
   }
