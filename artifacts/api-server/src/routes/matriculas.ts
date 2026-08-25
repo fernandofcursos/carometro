@@ -6,7 +6,7 @@ import {
   db, matriculasTable, turmasTable, cursosTable,
   rolesTable, usuariosRolesTable, usuariosTable,
   estudantesTable,
-  eq, isNull, inArray, and,
+  eq, isNull, and,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
@@ -78,10 +78,15 @@ function matriculaErrorMessage(err: unknown): { status: number; error: string } 
   return { status: 500, error: `Erro interno ao salvar a enturmação. Tente novamente.${devDetail}` };
 }
 
-async function getEstudanteRoleId(): Promise<string | null> {
+async function getOrCreateEstudanteRoleId(): Promise<string> {
   const [r] = await db.select({ id: rolesTable.id }).from(rolesTable)
     .where(eq(rolesTable.nome, "estudante")).limit(1);
-  return r?.id ?? null;
+  if (r) return r.id;
+  // Cria a role automaticamente se não existir
+  const [nova] = await db.insert(rolesTable)
+    .values({ nome: "estudante", descricao: "Estudante matriculado" })
+    .returning({ id: rolesTable.id });
+  return nova.id;
 }
 
 // ── Esquema de entrada do POST ────────────────────────────────────────────────
@@ -102,50 +107,60 @@ const enturmarSchema = z.object({
 });
 
 // ── GET /api/matriculas ───────────────────────────────────────────────────────
+// Lista baseada em matriculas ativas — não depende da role 'estudante' para exibir.
+// Isso evita estudantes "fantasmas": matriculados no banco mas invisíveis na UI
+// porque a role 'estudante' não existia no momento da enturmação.
 
 router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res: Response) => {
   try {
-    const roleId = await getEstudanteRoleId();
-    if (!roleId) return res.json([]);
-
-    const usuariosEstudante = await db
-      .select({ id: usuariosTable.id, nome: usuariosTable.nome, criadoEm: usuariosTable.criadoEm })
-      .from(usuariosRolesTable)
-      .innerJoin(usuariosTable, eq(usuariosRolesTable.usuarioId, usuariosTable.id))
-      .where(and(eq(usuariosRolesTable.roleId, roleId), isNull(usuariosTable.deletadoEm)))
-      .orderBy(usuariosTable.nome);
-
-    if (!usuariosEstudante.length) return res.json([]);
-
-    const usuarioIds = usuariosEstudante.map((u) => u.id);
-
-    const matriculas = await db
+    const rows = await db
       .select({
-        id:         matriculasTable.id,
-        usuarioId:  matriculasTable.usuarioId,
-        turmaId:    matriculasTable.turmaId,
-        turmaSigla: turmasTable.sigla,
-        cursoId:    cursosTable.id,
-        cursoNome:  cursosTable.nome,
-        registro:   matriculasTable.registro,
-        ano:        matriculasTable.ano,
-        semestre:   matriculasTable.semestre,
-        ativo:      matriculasTable.ativo,
-        criadoEm:   matriculasTable.criadoEm,
+        usuarioId:      usuariosTable.id,
+        usuarioNome:    usuariosTable.nome,
+        usuarioCriadoEm: usuariosTable.criadoEm,
+        matId:          matriculasTable.id,
+        turmaId:        matriculasTable.turmaId,
+        turmaSigla:     turmasTable.sigla,
+        cursoId:        cursosTable.id,
+        cursoNome:      cursosTable.nome,
+        registro:       matriculasTable.registro,
+        ano:            matriculasTable.ano,
+        semestre:       matriculasTable.semestre,
+        ativo:          matriculasTable.ativo,
+        matCriadoEm:    matriculasTable.criadoEm,
       })
       .from(matriculasTable)
-      .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
-      .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .where(and(inArray(matriculasTable.usuarioId, usuarioIds), isNull(matriculasTable.deletadoEm)))
-      .orderBy(matriculasTable.ano, matriculasTable.semestre);
+      .innerJoin(usuariosTable, eq(matriculasTable.usuarioId, usuariosTable.id))
+      .innerJoin(turmasTable,   eq(matriculasTable.turmaId,   turmasTable.id))
+      .innerJoin(cursosTable,   eq(turmasTable.cursoId,       cursosTable.id))
+      .where(and(
+        isNull(matriculasTable.deletadoEm),
+        isNull(usuariosTable.deletadoEm),
+      ))
+      .orderBy(usuariosTable.nome, matriculasTable.ano, matriculasTable.semestre);
 
-    const byUsuario = matriculas.reduce((acc, m) => {
-      if (!acc[m.usuarioId]) acc[m.usuarioId] = [];
-      acc[m.usuarioId].push(m);
-      return acc;
-    }, {} as Record<string, typeof matriculas>);
+    // Agrupar por usuário
+    const map = new Map<string, { id: string; nome: string | null; criadoEm: Date; matriculas: unknown[] }>();
+    for (const r of rows) {
+      if (!map.has(r.usuarioId)) {
+        map.set(r.usuarioId, { id: r.usuarioId, nome: r.usuarioNome, criadoEm: r.usuarioCriadoEm, matriculas: [] });
+      }
+      map.get(r.usuarioId)!.matriculas.push({
+        id:        r.matId,
+        usuarioId: r.usuarioId,
+        turmaId:   r.turmaId,
+        turmaSigla: r.turmaSigla,
+        cursoId:   r.cursoId,
+        cursoNome: r.cursoNome,
+        registro:  r.registro,
+        ano:       r.ano,
+        semestre:  r.semestre,
+        ativo:     r.ativo,
+        criadoEm:  r.matCriadoEm,
+      });
+    }
 
-    res.json(usuariosEstudante.map((u) => ({ ...u, matriculas: byUsuario[u.id] ?? [] })));
+    res.json([...map.values()]);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao listar enturmações" });
   }
@@ -172,7 +187,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
     let senhaGerada: string | null = null;
     let usuarioCriado = false;
     let emailResolvido = body.email ?? "";
-    const roleId = await getEstudanteRoleId();
+    const roleId = await getOrCreateEstudanteRoleId();
 
     if (!usuarioId && body.email) {
       const hash = emailHash(body.email);
@@ -221,8 +236,8 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
 
     if (!usuarioId) return res.status(400).json({ error: "Informe o usuário ou o e-mail do estudante." });
 
-    // ── Garantir role estudante ───────────────────────────────────────────────
-    if (roleId) {
+    // ── Garantir role estudante (role sempre existe — getOrCreateEstudanteRoleId) ─
+    {
       const [jaTemRole] = await db
         .select({ usuarioId: usuariosRolesTable.usuarioId })
         .from(usuariosRolesTable)

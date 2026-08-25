@@ -38,18 +38,38 @@ matriculasTable: {
 }
 ```
 
+## GET /api/matriculas — query
+
+**Base: `matriculas`** — não usa a role `estudante` como filtro.  
+Isso evita estudantes "fantasmas": matriculados no banco mas invisíveis porque a role não existia na hora da enturmação.
+
+```typescript
+db.select({...})
+  .from(matriculasTable)
+  .innerJoin(usuariosTable, ...)
+  .innerJoin(turmasTable, ...)
+  .innerJoin(cursosTable, ...)
+  .where(and(isNull(matriculasTable.deletadoEm), isNull(usuariosTable.deletadoEm)))
+  .orderBy(usuariosTable.nome, matriculasTable.ano, matriculasTable.semestre)
+// Resultado agrupado por usuário via Map
+```
+
 ## POST /api/matriculas — fluxo
 
 ```
-1. insertMatriculaSchema.parse(req.body)
+1. enturmarSchema.parse(req.body)
 2. Busca cursoId da turmaAlvo (JOIN turmas → cursos)
-3. Busca matrículas ativas do estudante (WHERE deletadoEm IS NULL)
-4. Extrai cursos distintos das matrículas ativas
-5. Se cursosAtivos contém curso diferente → 422
-6. db.insert(matriculasTable).values({ ...data, principal: true })
+3. Resolve usuário (por usuarioId ou email; cria se não existir)
+4. getOrCreateEstudanteRoleId() — cria a role 'estudante' automaticamente se ausente
+5. Atribui role 'estudante' ao usuário (INSERT ON CONFLICT skip)
+6. Verifica unicidade (usuarioId, ano, semestre) — 422 se duplicado
+7. INSERT matriculas
+8. Sincroniza estudantes (try/catch tolerante a falha)
 ```
 
 ## Tratamento de Erros — `matriculaErrorMessage(err)`
+
+**Importante:** Drizzle ORM encapsula erros PostgreSQL em `err.cause.code`, não em `err.code`. A função `pgCode(err)` extrai o código correto verificando `err.cause?.code ?? err.code`.
 
 | Trigger | Status | Mensagem |
 |---|---|---|
@@ -57,8 +77,12 @@ matriculasTable: {
 | ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
 | Outro curso ativo | 422 | "Este estudante já está enturmado em '...'." |
-| 23505 / uq_matricula | 409 | "Este estudante já está enturmado nesta turma neste semestre." |
-| Outros | 500 | "Erro interno ao salvar a enturmação." |
+| 23505 + uq_matricula_semestre | 409 | "Este estudante já está enturmado em outro curso neste semestre." |
+| 23505 | 409 | "Este estudante já está enturmado nesta turma neste semestre." |
+| 23503 (FK) | 400 | "Turma ou estudante inválidos." |
+| 23502 (NOT NULL) | 400 | "Dados obrigatórios não informados." |
+| 42703 (coluna inexistente) | 500 | "Erro de schema no banco. Execute as migrações." |
+| Outros | 500 | "Erro interno ao salvar a enturmação. [code=X detalhe]" (dev only) |
 
 ## Frontend (`artifacts/seshat/src/pages/enturmacao/index.tsx`)
 

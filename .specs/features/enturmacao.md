@@ -95,10 +95,12 @@ Array<{
 **Validações:**
 1. `enturmarSchema.parse(req.body)` — valida tipos e formato de registro
 2. Busca o cursoId da turmaAlvo via JOIN
-3. Se `email` fornecido: busca usuário por `emailHash`; cria se não existir (com bcrypt hash, codigoAcesso, e-mail de boas-vindas); atribui role `estudante`
-4. Verifica unicidade `(usuarioId, ano, semestre)` → 422 se duplicado
-5. `INSERT matriculas`
-6. **Sincroniza `estudantes`** (necessário para o carômetro e para registro de ocorrências):
+3. Se `email` fornecido: busca usuário por `emailHash`; cria se não existir (com bcrypt hash, codigoAcesso, e-mail de boas-vindas)
+4. **`getOrCreateEstudanteRoleId()`** — garante que a role `estudante` existe; cria automaticamente se ausente
+5. Atribui role `estudante` ao usuário (se ainda não tiver)
+6. Verifica unicidade `(usuarioId, ano, semestre)` → 422 se duplicado
+7. `INSERT matriculas`
+8. **Sincroniza `estudantes`** (necessário para o carômetro e para registro de ocorrências):
    - Se já existe registro em `estudantes` com este `usuarioId` → atualiza `turmaId`
    - Se existe registro com mesmo `registro` mas sem `usuarioId` → vincula `usuarioId`
    - Se não existe nenhum → cria registro em `estudantes` com nome, registro, turmaId, usuarioId, dataNascimento
@@ -119,7 +121,10 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 | `semestre` inválido | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
 | Estudante já em outro curso | 422 | "Este estudante já está enturmado em '&lt;nome&gt;'. Um estudante só pode estar enturmado em um curso." |
+| Matrícula no mesmo semestre (23505 / uq_matricula_semestre) | 409 | "Este estudante já está enturmado em outro curso neste semestre." |
 | Matrícula duplicada (23505) | 409 | "Este estudante já está enturmado nesta turma neste semestre." |
+| FK inválida (23503) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |
+| Schema desatualizado (42703) | 500 | "Erro de schema no banco de dados. Execute as migrações pendentes." |
 | Erro interno | 500 | "Erro interno ao salvar a enturmação. Tente novamente." |
 
 ---
@@ -127,7 +132,7 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 ## Frontend (`/enturmacao`)
 
 - Rota: `/enturmacao` — visível no menu para `estudantes:manage`
-- Lista todos os usuários com role `estudante` (busca local por nome)
+- Lista todos os usuários com **matrícula ativa** (não filtra por role — evita estudantes "fantasmas")
 - Cada card é expansível (accordion): matrículas ativas + formulário de nova enturmação
 - Campo `registro` aceita somente dígitos (replace `/\D/g`)
 - Remoção via AlertDialog → `DELETE /api/matriculas/:id`
