@@ -33,6 +33,7 @@ type UsuarioDisciplina = { ofertaId: string; disciplinaId: string; disciplinaNom
 type CursoSummary = { id: string; nome: string };
 type Usuario = {
   id: string; nome: string | null; email: string; codigoAcesso: string;
+  dataNascimento: string | null;
   primeiroAcesso: boolean; fotoUrl: string | null;
   roles: RoleSummary[]; disciplinas: UsuarioDisciplina[];
   cursosCoordenados: CursoSummary[];
@@ -279,11 +280,22 @@ function FotoModal({
   );
 }
 
+function calcIdadeStr(d: string | null): number | null {
+  if (!d) return null;
+  const hoje = new Date();
+  const nasc = new Date(d);
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const m = hoje.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade;
+}
+
 function EditarUsuarioModal({
   usuario, onClose,
 }: { usuario: Usuario; onClose: () => void }) {
   const [nome, setNome] = useState(usuario.nome ?? "");
   const [email, setEmail] = useState(usuario.email);
+  const [dataNascimento, setDataNascimento] = useState(usuario.dataNascimento ?? "");
   const [primeiroAcesso, setPrimeiroAcesso] = useState(usuario.primeiroAcesso);
   const [senhaReset, setSenhaReset] = useState<string | null>(null);
   const update = useUpdateUsuario();
@@ -291,11 +303,21 @@ function EditarUsuarioModal({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const idadeAtual = calcIdadeStr(dataNascimento || null);
+
   const save = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     update.mutate(
-      { id: usuario.id, data: { nome: nome.trim() || undefined, email: email.trim(), primeiroAcesso } },
+      {
+        id: usuario.id,
+        data: {
+          nome: nome.trim() || undefined,
+          email: email.trim(),
+          dataNascimento: dataNascimento || null,
+          primeiroAcesso,
+        },
+      },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListUsuariosQueryKey() });
@@ -352,6 +374,20 @@ function EditarUsuarioModal({
             className="bg-background"
             required
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="edit-nasc">Data de nascimento</Label>
+          <Input
+            id="edit-nasc"
+            type="date"
+            value={dataNascimento}
+            onChange={(e) => setDataNascimento(e.target.value)}
+            className="bg-background"
+          />
+          {idadeAtual !== null && (
+            <p className="text-xs text-muted-foreground">{idadeAtual} anos</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -442,6 +478,11 @@ function UsuarioRow({
           <button onClick={copyCode} className="inline-flex items-center gap-1 font-mono text-xs bg-muted px-2 py-0.5 rounded hover:bg-muted/80 transition-colors">
             <Copy className="w-3 h-3" />{usuario.codigoAcesso}
           </button>
+          {usuario.dataNascimento && (
+            <span className="text-xs text-muted-foreground">
+              {calcIdadeStr(usuario.dataNascimento)} anos
+            </span>
+          )}
           {usuario.primeiroAcesso && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full font-medium">1º acesso</span>}
         </div>
         <div className="flex flex-wrap gap-1 mt-1">

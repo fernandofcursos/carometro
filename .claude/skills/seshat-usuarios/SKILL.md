@@ -127,3 +127,65 @@ Disciplinas exibidas em dois níveis de agrupamento:
 ```
 
 > "Todas as disciplinas" é um atalho de UI — não é salvo como entidade própria. Resulta em múltiplos registros em `usuario_disciplinas`, um por oferta do grupo.
+
+---
+
+## Gestão de Usuários — CRUD (`/usuarios`)
+
+### Campos do usuário
+
+| Campo | Tipo | Editável | Observação |
+|---|---|---|---|
+| `nome` | text | ✅ criação + edição | Opcional |
+| `email` | criptografado | ✅ criação | Indexado por hash SHA-256 |
+| `dataNascimento` | date (`YYYY-MM-DD`) | ✅ criação + edição | Obrigatório para role `estudante` |
+| `codigoAcesso` | texto | ❌ gerado | Imutável |
+| `primeiroAcesso` | boolean | ✅ edição | Toggle no modal de edição |
+
+### PUT /api/usuarios/:id
+
+Aceita qualquer combinação de `nome` e/ou `dataNascimento`. Campos omitidos **não são alterados**.
+
+```typescript
+// body (todos opcionais)
+{
+  nome?: string;           // min 2 chars
+  dataNascimento?: string | null;  // "YYYY-MM-DD" ou null para limpar
+}
+// resposta
+{ id: string; nome: string | null; dataNascimento: string | null }
+```
+
+### GET /api/usuarios (lista) e GET /api/usuarios/:id
+
+Ambos incluem `dataNascimento: string | null` na resposta.
+
+### Modal de edição (EditarUsuarioModal)
+
+Campos:
+1. Nome
+2. E-mail *(obrigatório)*
+3. **Data de nascimento** — input `type="date"`; exibe idade calculada em texto auxiliar
+4. Código de acesso *(read-only)*
+5. Toggle "Primeiro acesso"
+6. Resetar senha
+
+### Card de listagem (UsuarioRow)
+
+Exibe a idade calculada (`calcIdadeStr(dataNascimento)`) em texto auxiliar ao lado do e-mail quando `dataNascimento` estiver preenchido.
+
+### calcIdadeStr
+
+```typescript
+function calcIdadeStr(d: string | null): number | null {
+  if (!d) return null;
+  const hoje = new Date();
+  const nasc = new Date(d);
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const m = hoje.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade;
+}
+```
+
+Função declarada fora dos componentes (reutilizada em `EditarUsuarioModal` e `UsuarioRow`).

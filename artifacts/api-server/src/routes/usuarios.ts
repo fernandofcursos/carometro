@@ -119,17 +119,18 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           .where(eq(coordenadorCursosTable.usuarioId, u.id));
 
         return {
-          id:            u.id,
-          nome:          u.nome,
-          email:         decryptEmail(u.emailEncrypted, secret),
-          codigoAcesso:  u.codigoAcesso,
-          primeiroAcesso: u.primeiroAcesso,
-          fotoUrl:       u.fotoId
+          id:              u.id,
+          nome:            u.nome,
+          dataNascimento:  u.dataNascimento ?? null,
+          email:           decryptEmail(u.emailEncrypted, secret),
+          codigoAcesso:    u.codigoAcesso,
+          primeiroAcesso:  u.primeiroAcesso,
+          fotoUrl:         u.fotoId
             ? `/api/fotos/${u.fotoId}`
             : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null),
-          bloqueadoAte:  u.bloqueadoAte,
-          ultimoLoginEm: u.ultimoLoginEm,
-          criadoEm:      u.criadoEm,
+          bloqueadoAte:    u.bloqueadoAte,
+          ultimoLoginEm:   u.ultimoLoginEm,
+          criadoEm:        u.criadoEm,
           roles,
           disciplinas,
           cursosCoordenados,
@@ -165,6 +166,7 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 
     res.json({
       id: u.id, nome: u.nome,
+      dataNascimento: u.dataNascimento ?? null,
       email: decryptEmail(u.emailEncrypted, secret),
       fotoUrl: u.fotoId
         ? `/api/fotos/${u.fotoId}`
@@ -331,13 +333,21 @@ router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request
   }
 });
 
-// PUT /api/usuarios/:id — atualizar dados do usuário (nome)
+// PUT /api/usuarios/:id — atualizar dados do usuário
 router.put("/:id", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { nome } = z.object({ nome: z.string().min(2) }).parse(req.body);
+    const { nome, dataNascimento } = z.object({
+      nome: z.string().min(2).optional(),
+      dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    }).parse(req.body);
+
+    const setFields: Record<string, unknown> = { atualizadoEm: new Date() };
+    if (nome !== undefined) setFields.nome = nome;
+    if (dataNascimento !== undefined) setFields.dataNascimento = dataNascimento;
+
     const [u] = await db
       .update(usuariosTable)
-      .set({ nome, atualizadoEm: new Date() })
+      .set(setFields)
       .where(eq(usuariosTable.id, String(req.params.id)))
       .returning();
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
@@ -347,7 +357,7 @@ router.put("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
       endpoint: "PUT /api/usuarios/:id", metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
-    res.json({ id: u.id, nome: u.nome });
+    res.json({ id: u.id, nome: u.nome, dataNascimento: u.dataNascimento });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }

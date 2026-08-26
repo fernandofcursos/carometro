@@ -30,9 +30,21 @@ CRUD de usuários do sistema com suporte a roles, disciplinas, foto e credenciai
 - `primeiroAcesso: true` — usuário deve trocar a senha no primeiro login
 - E-mail de boas-vindas enviado de forma assíncrona (não bloqueia a resposta)
 
+### Atualização (PUT /api/usuarios/:id)
+- Campos opcionais: `nome` (min 2 chars), `dataNascimento` (formato `YYYY-MM-DD`, nullable)
+- Qualquer combinação pode ser enviada — apenas os campos presentes são alterados
+- `dataNascimento: null` limpa a data de nascimento
+- **Retorna:** `{ id, nome, dataNascimento }`
+
 ### Validação de roles
 - Roles de estudante exigem `dataNascimento`
 - Roles incompatíveis entre si retornam HTTP 422 com mensagem descritiva
+
+### dataNascimento — regras gerais
+- Presente em `GET /api/usuarios` (lista) e `GET /api/usuarios/:id`
+- Editável via `PUT /api/usuarios/:id` tanto na criação quanto na edição
+- Obrigatório apenas para usuários com role `estudante`
+- Exibido como idade calculada no card de listagem e no modal de edição
 
 ### Seleção de Disciplinas para Estudantes
 
