@@ -79,6 +79,42 @@ const byTurno: Record<string, Record<string, CarometroGroup[]>> = {};
 for (const g of groups) { byTurno[g.turnoNome][g.cursoNome].push(g); }
 ```
 
+## Perfil Completo do Estudante — detail.tsx (`/estudantes/:id`)
+
+A página de detalhe exibe e edita `dataNascimento` do estudante.
+
+### Estado e reset
+```tsx
+const [dataNascimento, setDataNascimento] = useState("");
+// em resetForm:
+setDataNascimento((e as { dataNascimento?: string | null }).dataNascimento ?? "");
+```
+
+### Formulário de edição
+```tsx
+<div className="space-y-2">
+  <Label>Data de Nascimento</Label>
+  <Input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+  {dataNascimento && (() => {
+    const nasc = new Date(dataNascimento); const hoje = new Date();
+    let idade = hoje.getFullYear() - nasc.getFullYear();
+    const m = hoje.getMonth() - nasc.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+    return <p className="text-xs text-muted-foreground">{idade} anos</p>;
+  })()}
+</div>
+```
+
+### Mutação (handleSaveData)
+```tsx
+updateEstudante.mutate({ id, data: { nome, registro, dataNascimento: dataNascimento || null, ... } })
+```
+
+### Visualização (read-only)
+Exibe data por extenso + idade: `"DD de mês de AAAA (X anos)"`.
+
+---
+
 ## API do Carômetro — GET /api/carometro
 
 Retorna por turma:

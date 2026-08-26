@@ -81,8 +81,19 @@ Escreve na tabela `fotos` (upsert por `entidade_tipo + entidade_id`) e atualiza 
 
 ### PUT /api/estudantes/:id
 
-Atualiza dados textuais (nome, registro, turmaId, observacao). Não toca na foto.  
-**Requer:** `estudantes:manage`
+Atualiza dados textuais (nome, registro, turmaId, observacao, dataNascimento). Não toca na foto.  
+**Requer:** `estudantes:manage`  
+`dataNascimento` aceita `"YYYY-MM-DD"` ou `null` para limpar.
+
+### GET /api/estudantes/:id — resposta
+
+Inclui `dataNascimento: string | null`.
+
+### Perfil completo — editar perfil (detail.tsx)
+
+A página de detalhe do estudante (`/estudantes/:id`) exibe e permite editar `dataNascimento`:
+- Campo `type="date"` no formulário de edição com texto auxiliar de idade calculada
+- Exibição com idade no modo somente-leitura: "DD de mês de AAAA (X anos)"
 
 ### DELETE /api/estudantes/:id
 

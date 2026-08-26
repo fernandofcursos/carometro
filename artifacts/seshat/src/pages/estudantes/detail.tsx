@@ -39,6 +39,7 @@ export default function EstudantesDetail() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [nome, setNome] = useState("");
   const [registro, setRegistro] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
   const [emails, setEmails] = useState<EmailEntry[]>([]);
   const [observacao, setObservacao] = useState("");
   const [turmaId, setTurmaId] = useState("");
@@ -66,6 +67,7 @@ export default function EstudantesDetail() {
     if (!e) return;
     setNome(e.nome);
     setRegistro(e.registro);
+    setDataNascimento((e as { dataNascimento?: string | null }).dataNascimento ?? "");
     setEmails(e.emails.map((em) => ({ _id: nextEmailId(), email: em.email, tipo: em.tipo as "proprio" | "responsavel" })));
     setObservacao(e.observacao ?? "");
     setTurmaId(e.turmaId);
@@ -84,7 +86,7 @@ export default function EstudantesDetail() {
     if (!nome.trim() || !registro.trim() || !turmaId) return;
     const validEmails = emails.filter((e) => e.email.trim()).map(({ _id: _, ...e }) => e);
     updateEstudante.mutate(
-      { id, data: { nome, registro, observacao: observacao.trim() || null, emails: validEmails, turmaId } },
+      { id, data: { nome, registro, dataNascimento: dataNascimento || null, observacao: observacao.trim() || null, emails: validEmails, turmaId } },
       {
         onSuccess: (updated) => {
           queryClient.setQueryData(getGetEstudanteQueryKey(id), updated);
@@ -237,6 +239,18 @@ export default function EstudantesDetail() {
                         <Label>Registro</Label>
                         <Input value={registro} onChange={(e) => setRegistro(e.target.value)} />
                       </div>
+                      <div className="space-y-2">
+                        <Label>Data de Nascimento</Label>
+                        <Input type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+                        {dataNascimento && (() => {
+                          const nasc = new Date(dataNascimento);
+                          const hoje = new Date();
+                          let idade = hoje.getFullYear() - nasc.getFullYear();
+                          const m = hoje.getMonth() - nasc.getMonth();
+                          if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+                          return <p className="text-xs text-muted-foreground">{idade} anos</p>;
+                        })()}
+                      </div>
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -328,6 +342,20 @@ export default function EstudantesDetail() {
                         <p className="text-sm font-medium text-muted-foreground mb-1">Registro</p>
                         <p className="font-mono text-base">{estudante.registro}</p>
                       </div>
+                      {(estudante as { dataNascimento?: string | null }).dataNascimento && (() => {
+                        const d = (estudante as { dataNascimento?: string | null }).dataNascimento!;
+                        const nasc = new Date(d);
+                        const hoje = new Date();
+                        let idade = hoje.getFullYear() - nasc.getFullYear();
+                        const m = hoje.getMonth() - nasc.getMonth();
+                        if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+                        return (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Data de Nascimento</p>
+                            <p className="text-base">{nasc.toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "long", year: "numeric" })} <span className="text-sm text-muted-foreground">({idade} anos)</span></p>
+                          </div>
+                        );
+                      })()}
                       {(estudante.emails ?? []).length > 0 && (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground mb-2">E-mails</p>
