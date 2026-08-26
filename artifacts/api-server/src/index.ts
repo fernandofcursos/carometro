@@ -23,6 +23,7 @@ import usuarioDisciplinasRouter from "./routes/usuario-disciplinas.js";
 import seshatRouter from "./routes/seshat.js";
 import importRouter from "./routes/import.js";
 import statsRouter from "./routes/stats.js";
+import fotosRouter from "./routes/fotos.js";
 import biometriaRouter from "./routes/biometria.js";
 
 // Criar aplicação com middlewares configurados
@@ -62,6 +63,7 @@ app.use("/api/usuario-disciplinas", usuarioDisciplinasRouter);
 app.use("/api/carometro", seshatRouter);
 app.use("/api/import", importRouter);
 app.use("/api/stats", statsRouter);
+app.use("/api/fotos", fotosRouter);
 // Biometria facial e digital (WebAuthn FIDO2)
 app.use("/api/auth/biometria", biometriaRouter);
 

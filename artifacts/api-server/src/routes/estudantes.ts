@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { db, estudantesTable, estudanteEmailsTable, turmasTable, turmaTurnosTable, cursosTable, turnosTable, eq, isNull, and, inArray, ilike, or } from "@workspace/db";
+import { fotosTable } from "@workspace/db/schema";
 import {
   criptografarFoto,
   descriptografarFoto,
@@ -64,6 +65,7 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
         registro:    estudantesTable.registro,
         observacao:  estudantesTable.observacao,
         turmaId:     estudantesTable.turmaId,
+        fotoId:      estudantesTable.fotoId,
         fotoStorageKey: estudantesTable.fotoStorageKey,
         criadoEm:    estudantesTable.criadoEm,
         turmaSigla:  turmasTable.sigla,
@@ -94,8 +96,9 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
       turnoNome:      r.turnoNome ?? "",
       cursoNome:      r.cursoNome ?? "",
       criadoEm:       r.criadoEm.toISOString(),
-      // fotoUrl como endpoint relativo — frontend busca a foto via img src
-      fotoUrl:  r.fotoStorageKey ? `/api/estudantes/${r.id}/foto` : null,
+      fotoUrl: r.fotoId
+        ? `/api/fotos/${r.fotoId}`
+        : (r.fotoStorageKey ? `/api/estudantes/${r.id}/foto` : null),
       emails:   emailsMap.get(r.id) ?? [],
     }));
 
@@ -112,6 +115,7 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       .select({
         id: estudantesTable.id, nome: estudantesTable.nome, registro: estudantesTable.registro,
         observacao: estudantesTable.observacao, turmaId: estudantesTable.turmaId,
+        fotoId: estudantesTable.fotoId,
         fotoStorageKey: estudantesTable.fotoStorageKey, criadoEm: estudantesTable.criadoEm,
         turmaSigla: turmasTable.sigla, turmaDescricao: turmasTable.descricao,
         cursoNome: cursosTable.nome, turnoNome: turnosTable.nome,
@@ -134,7 +138,9 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       turmaId: e.turmaId, turmaSigla: e.turmaSigla ?? "", turmaDescricao: e.turmaDescricao ?? "",
       turnoNome: e.turnoNome ?? "", cursoNome: e.cursoNome ?? "",
       criadoEm: e.criadoEm.toISOString(),
-      fotoUrl: e.fotoStorageKey ? `/api/estudantes/${e.id}/foto` : null,
+      fotoUrl: e.fotoId
+        ? `/api/fotos/${e.fotoId}`
+        : (e.fotoStorageKey ? `/api/estudantes/${e.id}/foto` : null),
       emails,
     });
   } catch (err) {
@@ -142,18 +148,25 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
   }
 });
 
-// GET /api/estudantes/:id/foto — servir foto descriptografada
+// GET /api/estudantes/:id/foto — servir foto (nova tabela ou fallback inline)
 router.get("/:id/foto", async (req: Request, res: Response) => {
   try {
     const [e] = await db
       .select({
+        fotoId: estudantesTable.fotoId,
         fotoDados: estudantesTable.fotoDados, fotoIv: estudantesTable.fotoIv,
         fotoMimeType: estudantesTable.fotoMimeType, fotoHashIntegridade: estudantesTable.fotoHashIntegridade,
       })
       .from(estudantesTable)
       .where(eq(estudantesTable.id, String(req.params.id)));
 
-    if (!e?.fotoDados || !e.fotoIv) return res.status(404).end();
+    if (!e) return res.status(404).end();
+
+    // Nova tabela — redireciona para o endpoint canônico com cache longo
+    if (e.fotoId) return res.redirect(302, `/api/fotos/${e.fotoId}`);
+
+    // Fallback inline (dados legados ainda não migrados)
+    if (!e.fotoDados || !e.fotoIv) return res.status(404).end();
 
     const dadosBrutos = descriptografarFoto(e.fotoDados, e.fotoIv);
 
@@ -175,19 +188,22 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
     const { fotoBase64, ...body } = req.body;
     const { emails, ...data } = insertEstudanteSchema.parse(body);
 
-    let fotoFields = {};
+    const [estudante] = await db.insert(estudantesTable).values(data).returning();
+
     if (fotoBase64) {
       if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
       const foto = criptografarFoto(fotoBase64);
-      const { randomUUID } = await import("crypto");
-      fotoFields = {
-        fotoStorageKey: randomUUID(), fotoDados: foto.dadosCriptografados,
-        fotoIv: foto.iv, fotoMimeType: foto.mimeType,
-        fotoTamanhoBytes: foto.tamanhoBytes, fotoHashIntegridade: foto.hash,
-      };
+      const [fotoRow] = await db.insert(fotosTable).values({
+        entidadeTipo: "estudante", entidadeId: estudante.id,
+        mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
+        iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados,
+      }).onConflictDoUpdate({
+        target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
+        set: { mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes, iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados, atualizadoEm: new Date() },
+      }).returning({ id: fotosTable.id });
+      await db.update(estudantesTable).set({ fotoId: fotoRow.id }).where(eq(estudantesTable.id, estudante.id));
+      estudante.fotoId = fotoRow.id;
     }
-
-    const [estudante] = await db.insert(estudantesTable).values({ ...data, ...fotoFields }).returning();
 
     // Inserir e-mails se fornecidos
     if (emails && emails.length > 0) {
@@ -204,7 +220,9 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
     });
 
     res.status(201).json({ id: estudante.id, nome: estudante.nome, registro: estudante.registro,
-      fotoUrl: estudante.fotoStorageKey ? `/api/estudantes/${estudante.id}/foto` : null,
+      fotoUrl: estudante.fotoId
+        ? `/api/fotos/${estudante.fotoId}`
+        : (estudante.fotoStorageKey ? `/api/estudantes/${estudante.id}/foto` : null),
       emails: emails ?? [], turmaId: estudante.turmaId });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
@@ -217,18 +235,22 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
     const { fotoBase64 } = z.object({ fotoBase64: z.string().min(1) }).parse(req.body);
     if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
 
+    const estudanteId = String(req.params.id);
     const foto = criptografarFoto(fotoBase64);
-    const { randomUUID } = await import("crypto");
+
+    const [fotoRow] = await db.insert(fotosTable).values({
+      entidadeTipo: "estudante", entidadeId: estudanteId,
+      mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
+      iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados,
+    }).onConflictDoUpdate({
+      target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
+      set: { mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes, iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados, atualizadoEm: new Date() },
+    }).returning({ id: fotosTable.id });
 
     const [estudante] = await db
       .update(estudantesTable)
-      .set({
-        fotoStorageKey: randomUUID(), fotoDados: foto.dadosCriptografados,
-        fotoIv: foto.iv, fotoMimeType: foto.mimeType,
-        fotoTamanhoBytes: foto.tamanhoBytes, fotoHashIntegridade: foto.hash,
-        atualizadoEm: new Date(),
-      })
-      .where(eq(estudantesTable.id, String(req.params.id)))
+      .set({ fotoId: fotoRow.id, atualizadoEm: new Date() })
+      .where(eq(estudantesTable.id, estudanteId))
       .returning({ id: estudantesTable.id });
 
     if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
@@ -236,11 +258,11 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
     await registrarAuditoria({
       tabela: "estudantes", operacao: "UPDATE", registroId: estudante.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
-      endpoint: `POST /api/estudantes/${String(req.params.id)}/foto`, metodoHttp: "POST", statusHttp: 200,
+      endpoint: `POST /api/estudantes/${estudanteId}/foto`, metodoHttp: "POST", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
 
-    res.json({ ok: true, fotoUrl: `/api/estudantes/${estudante.id}/foto` });
+    res.json({ ok: true, fotoUrl: `/api/fotos/${fotoRow.id}` });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
@@ -278,7 +300,9 @@ router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, r
       .from(estudanteEmailsTable).where(eq(estudanteEmailsTable.estudanteId, estudante.id));
 
     res.json({ id: estudante.id, nome: estudante.nome, registro: estudante.registro,
-      fotoUrl: estudante.fotoStorageKey ? `/api/estudantes/${estudante.id}/foto` : null,
+      fotoUrl: estudante.fotoId
+        ? `/api/fotos/${estudante.fotoId}`
+        : (estudante.fotoStorageKey ? `/api/estudantes/${estudante.id}/foto` : null),
       emails: emailsSalvos });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });

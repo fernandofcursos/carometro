@@ -1,3 +1,4 @@
+export * from "./fotos";
 export * from "./turnos";
 export * from "./cursos";
 export * from "./turmas";

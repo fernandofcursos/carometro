@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
-import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable, coordenadorCursosTable } from "@workspace/db/schema";
+import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable, coordenadorCursosTable, fotosTable } from "@workspace/db/schema";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
 import bcrypt from "bcryptjs";
@@ -124,7 +124,9 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           email:         decryptEmail(u.emailEncrypted, secret),
           codigoAcesso:  u.codigoAcesso,
           primeiroAcesso: u.primeiroAcesso,
-          fotoUrl:       (u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null,
+          fotoUrl:       u.fotoId
+            ? `/api/fotos/${u.fotoId}`
+            : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null),
           bloqueadoAte:  u.bloqueadoAte,
           ultimoLoginEm: u.ultimoLoginEm,
           criadoEm:      u.criadoEm,
@@ -164,7 +166,9 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
     res.json({
       id: u.id, nome: u.nome,
       email: decryptEmail(u.emailEncrypted, secret),
-      fotoUrl: (u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null,
+      fotoUrl: u.fotoId
+        ? `/api/fotos/${u.fotoId}`
+        : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null),
       codigoAcesso: u.codigoAcesso, primeiroAcesso: u.primeiroAcesso,
       bloqueadoAte: u.bloqueadoAte, ultimoLoginEm: u.ultimoLoginEm, criadoEm: u.criadoEm,
       roles,
@@ -254,11 +258,12 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
   }
 });
 
-// GET /api/usuarios/:id/foto — servir foto descriptografada
+// GET /api/usuarios/:id/foto — servir foto (nova tabela ou fallback inline)
 router.get("/:id/foto", async (req: Request, res: Response) => {
   try {
     const [u] = await db
       .select({
+        fotoId: usuariosTable.fotoId,
         fotoDados: usuariosTable.fotoDados,
         fotoIv: usuariosTable.fotoIv,
         fotoMimeType: usuariosTable.fotoMimeType,
@@ -267,7 +272,11 @@ router.get("/:id/foto", async (req: Request, res: Response) => {
       .from(usuariosTable)
       .where(eq(usuariosTable.id, String(req.params.id)));
 
-    if (!u?.fotoDados || !u.fotoIv) return res.status(404).end();
+    if (!u) return res.status(404).end();
+
+    if (u.fotoId) return res.redirect(302, `/api/fotos/${u.fotoId}`);
+
+    if (!u.fotoDados || !u.fotoIv) return res.status(404).end();
 
     const dadosBrutos = descriptografarFoto(u.fotoDados, u.fotoIv);
 
@@ -289,21 +298,22 @@ router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request
     const { fotoBase64 } = z.object({ fotoBase64: z.string().min(1) }).parse(req.body);
     if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
 
+    const usuarioId = String(req.params.id);
     const foto = criptografarFoto(fotoBase64);
-    const { randomUUID } = await import("crypto");
+
+    const [fotoRow] = await db.insert(fotosTable).values({
+      entidadeTipo: "usuario", entidadeId: usuarioId,
+      mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
+      iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados,
+    }).onConflictDoUpdate({
+      target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
+      set: { mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes, iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados, atualizadoEm: new Date() },
+    }).returning({ id: fotosTable.id });
 
     const [u] = await db
       .update(usuariosTable)
-      .set({
-        fotoStorageKey: randomUUID(),
-        fotoDados: foto.dadosCriptografados,
-        fotoIv: foto.iv,
-        fotoMimeType: foto.mimeType,
-        fotoTamanhoBytes: foto.tamanhoBytes,
-        fotoHashIntegridade: foto.hash,
-        atualizadoEm: new Date(),
-      })
-      .where(eq(usuariosTable.id, String(req.params.id)))
+      .set({ fotoId: fotoRow.id, atualizadoEm: new Date() })
+      .where(eq(usuariosTable.id, usuarioId))
       .returning({ id: usuariosTable.id });
 
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
@@ -311,11 +321,11 @@ router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request
     await registrarAuditoria({
       tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
-      endpoint: `PUT /api/usuarios/${String(req.params.id)}/foto`, metodoHttp: "PUT", statusHttp: 200,
+      endpoint: `PUT /api/usuarios/${usuarioId}/foto`, metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
 
-    res.json({ ok: true, fotoUrl: `/api/usuarios/${u.id}/foto` });
+    res.json({ ok: true, fotoUrl: `/api/fotos/${fotoRow.id}` });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Erro ao salvar foto" });
   }

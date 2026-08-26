@@ -19,7 +19,6 @@ import {
   disciplinasTable,
   coordenadorCursosTable,
 } from "@workspace/db";
-import { descriptografarFoto, verificarIntegridade } from "../lib/crypto.js";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 
@@ -71,8 +70,8 @@ async function getUsuariosPorRoles(nomes: string[]): Promise<UsuarioCardAPI[]> {
       nome:             usuariosTable.nome,
       emailEncrypted:   usuariosTable.emailEncrypted,
       codigoAcesso:     usuariosTable.codigoAcesso,
+      fotoId:           usuariosTable.fotoId,
       fotoStorageKey:   usuariosTable.fotoStorageKey,
-      fotoDados:        usuariosTable.fotoDados,
       roleId:           rolesTable.id,
       roleName:         rolesTable.nome,
     })
@@ -84,7 +83,7 @@ async function getUsuariosPorRoles(nomes: string[]): Promise<UsuarioCardAPI[]> {
   // Consolidar por usuário
   const usuarioMap = new Map<string, {
     id: string; nome: string | null; email: string; codigoAcesso: string;
-    fotoStorageKey: string | null; fotoDados: Buffer | null;
+    fotoId: string | null; fotoStorageKey: string | null;
     roles: Map<string, string>; // id → nome
   }>();
 
@@ -94,8 +93,8 @@ async function getUsuariosPorRoles(nomes: string[]): Promise<UsuarioCardAPI[]> {
         id: row.id, nome: row.nome,
         email: decryptEmail(row.emailEncrypted, secret),
         codigoAcesso: row.codigoAcesso,
+        fotoId: row.fotoId ?? null,
         fotoStorageKey: row.fotoStorageKey ?? null,
-        fotoDados: (row.fotoDados as Buffer | null) ?? null,
         roles: new Map(),
       });
     }
@@ -158,7 +157,9 @@ async function getUsuariosPorRoles(nomes: string[]): Promise<UsuarioCardAPI[]> {
     nome: u.nome,
     email: u.email,
     codigoAcesso: u.codigoAcesso,
-    fotoUrl: u.fotoStorageKey && u.fotoDados ? `/api/usuarios/${u.id}/foto` : null,
+    fotoUrl: u.fotoId
+      ? `/api/fotos/${u.fotoId}`
+      : (u.fotoStorageKey ? `/api/usuarios/${u.id}/foto` : null),
     roles: [...u.roles.entries()].map(([id, nome]) => ({ id, nome })),
     ofertas: ofertaMap.get(u.id) ?? [],
     cursosCoordenados: coordMap.get(u.id) ?? [],
@@ -247,11 +248,8 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
         cursoNome:       cursosTable.nome,
         turnoId:         turnosTable.id,
         turnoNome:       turnosTable.nome,
-        fotoDados:           estudantesTable.fotoDados,
-        fotoIv:              estudantesTable.fotoIv,
-        fotoMimeType:        estudantesTable.fotoMimeType,
-        fotoHashIntegridade: estudantesTable.fotoHashIntegridade,
-        fotoStorageKey:      estudantesTable.fotoStorageKey,
+        fotoId:         estudantesTable.fotoId,
+        fotoStorageKey: estudantesTable.fotoStorageKey,
       })
       .from(estudantesTable)
       .leftJoin(turmasTable,      eq(estudantesTable.turmaId,  turmasTable.id))
@@ -297,17 +295,9 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
 
       // Deduplica estudante por id (pode aparecer N vezes se turma tem N turnos)
       if (!grupo.estudantes.has(r.id)) {
-        let fotoUrl: string | null = null;
-        if (r.fotoDados && r.fotoIv) {
-          try {
-            const dadosBrutos = descriptografarFoto(r.fotoDados, r.fotoIv);
-            if (!r.fotoHashIntegridade || verificarIntegridade(dadosBrutos, r.fotoHashIntegridade)) {
-              fotoUrl = `data:${r.fotoMimeType ?? "image/jpeg"};base64,${dadosBrutos.toString("base64")}`;
-            }
-          } catch {
-            // foto corrompida — incluir estudante sem foto
-          }
-        }
+        const fotoUrl = r.fotoId
+          ? `/api/fotos/${r.fotoId}`
+          : (r.fotoStorageKey ? `/api/estudantes/${r.id}/foto` : null);
         grupo.estudantes.set(r.id, { id: r.id, nome: r.nome, registro: r.registro, dataNascimento: r.dataNascimento, fotoUrl });
       }
     }
