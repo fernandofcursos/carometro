@@ -15,10 +15,11 @@ const router = Router();
 router.use(requireAuth);
 
 const insertEstudanteSchema = z.object({
-  nome:      z.string().min(2).max(200),
-  registro:  z.string().min(1).max(50),
-  turmaId:   z.string().uuid(),
-  observacao: z.string().max(300).optional().nullable(),
+  nome:            z.string().min(2).max(200),
+  registro:        z.string().min(1).max(50),
+  turmaId:         z.string().uuid(),
+  observacao:      z.string().max(300).optional().nullable(),
+  dataNascimento:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   emails: z.array(z.object({
     email: z.string().email(),
     tipo: z.enum(["proprio", "responsavel"]),
@@ -115,6 +116,7 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       .select({
         id: estudantesTable.id, nome: estudantesTable.nome, registro: estudantesTable.registro,
         observacao: estudantesTable.observacao, turmaId: estudantesTable.turmaId,
+        dataNascimento: estudantesTable.dataNascimento,
         fotoId: estudantesTable.fotoId,
         fotoStorageKey: estudantesTable.fotoStorageKey, criadoEm: estudantesTable.criadoEm,
         turmaSigla: turmasTable.sigla, turmaDescricao: turmasTable.descricao,
@@ -135,6 +137,7 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
 
     res.json({
       id: e.id, nome: e.nome, registro: e.registro, observacao: e.observacao ?? null,
+      dataNascimento: e.dataNascimento ?? null,
       turmaId: e.turmaId, turmaSigla: e.turmaSigla ?? "", turmaDescricao: e.turmaDescricao ?? "",
       turnoNome: e.turnoNome ?? "", cursoNome: e.cursoNome ?? "",
       criadoEm: e.criadoEm.toISOString(),
