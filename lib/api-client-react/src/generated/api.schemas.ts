@@ -53,13 +53,22 @@ export interface TurnoInput {
 
 export interface Curso {
   id: string;
+  sigla: string;
   nome: string;
+  descricao?: string | null;
+  moduloMenor?: boolean;
+  ativo?: boolean;
   criadoEm: string;
 }
 
 export interface CursoInput {
   /** @minLength 1 */
+  sigla: string;
+  /** @minLength 1 */
   nome: string;
+  descricao?: string | null;
+  moduloMenor?: boolean;
+  ativo?: boolean;
 }
 
 export interface Turma {

@@ -1453,23 +1453,44 @@ components:
 
     Curso:
       type: object
-      required: [id, nome, criadoEm]
+      required: [id, sigla, nome, criadoEm]
       properties:
         id:
           type: string
           format: uuid
+        sigla:
+          type: string
+          maxLength: 4
         nome:
           type: string
+        descricao:
+          type: string
+          nullable: true
+        moduloMenor:
+          type: boolean
+        ativo:
+          type: boolean
         criadoEm:
           type: string
 
     CursoInput:
       type: object
-      required: [nome]
+      required: [sigla, nome]
       properties:
+        sigla:
+          type: string
+          maxLength: 4
+          minLength: 1
         nome:
           type: string
           minLength: 1
+        descricao:
+          type: string
+          nullable: true
+        moduloMenor:
+          type: boolean
+        ativo:
+          type: boolean
 
     Turma:
       type: object

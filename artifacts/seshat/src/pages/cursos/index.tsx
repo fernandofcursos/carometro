@@ -101,7 +101,7 @@ function CursoRow({ curso, onDelete }: { curso: { id: string; sigla: string; nom
 export default function CursosList() {
   const [novaSigla, setNovaSigla] = useState("");
   const [novoCurso, setNovoCurso] = useState("");
-  const { data: cursos, isLoading } = useListCursos();
+  const { data: cursos, isLoading, isError } = useListCursos();
   const createCurso = useCreateCurso();
   const deleteCurso = useDeleteCurso();
   const queryClient = useQueryClient();
@@ -180,6 +180,12 @@ export default function CursosList() {
       <div className="space-y-3">
         {isLoading ? (
           <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>
+        ) : isError ? (
+          <div className="text-center py-12 border border-dashed rounded-lg bg-card">
+            <BookOpen className="w-12 h-12 text-muted-foreground opacity-30 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">Não foi possível carregar os cursos.</p>
+            <p className="text-xs text-muted-foreground mt-1">Verifique sua conexão ou permissões de acesso.</p>
+          </div>
         ) : cursos?.length === 0 ? (
           <div className="text-center py-12 border border-dashed rounded-lg bg-card">
             <BookOpen className="w-12 h-12 text-muted-foreground opacity-30 mx-auto mb-3" />
