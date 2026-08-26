@@ -43,10 +43,16 @@ No frontend, sempre usar `estudante.emails ?? []` para evitar crash quando o cam
 
 ### GET /api/estudantes/:id/foto
 
-Retorna a imagem binária descriptografada (AES-256-CBC).  
-**Headers retornados:** `Content-Type: image/jpeg` (ou mime armazenado), `Cache-Control: private, max-age=604800`  
-**Verificação de integridade:** SHA-256 do bytea descriptografado vs `fotoHashIntegridade`  
-**Erro 500** se integridade falhar (corrupção detectada)
+Compatibilidade retroativa. Comportamento:
+- Se o estudante já tem `fotoId` → `302 redirect` para `GET /api/fotos/:fotoId`
+- Caso contrário → descriptografa do bytea inline e serve diretamente (dados legados ainda não migrados)
+
+### GET /api/fotos/:id
+
+Endpoint canônico de fotos. Lê da tabela `fotos`, descriptografa e serve.  
+**Headers:** `Content-Type: image/jpeg`, `Cache-Control: private, max-age=86400`  
+**Verificação de integridade:** SHA-256 do bytea descriptografado vs `hash_integridade`  
+**Erro 500** se integridade falhar
 
 ### POST /api/estudantes
 
@@ -69,7 +75,9 @@ Limite: `fotoBase64.length <= 5_000_000` (≈3.7MB binário após decode)
 
 Substitui a foto de um estudante existente.  
 **Requer:** `estudantes:manage`  
-**Entrada:** `{ fotoBase64: string }`
+**Entrada:** `{ fotoBase64: string }`  
+Escreve na tabela `fotos` (upsert por `entidade_tipo + entidade_id`) e atualiza `estudantes.foto_id`.  
+**Resposta:** `{ ok: true, fotoUrl: "/api/fotos/:id" }`
 
 ### PUT /api/estudantes/:id
 
@@ -83,21 +91,46 @@ Soft delete: seta `deletadoEm`. Foto permanece no banco (auditoria LGPD).
 
 ## Armazenamento de Foto
 
+### Novo padrão — tabela `fotos` (canônico)
+
 | Campo | Tipo | Conteúdo |
 |-------|------|----------|
-| `foto_storage_key` | varchar(200) | UUID gerado a cada upload |
-| `foto_dados` | bytea | AES-256-CBC dos bytes da imagem |
-| `foto_iv` | char(24) | IV em base64 (16 bytes → 24 chars) |
-| `foto_mime_type` | varchar(20) | ex: `image/jpeg` |
-| `foto_tamanho_bytes` | integer | tamanho **original** (antes de cifrar) |
-| `foto_hash_integridade` | char(64) | SHA-256 hex dos bytes **originais** |
+| `id` | uuid PK | |
+| `entidade_tipo` | varchar(20) | `'estudante'` |
+| `entidade_id` | uuid | `estudantes.id` |
+| `mime_type` | varchar(20) | ex: `image/jpeg` |
+| `tamanho_bytes` | integer | tamanho original (antes de cifrar) |
+| `iv` | char(24) | IV em base64 (16 bytes → 24 chars) |
+| `hash_integridade` | char(64) | SHA-256 hex dos bytes originais |
+| `dados` | bytea | AES-256-CBC dos bytes da imagem |
+
+`UNIQUE (entidade_tipo, entidade_id)` — uma foto por entidade.
+
+`estudantes.foto_id` (uuid FK → fotos, ON DELETE SET NULL) aponta para o registro canônico.
+
+`fotoUrl` retornado pela API: `/api/fotos/:id` quando `foto_id` preenchido; `/api/estudantes/:id/foto` como fallback para dados legados.
+
+### Colunas inline (legado — manter até migração completa)
+
+| Campo | Tipo |
+|-------|------|
+| `foto_storage_key` | varchar(200) |
+| `foto_dados` | bytea |
+| `foto_iv` | char(24) |
+| `foto_mime_type` | varchar(20) |
+| `foto_tamanho_bytes` | integer |
+| `foto_hash_integridade` | char(64) |
+
+Após `scripts/migrate-fotos.sql` ser executado e todos os `foto_id` preenchidos, rodar o bloco `DROP COLUMN` comentado no script para liberar espaço.
 
 ## Casos de Teste
 
 - [ ] POST sem `turmaId` → 400
 - [ ] POST com `turmaId` inexistente → 400 (FK)
 - [ ] POST com `registro` duplicado → 400 (unique constraint)
+- [ ] POST com foto → `foto_id` preenchido, `fotoUrl = /api/fotos/:id`
+- [ ] GET `/:id/foto` com `foto_id` → 302 redirect para `/api/fotos/:id`
 - [ ] GET `/:id/foto` sem foto → 404
-- [ ] GET `/:id/foto` com foto corrompida → 500
+- [ ] GET `/api/fotos/:id` com foto corrompida → 500
 - [ ] GET listing não retorna `fotoDados` no payload
-- [ ] `temFoto: false` para estudantes sem foto
+- [ ] `fotoUrl: null` para estudantes sem foto

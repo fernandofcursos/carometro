@@ -91,6 +91,13 @@ Retorna por turma:
 }
 ```
 
+`fotoUrl` é uma URL de endpoint — **não data URL inline**:
+- `/api/fotos/:fotoId` quando `foto_id` preenchido na tabela `estudantes`
+- `/api/estudantes/:id/foto` como fallback para dados legados (ainda sem `foto_id`)
+- `null` para estudantes sem foto
+
+A descriptografia ocorre sob demanda por request de foto, não em lote no carômetro. O browser faz cache `private, max-age=86400` automaticamente.
+
 JOIN via `turmaTurnosTable` (não mais `turmasTable.turnoId`):
 ```ts
 .leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))

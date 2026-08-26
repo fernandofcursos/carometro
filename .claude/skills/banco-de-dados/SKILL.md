@@ -106,6 +106,43 @@ docker compose up --build
 | `lib/db/src/schema/` | Definições de tabelas (fonte de verdade do schema) |
 | `scripts/src/seed-admin.ts` | Seed idempotente do admin + roles padrão |
 
+## Migrations aplicadas manualmente
+
+| Script | O que faz |
+|---|---|
+| `scripts/migrate-matriculas.sql` | Índice único parcial `uq_matricula_usuario_turma`; coluna `modulo_menor` em cursos |
+| `scripts/migrate-turmas.sql` | Coluna `modulo varchar(4)` e constraint `ck_turma_modulo` |
+| `scripts/migrate-fotos.sql` | Tabela `fotos`; FK `foto_id` em `estudantes` e `usuarios`; migra bytea inline → tabela |
+
+### migrate-fotos.sql — detalhes
+
+O script é **idempotente** e executa dois estágios em um único `BEGIN/COMMIT`:
+
+1. **Etapa 1** — Cria `fotos` + adiciona `foto_id FK` em estudantes e usuarios (se não existirem)
+2. **Etapa 2** — Migra bytea inline (`foto_dados`) → `fotos`; atualiza `foto_id` nos registros migrados
+
+Após verificar que todos os registros têm `foto_id IS NOT NULL`, execute o bloco `DROP COLUMN` comentado no final do script para liberar o espaço do bytea inline.
+
+## Tabela `fotos`
+
+```sql
+fotos (
+  id               uuid PK,
+  entidade_tipo    varchar(20) NOT NULL,  -- 'estudante' | 'usuario'
+  entidade_id      uuid NOT NULL,
+  mime_type        varchar(20) DEFAULT 'image/jpeg',
+  tamanho_bytes    integer NOT NULL,
+  iv               char(24) NOT NULL,     -- base64 do IV AES-256-CBC
+  hash_integridade char(64) NOT NULL,     -- SHA-256 hex dos bytes originais
+  dados            bytea NOT NULL,        -- bytes criptografados AES-256-CBC
+  criado_em        timestamptz,
+  atualizado_em    timestamptz,
+  UNIQUE (entidade_tipo, entidade_id)     -- uma foto por entidade
+)
+```
+
+`GET /api/fotos/:id` — endpoint canônico; descriptografa e serve com `Cache-Control: private, max-age=86400`.
+
 ## Perfis docker-compose
 
 | Perfil | Banco | Uso |

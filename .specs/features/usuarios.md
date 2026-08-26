@@ -15,8 +15,9 @@ CRUD de usuários do sistema com suporte a roles, disciplinas, foto e credenciai
 | `GET` | `/api/usuarios/:id` | `usuarios:read` | Buscar usuário |
 | `PATCH` | `/api/usuarios/:id` | `usuarios:manage` | Atualizar usuário |
 | `DELETE` | `/api/usuarios/:id` | `usuarios:manage` | Excluir usuário |
-| `GET` | `/api/usuarios/:id/foto` | autenticado | Servir foto descriptografada |
-| `POST` | `/api/usuarios/:id/foto` | `usuarios:manage` | Salvar foto |
+| `GET` | `/api/usuarios/:id/foto` | autenticado | Redirect para `/api/fotos/:id` (ou fallback inline) |
+| `PUT` | `/api/usuarios/:id/foto` | `usuarios:manage` | Salvar foto na tabela `fotos` + atualiza FK |
+| `GET` | `/api/fotos/:id` | autenticado | Endpoint canônico — descriptografa e serve com cache 24h |
 
 ## Regras de Negócio
 

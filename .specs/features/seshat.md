@@ -17,19 +17,20 @@
 
 **Saída:**
 ```typescript
-{
+Array<{
+  turmaId: string; turmaSigla: string; turmaDescricao: string;
+  cursoId: string; cursoNome: string;
+  turnoId: string; turnoNome: string;
   estudantes: Array<{
     id: string; nome: string; registro: string;
-    turmaId: string; turmaSigla: string | null;
-    cursoNome: string | null; turnoNome: string | null;
-    foto: string | null;  // data URL: "data:image/jpeg;base64,..."
+    dataNascimento: string | null;
+    fotoUrl: string | null;  // "/api/fotos/:id" | "/api/estudantes/:id/foto" | null
   }>;
-  total: number;
-}
+}>
 ```
 
-> Foto é retornada como data URL base64 inline (para o grid carregar sem requests extras).  
-> Para estudantes sem foto ou com foto corrompida: `foto: null` (sem falha na resposta).
+> **Foto não é mais retornada inline (data URL).** O campo `fotoUrl` é uma URL de endpoint — o browser busca cada foto individualmente com cache `private, max-age=86400`. Isso elimina o decrypt em lote no servidor (~120–160 MB/req) e habilita cache HTTP por imagem.  
+> Para estudantes sem foto: `fotoUrl: null`.
 
 ---
 
@@ -42,7 +43,7 @@ type UsuarioCard = {
   id: string;
   nome: string | null;
   email: string;           // descriptografado com SESSION_SECRET
-  fotoUrl: string | null;  // "/api/usuarios/:id/foto" ou null
+  fotoUrl: string | null;  // "/api/fotos/:id" | "/api/usuarios/:id/foto" | null
   codigoAcesso: string;
   roles: { id: string; nome: string }[];
   ofertas: {
@@ -70,14 +71,17 @@ O frontend (`seshat-grupo.tsx`) agrupa por `ofertas[].turnoId + cursoId` para mo
 ## Considerações de Performance
 
 - Grid exibe todos os resultados filtrados de uma vez (sem paginação no MVP)
-- Descriptografia ocorre em memória no servidor → tempo proporcional ao número de fotos
-- Para turmas grandes (100+ alunos), considerar paginação futura
+- **Descriptografia NÃO ocorre mais no servidor durante listagem** — cada foto é buscada individualmente pelo browser via `fotoUrl`, com `Cache-Control: private, max-age=86400`
+- Fotos são cacheadas pelo browser; requisições subsequentes não vão ao servidor
+- Para turmas grandes (100+ alunos), o carômetro carrega rapidamente porque não descriptografa nada em lote
 
 ## Casos de Teste
 
 - [ ] GET sem filtros retorna todos os estudantes ativos
-- [ ] `?comFoto=true` exclui estudantes sem foto
-- [ ] Foto corrompida → `foto: null`, não quebra o endpoint
+- [ ] `fotoUrl` aponta para `/api/fotos/:id` quando `foto_id` preenchido
+- [ ] `fotoUrl` aponta para `/api/estudantes/:id/foto` como fallback (dados legados)
+- [ ] `fotoUrl: null` para estudantes sem foto
+- [ ] `GET /api/fotos/:id` com foto corrompida → 500 (não quebra o carômetro — a imagem falha individualmente)
 - [ ] `?busca=` funciona por nome e por registro
 - [ ] GET sem permissão `carometro:view` → 403
 
