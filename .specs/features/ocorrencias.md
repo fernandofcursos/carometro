@@ -165,3 +165,17 @@ Script: `scripts/migrate-notificacao-estudante.sql`
 - [ ] POST `/notificar-pais` sem responsáveis → 422
 - [ ] POST `/notificar-pais` com responsáveis → 200, `notificacaoPaisEnviadaEm` atualizado
 - [ ] POST `/notificar-pais` segunda vez → 200 (reenvio permitido)
+
+
+---
+
+## Ciência do Estudante (Portal)
+
+O estudante maior de 18 anos pode registrar ciência de suas próprias ocorrências via `POST /api/portal/ocorrencias/:id/ciencia`.
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `ciente_em` | timestamptz | Data/hora em que a ciência foi registrada |
+| `ciente_por_id` | uuid FK → usuarios | Usuário que deu ciência (o próprio estudante) |
+
+A ciência registrada na tabela `ocorrencias` é exibida na interface administrativa e no portal do estudante. Estudantes menores de idade (< 18 anos) não podem dar ciência — a responsabilidade recai sobre o responsável legal.

@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft, Crown, Building2, Mail,
+  PanelLeft, Crown, Building2, Mail, CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -62,11 +62,22 @@ export function AppSidebar() {
   const canManageEstudantes = hasAny("estudantes:manage");
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
+  const isEstudante = (user?.roles ?? []).includes("estudante");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);
 
   const groups: NavGroup[] = [
+    // Portal do Estudante — visível apenas para usuários com role 'estudante'
+    ...(isEstudante ? [{
+      label: "Meu Portal",
+      icon: CreditCard,
+      color: "#0ea5e9",
+      bgColor: "#f0f9ff",
+      items: [
+        nav("Meu Perfil", "/portal", GraduationCap),
+      ],
+    }] : []),
     ...(canViewCarometro ? [{
       label: "Carômetro",   // nome da funcionalidade (mantido)
       icon: Grid,

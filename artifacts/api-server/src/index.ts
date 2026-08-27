@@ -25,6 +25,7 @@ import importRouter from "./routes/import.js";
 import statsRouter from "./routes/stats.js";
 import fotosRouter from "./routes/fotos.js";
 import biometriaRouter from "./routes/biometria.js";
+import portalEstudanteRouter, { criarRotaVerificacao } from "./routes/portal-estudante.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -66,6 +67,10 @@ app.use("/api/stats", statsRouter);
 app.use("/api/fotos", fotosRouter);
 // Biometria facial e digital (WebAuthn FIDO2)
 app.use("/api/auth/biometria", biometriaRouter);
+// Portal do estudante (autoatendimento)
+app.use("/api/portal", portalEstudanteRouter);
+// Verificação pública de cartões/carteiras (sem auth)
+app.use("/api/verificar", criarRotaVerificacao());
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos

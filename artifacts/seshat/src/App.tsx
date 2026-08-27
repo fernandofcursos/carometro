@@ -45,6 +45,7 @@ import LgpdPage from "@/pages/lgpd";
 import PermissoesPage from "@/pages/permissoes";
 import AuditoriaPage from "@/pages/auditoria";
 import Iso27001Page from "@/pages/iso27001";
+import PortalEstudantePage from "@/pages/portal/index";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ function AppRoutes() {
           <Route path="/roles" component={RolesPage} />
           <Route path="/disciplinas" component={DisciplinasPage} />
           <Route path="/enturmacao" component={EnturmacaoPage} />
+          <Route path="/portal" component={PortalEstudantePage} />
           <Route path="/textos-padrao-ocorrencias" component={TextosPadraoPage} />
           <Route path="/mailer-diagnostico" component={MailerDiagnosticoPage} />
           <Route path="/lgpd" component={LgpdPage} />
