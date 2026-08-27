@@ -67,7 +67,7 @@ const anosOptions = Array.from({ length: 6 }, (_, i) => anoAtual - 1 + i);
 const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8, IX:9, X:10 };
 function moduloNumerico(m: string | null | undefined): number {
   if (!m) return 0;
-  return ROMANOS[m.toUpperCase().trim()] ?? parseInt(m ?? "", 10) || 0;
+  return ROMANOS[m.toUpperCase().trim()] ?? (parseInt(m, 10) || 0);
 }
 
 // ── Dialog: novo usuário criado ───────────────────────────────────────────────
