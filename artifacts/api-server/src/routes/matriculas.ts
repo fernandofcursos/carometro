@@ -42,7 +42,7 @@ const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII
 function moduloNumerico(m: string | null | undefined): number {
   if (!m) return 0;
   const up = m.toUpperCase().trim();
-  return ROMANOS[up] ?? parseInt(m, 10) || 0;
+  return ROMANOS[up] ?? (parseInt(m, 10) || 0);
 }
 
 function pgCode(err: unknown): string {
