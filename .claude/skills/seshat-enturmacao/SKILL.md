@@ -147,11 +147,28 @@ Se `turmaId` muda, re-executa todas as validações de negócio considerando as 
 | Coluna | Descrição |
 |---|---|
 | Curso | cursoNome |
-| Turno | nomes dos turnos da turma (de `matricula.turnos`) |
+| Módulo | turmaModulo (ex.: "I", "II") — `"—"` se não definido |
+| Turno | turnoNome (turno específico do aluno) — `"—"` se não definido; NUNCA lista todos os turnos da turma |
 | Turma | turmaSigla |
 | Registro | registro numérico |
 | Semestre | ano/semestre |
 | Ações | lápis (editar) + lixeira (excluir) |
+
+### EnturmarForm — ordem obrigatória dos hooks
+
+`effectiveTurnoId` é um `const` (não um hook), mas deve ser declarado ANTES do `useMemo` de `ofertasFiltradas` — caso contrário, o factory do useMemo referencia a variável em Temporal Dead Zone → ReferenceError → tela branca.
+
+Ordem correta dentro do componente:
+```
+turmaAtual (useMemo)
+moduloInferiorSecundario (useMemo)
+turnosOcupados (useMemo)
+turnosDisponiveis (useMemo)
+effectiveTurnoId (const)          ← NÃO é hook; deve vir antes de ofertasFiltradas
+ofertasFiltradas (useMemo)        ← usa effectiveTurnoId
+moduloMenor (const)
+useEffect (turno change)
+```
 
 ### EnturmarForm — cascata
 

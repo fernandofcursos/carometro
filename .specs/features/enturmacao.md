@@ -189,9 +189,10 @@ Curso → Módulo → Turma → Turno → Disciplinas → Registro | Ano | Semes
 
 ### Tabela de Enturmações (por estudante)
 
-Colunas: **Curso | Turno | Turma | Registro | Semestre | Ações**
+Colunas: **Curso | Módulo | Turno | Turma | Registro | Semestre | Ações**
 
-- **Turno**: exibe `turnoNome` (turno específico do aluno) — não todos os turnos da turma
+- **Módulo**: exibe `turmaModulo` (ex.: "I", "II") — identifica o módulo da turma naquela matrícula
+- **Turno**: exibe `turnoNome` (turno específico do aluno) ou "—" quando não definido — nunca todos os turnos da turma
 
 ### DisciplinasSeletor — Modos
 

@@ -256,15 +256,7 @@ function EnturmarForm({
 
   const turmaAtual = useMemo(() => turmas.find((t) => t.id === turmaId) ?? null, [turmas, turmaId]);
 
-  // Disciplinas disponíveis para a combinação curso+turno selecionada
-  const ofertasFiltradas = useMemo(
-    () => ofertas.filter((o) => o.cursoId === turmaAtual?.cursoId && o.turnoId === effectiveTurnoId),
-    [ofertas, turmaAtual, effectiveTurnoId]
-  );
-  const moduloMenor = ofertasFiltradas.some((o) => o.moduloMenor);
-
   // Detectar se esta é uma enturmação secundária em módulo INFERIOR ao existente
-  // Nesse caso, aplicar limite de 3 disciplinas e filtrar turnos conflitantes
   const moduloInferiorSecundario = useMemo(() => {
     if (!turmaAtual?.modulo || !estudante?.matriculas?.length || isEditing) return false;
     const moduloNovo = moduloNumerico(turmaAtual.modulo);
@@ -293,7 +285,15 @@ function EnturmarForm({
   }, [turmaAtual, moduloInferiorSecundario, turnosOcupados]);
 
   // Turno efetivo: se há apenas 1 disponível, usa ele automaticamente
+  // IMPORTANTE: deve ser calculado ANTES de ofertasFiltradas (evita Temporal Dead Zone)
   const effectiveTurnoId = turnosDisponiveis.length === 1 ? turnosDisponiveis[0].id : turnoId;
+
+  // Disciplinas disponíveis para a combinação curso+turno selecionada
+  const ofertasFiltradas = useMemo(
+    () => ofertas.filter((o) => o.cursoId === turmaAtual?.cursoId && o.turnoId === effectiveTurnoId),
+    [ofertas, turmaAtual, effectiveTurnoId]
+  );
+  const moduloMenor = ofertasFiltradas.some((o) => o.moduloMenor);
 
   // Quando o turno muda, reinicializa disciplinas
   useEffect(() => {
@@ -681,6 +681,7 @@ function EstudanteCard({
                     <thead className="bg-muted/40">
                       <tr>
                         <th className="px-3 py-2 text-left font-medium text-muted-foreground">Curso</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Módulo</th>
                         <th className="px-3 py-2 text-left font-medium text-muted-foreground">Turno</th>
                         <th className="px-3 py-2 text-left font-medium text-muted-foreground">Turma</th>
                         <th className="px-3 py-2 text-left font-medium text-muted-foreground">Registro</th>
@@ -692,8 +693,11 @@ function EstudanteCard({
                       {ativas.map((m) => (
                         <tr key={m.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-3 py-2.5 font-medium">{m.cursoNome}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground font-mono">
+                            {m.turmaModulo ?? "—"}
+                          </td>
                           <td className="px-3 py-2.5 text-muted-foreground">
-                            {m.turnoNome ?? (m.turnos.map((t) => t.nome).join(", ") || "—")}
+                            {m.turnoNome ?? "—"}
                           </td>
                           <td className="px-3 py-2.5">
                             <span className="inline-flex px-2 py-0.5 rounded bg-secondary font-mono font-semibold">{m.turmaSigla}</span>
