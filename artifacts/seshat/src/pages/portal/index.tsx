@@ -97,85 +97,202 @@ function StatusCarteiraBadge({ status }: { status: string }) {
   return <Badge variant="outline">{status}</Badge>;
 }
 
-// ── Carteira de Estudante ─────────────────────────────────────────────────────
-// Segue: Lei 12.989/2014, SEEDF, LGPD art. 6º (finalidade e necessidade), ISO 27001 A.9.4
+// ── Carteira de Estudante — layout CIE 2026 ──────────────────────────────────
+// Lei 12.989/2014 · SEEDF · LGPD art. 6º · ISO 27001 A.9.4
 
 function CarteiraEstudante({ me, carteira }: { me: PortalMe; carteira: CarteiraDB | null }) {
   const verUrl = carteira ? `${window.location.origin}${BASE}/verificar/${carteira.token}` : "";
-  const primeiraMatricula = me.matriculas[0];
+  const mat = me.matriculas[0];
+  const anoValidade = carteira?.ano ?? new Date().getFullYear();
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <Card className="w-full max-w-sm bg-gradient-to-br from-blue-700 to-blue-900 text-white shadow-xl print:shadow-none">
-        <CardContent className="p-5 flex flex-col gap-3">
-          {/* Cabeçalho institucional */}
-          <div className="flex items-center gap-2 border-b border-blue-500 pb-2">
-            <GraduationCap className="w-5 h-5 flex-shrink-0" />
-            <div className="text-xs font-semibold leading-tight">
-              Secretaria de Estado de Educação do Distrito Federal
+    <div className="flex flex-col items-center gap-4 w-full">
+      {/* Card horizontal — proporção ~1.75:1 (A6 paisagem) */}
+      <div
+        className="relative w-full overflow-hidden rounded-2xl shadow-2xl print:shadow-none select-none"
+        style={{
+          maxWidth: 560,
+          aspectRatio: "560/320",
+          background: "#eaecf8",
+          fontFamily: "'Segoe UI', system-ui, sans-serif",
+        }}
+      >
+        {/* Faixa azul escura lateral direita */}
+        <div
+          className="absolute top-0 right-0 h-full"
+          style={{ width: 14, background: "#1a2f7a" }}
+        />
+
+        {/* Elemento decorativo roxo — curva no canto inferior esquerdo */}
+        <svg
+          className="absolute bottom-0 left-0"
+          style={{ width: 130, height: 110, opacity: 0.92 }}
+          viewBox="0 0 130 110"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M0 110 Q 0 20 110 0 L 0 0 Z" fill="#6d28d9" opacity="0.25" />
+          <path d="M0 110 Q 10 50 90 10 L 0 10 Z" fill="#7c3aed" opacity="0.35" />
+          <path d="M0 110 Q 15 70 70 30 L 0 30 Z" fill="#8b5cf6" opacity="0.5" />
+        </svg>
+
+        {/* Conteúdo principal */}
+        <div className="relative h-full flex flex-col" style={{ padding: "14px 28px 14px 18px" }}>
+
+          {/* ── Cabeçalho: logos + título ── */}
+          <div className="flex items-center justify-between mb-2">
+            {/* Logo esquerda — placeholder SEEDF */}
+            <div className="flex items-center gap-2">
+              {/* Placeholder logo: será substituído pela logo real */}
+              <div
+                className="flex items-center justify-center rounded"
+                style={{ width: 44, height: 44, background: "#c7cef5", border: "1.5px dashed #7c8ed8" }}
+                title="Logo da instituição (a ser inserida)"
+              >
+                <GraduationCap style={{ width: 22, height: 22, color: "#4a5bbf" }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 8, color: "#4a5bbf", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>
+                  Carteira de
+                </p>
+                <p style={{ fontSize: 10, color: "#1a2f7a", fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1.2 }}>
+                  Identificação Estudantil
+                </p>
+              </div>
+            </div>
+
+            {/* Logos direita — placeholders */}
+            <div className="flex items-center gap-2">
+              <div
+                className="rounded-full flex items-center justify-center"
+                style={{ width: 36, height: 36, background: "#c7cef5", border: "1.5px dashed #7c8ed8" }}
+                title="Logo 1 (a ser inserida)"
+              >
+                <span style={{ fontSize: 7, color: "#4a5bbf", fontWeight: 700 }}>LOGO</span>
+              </div>
+              <div
+                className="rounded-full flex items-center justify-center"
+                style={{ width: 36, height: 36, background: "#c7cef5", border: "1.5px dashed #7c8ed8" }}
+                title="Logo 2 (a ser inserida)"
+              >
+                <span style={{ fontSize: 7, color: "#4a5bbf", fontWeight: 700 }}>LOGO</span>
+              </div>
             </div>
           </div>
 
-          {/* Foto + dados */}
-          <div className="flex gap-3 items-start">
-            {me.usuario.fotoUrl ? (
-              <img
-                src={me.usuario.fotoUrl}
-                alt="Foto do estudante"
-                className="w-20 h-24 object-cover rounded border-2 border-blue-400 flex-shrink-0"
-              />
-            ) : (
-              <div className="w-20 h-24 bg-blue-600 rounded border-2 border-blue-400 flex items-center justify-center flex-shrink-0">
-                <UserCircle className="w-10 h-10 text-blue-300" />
-              </div>
-            )}
+          {/* ── Nome do estudante ── */}
+          <p style={{ fontSize: 13, fontWeight: 800, color: "#0f1c5e", marginBottom: 8, lineHeight: 1.2 }}>
+            {me.usuario.nome ?? "—"}
+          </p>
 
-            <div className="flex flex-col gap-1 min-w-0">
-              <p className="text-[10px] text-blue-300 uppercase tracking-wider">Estudante</p>
-              <p className="font-bold text-sm leading-snug break-words">{me.usuario.nome ?? "—"}</p>
-              {primeiraMatricula && (
+          {/* ── Corpo: foto | campos | QR ── */}
+          <div className="flex gap-3 flex-1 items-start">
+
+            {/* Foto */}
+            <div
+              className="flex-shrink-0 rounded overflow-hidden"
+              style={{ width: 72, height: 88, background: "#c7cef5", border: "2px solid #9ca7e0" }}
+            >
+              {me.usuario.fotoUrl ? (
+                <img src={me.usuario.fotoUrl} alt="Foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <UserCircle style={{ width: 36, height: 36, color: "#6d82d8" }} />
+                </div>
+              )}
+            </div>
+
+            {/* Campos */}
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0" style={{ fontSize: 9.5 }}>
+              <div>
+                <span style={{ color: "#5a6aac", fontWeight: 600 }}>Instituição: </span>
+                <span style={{ color: "#0f1c5e", fontWeight: 500 }}>Sec. Est. de Educação do DF</span>
+              </div>
+              {mat && (
                 <>
-                  <p className="text-xs text-blue-200">{primeiraMatricula.cursoNome}</p>
-                  <p className="text-xs text-blue-300">
-                    {primeiraMatricula.turnos.map((t) => t.nome).join(" / ")} — Turma {primeiraMatricula.turmaSigla}
-                  </p>
-                  <p className="text-xs text-blue-300">Matrícula: {primeiraMatricula.registro}</p>
+                  <div>
+                    <span style={{ color: "#5a6aac", fontWeight: 600 }}>Curso: </span>
+                    <span style={{ color: "#0f1c5e", fontWeight: 500 }}>{mat.cursoNome}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#5a6aac", fontWeight: 600 }}>Turma: </span>
+                    <span style={{ color: "#0f1c5e", fontWeight: 500 }}>{mat.turmaSigla}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#5a6aac", fontWeight: 600 }}>Turno: </span>
+                    <span style={{ color: "#0f1c5e", fontWeight: 500 }}>
+                      {mat.turnos.map((t) => t.nome).join(" / ") || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#5a6aac", fontWeight: 600 }}>Matrícula: </span>
+                    <span style={{ color: "#0f1c5e", fontWeight: 500 }}>{mat.registro}</span>
+                  </div>
                 </>
+              )}
+              {me.usuario.dataNascimento && (
+                <div>
+                  <span style={{ color: "#5a6aac", fontWeight: 600 }}>Data Nasc.: </span>
+                  <span style={{ color: "#0f1c5e", fontWeight: 500 }}>{formatarData(me.usuario.dataNascimento)}</span>
+                </div>
+              )}
+              <div style={{ marginTop: 4 }}>
+                <span style={{ color: "#5a6aac", fontWeight: 600 }}>Válido até: </span>
+                <span style={{ color: "#0f1c5e", fontWeight: 700 }}>
+                  {carteira ? `${carteira.semestre}º sem. / ${carteira.ano}` : "—"}
+                </span>
+              </div>
+
+              {carteira && carteira.status !== "ativa" && (
+                <div
+                  style={{
+                    marginTop: 6, padding: "2px 8px", borderRadius: 4,
+                    background: "#fee2e2", color: "#b91c1c",
+                    fontWeight: 800, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.06em",
+                    display: "inline-block",
+                  }}
+                >
+                  {carteira.status === "cancelada" ? "CANCELADA" : "REVOGADA"}
+                </div>
+              )}
+            </div>
+
+            {/* QR Code */}
+            <div className="flex flex-col items-center flex-shrink-0 gap-1">
+              <div style={{ background: "#fff", padding: 4, borderRadius: 6 }}>
+                {carteira && carteira.status === "ativa" ? (
+                  <QrCodeCanvas value={verUrl} size={76} />
+                ) : (
+                  <div style={{ width: 76, height: 76, background: "#dde0f4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 8, color: "#7c8ed8", textAlign: "center", padding: 4 }}>QR disponível com carteira ativa</span>
+                  </div>
+                )}
+              </div>
+              {carteira && (
+                <p style={{ fontSize: 6.5, color: "#5a6aac", textAlign: "center", maxWidth: 80, lineHeight: 1.3 }}>
+                  COD CIE<br />
+                  <span style={{ fontWeight: 700, color: "#0f1c5e", letterSpacing: "0.03em" }}>
+                    {carteira.token.split(".")[0]?.slice(-12).toUpperCase() ?? "—"}
+                  </span>
+                </p>
               )}
             </div>
           </div>
 
-          {/* Validade e status */}
-          <div className="flex justify-between items-center text-xs border-t border-blue-500 pt-2">
-            <span className="text-blue-300">Validade:</span>
-            <span className="font-semibold">
-              {carteira ? `${carteira.semestre}º sem. / ${carteira.ano}` : "—"}
-            </span>
+          {/* ── Rodapé: LGPD + ano ── */}
+          <div className="flex items-end justify-between mt-2">
+            <p style={{ fontSize: 6.5, color: "#7c8ed8", maxWidth: 260, lineHeight: 1.4 }}>
+              Dados protegidos pela LGPD (Lei 13.709/2018) e ISO 27001.
+              Uso exclusivo para identificação estudantil.
+            </p>
+            <p style={{ fontSize: 26, fontWeight: 900, color: "#1a2f7a", lineHeight: 1, letterSpacing: "-0.02em", marginRight: 18 }}>
+              {anoValidade}
+            </p>
           </div>
-          {carteira && carteira.status !== "ativa" && (
-            <div className="text-center text-xs font-bold text-red-300 bg-red-900/30 rounded py-1">
-              DOCUMENTO {carteira.status.toUpperCase()}
-            </div>
-          )}
+        </div>
+      </div>
 
-          {/* QR Code */}
-          {carteira && carteira.status === "ativa" && (
-            <div className="flex flex-col items-center gap-1 mt-1">
-              <div className="bg-white p-1.5 rounded">
-                <QrCodeCanvas value={verUrl} size={100} />
-              </div>
-              <p className="text-[9px] text-blue-400 text-center">Escaneie para verificar a autenticidade</p>
-            </div>
-          )}
-
-          {/* Rodapé LGPD */}
-          <p className="text-[8px] text-blue-400 text-center border-t border-blue-500 pt-2 leading-snug">
-            Dados protegidos nos termos da LGPD (Lei 13.709/2018) e ISO 27001.
-            Uso exclusivo para fins educacionais e de identificação estudantil.
-          </p>
-        </CardContent>
-      </Card>
-
+      {/* Ações abaixo do card */}
       {carteira && carteira.status === "ativa" && (
         <Button variant="outline" size="sm" onClick={() => window.print()}>
           Imprimir carteira
