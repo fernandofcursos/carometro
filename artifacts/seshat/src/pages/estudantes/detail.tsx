@@ -106,8 +106,10 @@ export default function EstudantesDetail() {
     uploadFoto.mutate(
       { id, data: { fotoBase64: base64 } },
       {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetEstudanteQueryKey(id), updated);
+        onSuccess: () => {
+          // Não usar setQueryData: a API de foto retorna { ok, fotoUrl }, não o estudante completo.
+          // Invalidar para re-buscar o objeto completo evita TypeError na re-renderização.
+          queryClient.invalidateQueries({ queryKey: getGetEstudanteQueryKey(id) });
           queryClient.invalidateQueries({ queryKey: getGetCarometroQueryKey() });
           setIsCapturing(false);
           toast({ title: "Foto atualizada com sucesso!" });
