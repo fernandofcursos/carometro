@@ -693,7 +693,7 @@ function EstudanteCard({
                         <tr key={m.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-3 py-2.5 font-medium">{m.cursoNome}</td>
                           <td className="px-3 py-2.5 text-muted-foreground">
-                            {m.turnoNome ?? m.turnos.map((t) => t.nome).join(", ") || "—"}
+                            {m.turnoNome ?? (m.turnos.map((t) => t.nome).join(", ") || "—")}
                           </td>
                           <td className="px-3 py-2.5">
                             <span className="inline-flex px-2 py-0.5 rounded bg-secondary font-mono font-semibold">{m.turmaSigla}</span>
