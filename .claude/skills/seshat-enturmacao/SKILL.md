@@ -101,6 +101,16 @@ Edição de uma matrícula existente. Aceita `{turmaId?, turnoId?, registro?, an
 > **Crítico:** o frontend DEVE enviar `turnoId: effectiveTurnoId` no body do PATCH. Sem ele, a alteração de turno no formulário não é persistida e o campo continua exibindo o valor anterior.
 Se `turmaId` muda, re-executa todas as validações de negócio considerando as OUTRAS matrículas ativas (excluindo a editada com `ne(matriculasTable.id, id)`).
 
+## Emissão de Documentos na Enturmação
+
+Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é chamada e emite **apenas**:
+
+| Documento | Emitido? |
+|---|---|
+| Carteira do Estudante (`tipo=carteira`) | ✅ Automático |
+| Cartão de Liberação Semestral (`tipo=cartao-semestral`) | ❌ Nunca automático — pedido formal + emissão manual pelo coordenador via `POST /api/carteiras/emitir-liberacao/:usuarioId` |
+| Cartão de Saída Avulso (`cartoes_saida`) | ❌ Nunca automático — solicitação do responsável + aprovação do coordenador |
+
 ## POST /api/matriculas — fluxo
 
 ```

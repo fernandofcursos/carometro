@@ -33,35 +33,34 @@ export function verificarTokenCarteira(token: string): { usuarioId: string; tipo
   }
 }
 
-// Emite carteira e cartão semestral para um estudante ao enturmar
+// Emite SOMENTE a Carteira do Estudante na enturmação.
+// O Cartão de Liberação (semestral) NÃO é emitido automaticamente —
+// requer pedido formal e emissão manual pelo coordenador via POST /api/carteiras/emitir-liberacao/:usuarioId.
 export async function emitirCarteirasParaMatricula(
   usuarioId: string,
   matriculaId: string,
   ano: number,
   semestre: number,
 ): Promise<void> {
-  const tipos: ("carteira" | "cartao-semestral")[] = ["carteira", "cartao-semestral"];
+  const tipo = "carteira" as const;
 
-  for (const tipo of tipos) {
-    // Verificar se já existe carteira ativa para este período e tipo
-    const [existente] = await db
-      .select({ id: carteirasTable.id })
-      .from(carteirasTable)
-      .where(and(
-        eq(carteirasTable.usuarioId, usuarioId),
-        eq(carteirasTable.tipo, tipo),
-        eq(carteirasTable.ano, ano),
-        eq(carteirasTable.semestre, semestre),
-        eq(carteirasTable.status, "ativa"),
-      ));
+  const [existente] = await db
+    .select({ id: carteirasTable.id })
+    .from(carteirasTable)
+    .where(and(
+      eq(carteirasTable.usuarioId, usuarioId),
+      eq(carteirasTable.tipo, tipo),
+      eq(carteirasTable.ano, ano),
+      eq(carteirasTable.semestre, semestre),
+      eq(carteirasTable.status, "ativa"),
+    ));
 
-    if (existente) continue; // Já possui carteira ativa para este período
+  if (existente) return; // Já possui carteira ativa para este período
 
-    const token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
-    await db.insert(carteirasTable).values({
-      usuarioId, matriculaId, tipo, ano, semestre, status: "ativa", token,
-    });
-  }
+  const token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
+  await db.insert(carteirasTable).values({
+    usuarioId, matriculaId, tipo, ano, semestre, status: "ativa", token,
+  });
 }
 
 // ── GET /api/carteiras — listar para gestão (coordenador / equipe gestora) ───
@@ -166,7 +165,60 @@ router.post("/:id/revogar", requirePermissao("estudantes:manage"), async (req: R
   }
 });
 
-// ── POST /api/carteiras/renovar/:usuarioId — renovar para novo semestre ──────
+// ── POST /api/carteiras/emitir-liberacao/:usuarioId — emitir cartão de liberação semestral ──
+// Emitido manualmente pelo coordenador após pedido formal do responsável.
+// Tipo 'cartao-semestral' (liberação permanente durante o semestre).
+router.post("/emitir-liberacao/:usuarioId", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
+  try {
+    const { ano, semestre } = req.body as { ano: number; semestre: 1 | 2 };
+    if (!ano || !semestre || ![1, 2].includes(semestre)) {
+      return res.status(400).json({ error: "Informe ano e semestre (1 ou 2)." });
+    }
+
+    const { usuarioId } = req.params;
+    const tipo = "cartao-semestral" as const;
+
+    // Idempotente: não emite duplicata para o mesmo período
+    const [existente] = await db
+      .select({ id: carteirasTable.id, status: carteirasTable.status })
+      .from(carteirasTable)
+      .where(and(
+        eq(carteirasTable.usuarioId, usuarioId),
+        eq(carteirasTable.tipo, tipo),
+        eq(carteirasTable.ano, ano),
+        eq(carteirasTable.semestre, semestre),
+        eq(carteirasTable.status, "ativa"),
+      ));
+
+    if (existente) {
+      return res.status(409).json({ error: "Já existe um Cartão de Liberação semestral ativo para este período." });
+    }
+
+    // Buscar matrícula ativa do estudante
+    const [mat] = await db
+      .select({ id: matriculasTable.id })
+      .from(matriculasTable)
+      .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true)))
+      .limit(1);
+
+    const token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
+    const [cartao] = await db.insert(carteirasTable).values({
+      usuarioId,
+      matriculaId: mat?.id ?? null as unknown as string,
+      tipo,
+      ano,
+      semestre,
+      status: "ativa",
+      token,
+    }).returning();
+
+    res.status(201).json({ ok: true, cartao });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao emitir cartão de liberação" });
+  }
+});
+
+// ── POST /api/carteiras/renovar/:usuarioId — renovar carteira para novo semestre ──────
 router.post("/renovar/:usuarioId", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
     const { ano, semestre } = req.body as { ano: number; semestre: 1 | 2 };

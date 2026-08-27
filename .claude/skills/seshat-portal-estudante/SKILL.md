@@ -51,7 +51,8 @@ Ocorrências vinculadas via `estudantes.usuario_id`. Inclui `cienteEm` e `ciente
 - 409 se já tem ciência
 
 ### GET /api/portal/carteira
-Gera `{ token, validade }` onde token = HMAC-SHA256 assinado com SESSION_SECRET.
+Retorna a Carteira do Estudante ativa (`tipo = 'carteira'`) com token HMAC-SHA256.
+O Cartão de Liberação Semestral (`tipo = 'cartao-semestral'`) é um documento separado, emitido manualmente pelo coordenador após pedido formal — nunca automático.
 
 ### GET /api/verificar/:token (público)
 Verifica cartão sem autenticação. Retorna `{ valido, tipo, validade, nome, fotoUrl, emitidoEm }`.
