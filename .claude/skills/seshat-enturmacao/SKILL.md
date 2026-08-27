@@ -137,7 +137,7 @@ Se `turmaId` muda, re-executa todas as validações de negócio considerando as 
 
 - `EnturmacaoPage`: lista **todos** os estudantes (com e sem matrícula), busca local por nome
 - `EstudanteCard`: accordion mostrando cabeçalho + tabela de enturmações + form inline
-- `EnturmarForm`: formulário em cascata Curso→Turma→Turno→Disciplinas; suporta POST (novo) e PATCH (edição)
+- `EnturmarForm`: formulário em cascata Curso→Módulo→Turma→Turno→Disciplinas; suporta POST (novo) e PATCH (edição)
 - `DisciplinasSeletor`: seletor de disciplinas por módulo menor/maior
 - Remoção via AlertDialog com 3 botões (Cancelar/Não/Sim)
 - `apiMsg(err, fallback)`: extrai `err.data?.error` para exibir no toast
@@ -156,16 +156,28 @@ Se `turmaId` muda, re-executa todas as validações de negócio considerando as 
 ### EnturmarForm — cascata
 
 ```
-cursoId → turmasFiltradas (por cursoId)
-turmaId → turnosDisponiveis (turnos da turma selecionada)
+cursoId → modulosDisponiveis (únicos das turmas do curso, ord. numericamente)
+modulo  → turmasFiltradas (por cursoId + modulo)
+turmaId → turnosDisponiveis (turnos da turma, filtrados se módulo inferior secundário)
 turnoId → ofertasFiltradas (por cursoId + turnoId)
 → DisciplinasSeletor
 → registro | ano | semestre
 ```
 
+- Se `modulosDisponiveis.length === 0`, o seletor de módulo não aparece (turmas sem módulo)
+- Turma fica desabilitada até módulo ser selecionado
 - Se `turnosDisponiveis.length === 1`, `effectiveTurnoId` é auto-preenchido
 - `useEffect` em `effectiveTurnoId` reseta seleção de disciplinas (pre-popula se editando)
-- Salvar: chama `PATCH` ou `POST` na matrícula, depois `PUT /api/usuario-disciplinas/:usuarioId`
+- Salvar: chama `PATCH` ou `POST` na matrícula (com `turnoId`), depois `PUT /api/usuario-disciplinas/:usuarioId`
+
+```typescript
+// Módulos disponíveis (ordenados por número romano)
+const modulosDisponiveis = useMemo(() => {
+  const base = cursoId ? turmas.filter(t => t.cursoId === cursoId) : turmas;
+  const uniq = [...new Set(base.map(t => t.modulo).filter(Boolean))];
+  return uniq.sort((a, b) => moduloNumerico(a) - moduloNumerico(b));
+}, [turmas, cursoId]);
+```
 
 ### DisciplinasSeletor
 

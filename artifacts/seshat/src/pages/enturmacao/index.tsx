@@ -227,6 +227,7 @@ function EnturmarForm({
 
   // Cascata
   const [cursoId, setCursoId]   = useState(editingMatricula?.cursoId ?? "");
+  const [modulo,  setModulo]    = useState(editingMatricula ? (turmas.find((t) => t.id === editingMatricula.turmaId)?.modulo ?? "") : "");
   const [turmaId, setTurmaId]   = useState(editingMatricula?.turmaId ?? "");
   const [turnoId, setTurnoId]   = useState(editingMatricula?.turnoId ?? editingMatricula?.turnos[0]?.id ?? "");
 
@@ -239,11 +240,19 @@ function EnturmarForm({
   const [discIds, setDiscIds] = useState<string[]>([]);
   const prevTurnoRef = useRef("");
 
-  // Cascade: turmas filtradas pelo curso selecionado
-  const turmasFiltradas = useMemo(
-    () => (cursoId ? turmas.filter((t) => t.cursoId === cursoId) : turmas),
-    [turmas, cursoId]
-  );
+  // Módulos disponíveis para o curso selecionado (ordenados numericamente)
+  const modulosDisponiveis = useMemo(() => {
+    const base = cursoId ? turmas.filter((t) => t.cursoId === cursoId) : turmas;
+    const uniq = [...new Set(base.map((t) => t.modulo).filter(Boolean) as string[])];
+    return uniq.sort((a, b) => moduloNumerico(a) - moduloNumerico(b));
+  }, [turmas, cursoId]);
+
+  // Cascade: turmas filtradas por curso e módulo
+  const turmasFiltradas = useMemo(() => {
+    let base = cursoId ? turmas.filter((t) => t.cursoId === cursoId) : turmas;
+    if (modulo) base = base.filter((t) => t.modulo === modulo);
+    return base;
+  }, [turmas, cursoId, modulo]);
 
   const turmaAtual = useMemo(() => turmas.find((t) => t.id === turmaId) ?? null, [turmas, turmaId]);
 
@@ -305,14 +314,21 @@ function EnturmarForm({
     }
   }, [effectiveTurnoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Quando turmaId muda, reinicia turnoId e cursoId derivado
   const handleTurmaChange = (id: string) => {
     setTurmaId(id);
     setTurnoId("");
   };
 
+  const handleModuloChange = (m: string) => {
+    setModulo(m);
+    setTurmaId("");
+    setTurnoId("");
+    setDiscIds([]);
+  };
+
   const handleCursoChange = (id: string) => {
     setCursoId(id);
+    setModulo("");
     setTurmaId("");
     setTurnoId("");
     setDiscIds([]);
@@ -421,15 +437,30 @@ function EnturmarForm({
           </Select>
         </div>
 
-        {/* Turma (filtrada por curso) */}
+        {/* Módulo (derivado das turmas do curso) */}
+        {modulosDisponiveis.length > 0 && (
+          <div className="space-y-1">
+            <Label className="text-xs">Módulo <span className="text-destructive">*</span></Label>
+            <Select value={modulo} onValueChange={handleModuloChange} disabled={!cursoId}>
+              <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="Selecione o módulo…" /></SelectTrigger>
+              <SelectContent>
+                {modulosDisponiveis.map((m) => (
+                  <SelectItem key={m} value={m} className="text-xs">Módulo {m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Turma (filtrada por curso + módulo) */}
         <div className="space-y-1">
           <Label className="text-xs">Turma <span className="text-destructive">*</span></Label>
-          <Select value={turmaId} onValueChange={handleTurmaChange} disabled={!cursoId}>
+          <Select value={turmaId} onValueChange={handleTurmaChange} disabled={!cursoId || (modulosDisponiveis.length > 0 && !modulo)}>
             <SelectTrigger className="h-8 text-xs bg-background"><SelectValue placeholder="Selecione a turma…" /></SelectTrigger>
             <SelectContent>
               {turmasFiltradas.map((t) => (
                 <SelectItem key={t.id} value={t.id} className="text-xs">
-                  {t.sigla}{t.modulo ? ` (Mód. ${t.modulo})` : ""} — {t.descricao}
+                  {t.sigla} — {t.descricao}
                 </SelectItem>
               ))}
             </SelectContent>
