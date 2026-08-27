@@ -64,6 +64,7 @@ export function AppSidebar() {
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
   const isEstudante = (user?.roles ?? []).includes("estudante");
+  const isPaiResponsavel = (user?.roles ?? []).includes("pai_responsavel");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);
@@ -77,6 +78,16 @@ export function AppSidebar() {
       bgColor: "#f0f9ff",
       items: [
         nav("Meu Perfil", "/portal", GraduationCap),
+      ],
+    }] : []),
+    // Portal do Responsável — visível apenas para usuários com role 'pai_responsavel'
+    ...(isPaiResponsavel ? [{
+      label: "Portal do Responsável",
+      icon: Users,
+      color: "#f59e0b",
+      bgColor: "#fffbeb",
+      items: [
+        nav("Meus Filhos", "/portal-responsavel", GraduationCap),
       ],
     }] : []),
     ...(canViewCarometro ? [{

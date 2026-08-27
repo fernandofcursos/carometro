@@ -47,6 +47,7 @@ import AuditoriaPage from "@/pages/auditoria";
 import Iso27001Page from "@/pages/iso27001";
 import PortalEstudantePage from "@/pages/portal/index";
 import CarteirasPage from "@/pages/carteiras/index";
+import PortalResponsavelPage from "@/pages/portal-responsavel/index";
 
 const queryClient = new QueryClient();
 
@@ -100,6 +101,7 @@ function AppRoutes() {
           <Route path="/disciplinas" component={DisciplinasPage} />
           <Route path="/enturmacao" component={EnturmacaoPage} />
           <Route path="/portal" component={PortalEstudantePage} />
+          <Route path="/portal-responsavel" component={PortalResponsavelPage} />
           <Route path="/carteiras" component={CarteirasPage} />
           <Route path="/textos-padrao-ocorrencias" component={TextosPadraoPage} />
           <Route path="/mailer-diagnostico" component={MailerDiagnosticoPage} />

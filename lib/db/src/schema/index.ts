@@ -24,3 +24,6 @@ export * from "./webauthn-credenciais";
 export * from "./textos-padrao-ocorrencias";
 export * from "./coordenador-cursos";
 export * from "./carteiras";
+export * from "./responsaveis-estudantes";
+export * from "./cartoes-saida";
+export * from "./atestados-medicos";
