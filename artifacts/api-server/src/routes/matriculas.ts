@@ -108,6 +108,7 @@ const enturmarSchema = z.object({
   nome:      z.string().min(2).optional(),
   // Dados da matrícula
   turmaId:   z.string().uuid(),
+  turnoId:   z.string().uuid().optional(), // turno específico (obrigatório se turma tem múltiplos turnos)
   registro:  z.string().min(1).max(20).regex(/^\d+$/, "Registro deve ser numérico"),
   ano:       z.number().int().min(2000).max(2100),
   semestre:  z.number().int().refine((v) => v === 1 || v === 2, "Semestre deve ser 1 ou 2"),
@@ -157,28 +158,33 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
     // 3. Matrículas ativas dos estudantes encontrados
     const matRows = await db
       .select({
-        usuarioId:   matriculasTable.usuarioId,
-        matId:       matriculasTable.id,
-        turmaId:     matriculasTable.turmaId,
-        turmaSigla:  turmasTable.sigla,
-        cursoId:     cursosTable.id,
-        cursoNome:   cursosTable.nome,
-        registro:    matriculasTable.registro,
-        ano:         matriculasTable.ano,
-        semestre:    matriculasTable.semestre,
-        ativo:       matriculasTable.ativo,
-        matCriadoEm: matriculasTable.criadoEm,
+        usuarioId:    matriculasTable.usuarioId,
+        matId:        matriculasTable.id,
+        turmaId:      matriculasTable.turmaId,
+        turmaSigla:   turmasTable.sigla,
+        turmaModulo:  turmasTable.modulo,
+        cursoId:      cursosTable.id,
+        cursoNome:    cursosTable.nome,
+        registro:     matriculasTable.registro,
+        ano:          matriculasTable.ano,
+        semestre:     matriculasTable.semestre,
+        ativo:        matriculasTable.ativo,
+        matCriadoEm:  matriculasTable.criadoEm,
+        // Turno específico do estudante nesta matrícula
+        turnoId:      matriculasTable.turnoId,
+        turnoNome:    turnosTable.nome,
       })
       .from(matriculasTable)
       .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
       .innerJoin(cursosTable, eq(turmasTable.cursoId,     cursosTable.id))
+      .leftJoin(turnosTable,  eq(matriculasTable.turnoId, turnosTable.id))
       .where(and(
         sql`${matriculasTable.usuarioId} = ANY(ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}])`,
         isNull(matriculasTable.deletadoEm),
       ))
       .orderBy(matriculasTable.ano, matriculasTable.semestre);
 
-    // 3b. Turnos de cada turma (para exibição na tabela de enturmações)
+    // 3b. Todos os turnos de cada turma (para o formulário de nova enturmação)
     const matTurmaIds = [...new Set(matRows.map((r) => r.turmaId))];
     const turnosByTurmaId = new Map<string, { id: string; nome: string }[]>();
     if (matTurmaIds.length > 0) {
@@ -196,18 +202,21 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
 
     for (const r of matRows) {
       map.get(r.usuarioId)?.matriculas.push({
-        id:        r.matId,
-        usuarioId: r.usuarioId,
-        turmaId:   r.turmaId,
-        turmaSigla: r.turmaSigla,
-        cursoId:   r.cursoId,
-        cursoNome: r.cursoNome,
-        registro:  r.registro,
-        ano:       r.ano,
-        semestre:  r.semestre,
-        ativo:     r.ativo,
-        criadoEm:  r.matCriadoEm,
-        turnos:    turnosByTurmaId.get(r.turmaId) ?? [],
+        id:          r.matId,
+        usuarioId:   r.usuarioId,
+        turmaId:     r.turmaId,
+        turmaSigla:  r.turmaSigla,
+        turmaModulo: r.turmaModulo,
+        cursoId:     r.cursoId,
+        cursoNome:   r.cursoNome,
+        registro:    r.registro,
+        ano:         r.ano,
+        semestre:    r.semestre,
+        ativo:       r.ativo,
+        criadoEm:    r.matCriadoEm,
+        turnoId:     r.turnoId,
+        turnoNome:   r.turnoNome,
+        turnos:      turnosByTurmaId.get(r.turmaId) ?? [],
       });
     }
 
@@ -340,6 +349,21 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
     // Regra 3: Segunda enturmação deve ser em módulo INFERIOR ao módulo existente.
     //          O conflito de turno é verificado ao nível das disciplinas cursadas.
 
+    // Verificar turno selecionado quando turma tem múltiplos turnos
+    const turnosDaTurma = await db
+      .select({ turnoId: turmaTurnosTable.turnoId })
+      .from(turmaTurnosTable)
+      .where(eq(turmaTurnosTable.turmaId, body.turmaId));
+
+    const turnoEfetivo: string | null =
+      turnosDaTurma.length === 1
+        ? turnosDaTurma[0].turnoId                    // único turno → automático
+        : (body.turnoId ?? null);                     // múltiplos → deve vir no body
+
+    if (turnosDaTurma.length > 1 && !turnoEfetivo) {
+      return res.status(400).json({ error: "Selecione o turno para esta turma (a turma possui múltiplos turnos)." });
+    }
+
     // Matrículas ativas do estudante
     const matriculasAtivas = await db
       .select({
@@ -349,6 +373,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
         cursoNome:   cursosTable.nome,
         turmaSigla:  turmasTable.sigla,
         turmaModulo: turmasTable.modulo,
+        turnoId:     matriculasTable.turnoId,
         ano:         matriculasTable.ano,
         semestre:    matriculasTable.semestre,
       })
@@ -373,14 +398,20 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
         });
       }
 
-      // Regra 3: A nova turma deve ser em módulo INFERIOR ao módulo existente.
-      // O conflito de turno é verificado ao nível das disciplinas, não da turma.
+      // Regra 3: Nova turma deve ser em módulo INFERIOR ao módulo existente
       const moduloNovo = moduloNumerico(turmaAlvo.modulo);
       for (const mat of matriculasAtivas) {
         const moduloExist = moduloNumerico(mat.turmaModulo);
         if (moduloNovo !== 0 && moduloExist !== 0 && moduloNovo >= moduloExist) {
           return res.status(422).json({
             error: `A segunda enturmação deve ser em módulo inferior ao atual (turma ${mat.turmaSigla}, módulo ${mat.turmaModulo ?? "—"}). Módulo selecionado: ${turmaAlvo.modulo ?? "não definido"}.`,
+          });
+        }
+
+        // Regra 4: Turno da nova matrícula deve ser diferente do turno da matrícula existente
+        if (turnoEfetivo && mat.turnoId && turnoEfetivo === mat.turnoId) {
+          return res.status(422).json({
+            error: `O estudante já está enturmado neste turno (turma ${mat.turmaSigla}). A segunda enturmação deve ser em turno diferente do módulo principal.`,
           });
         }
       }
@@ -392,6 +423,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
       .values({
         usuarioId,
         turmaId:  body.turmaId,
+        turnoId:  turnoEfetivo,
         registro: body.registro,
         ano:      body.ano,
         semestre: body.semestre,
@@ -489,6 +521,7 @@ router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request,
   try {
     const body = z.object({
       turmaId:  z.string().uuid().optional(),
+      turnoId:  z.string().uuid().optional(),
       registro: z.string().min(1).max(20).regex(/^\d+$/).optional(),
       ano:      z.number().int().min(2000).max(2100).optional(),
       semestre: z.number().int().refine((v) => v === 1 || v === 2).optional(),
@@ -518,9 +551,20 @@ router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request,
         .where(eq(turmasTable.id, body.turmaId));
       if (!turmaAlvo) return res.status(400).json({ error: "Turma não encontrada." });
 
+      // Calcular turno efetivo para a nova turma
+      const turnosDaPatchTurma = await db
+        .select({ turnoId: turmaTurnosTable.turnoId })
+        .from(turmaTurnosTable)
+        .where(eq(turmaTurnosTable.turmaId, body.turmaId));
+      const turnoEfetivoPatch: string | null =
+        turnosDaPatchTurma.length === 1 ? turnosDaPatchTurma[0].turnoId : (body.turnoId ?? null);
+      if (turnosDaPatchTurma.length > 1 && !turnoEfetivoPatch) {
+        return res.status(400).json({ error: "Selecione o turno para esta turma." });
+      }
+
       // Outras matrículas ativas (excluindo a atual)
       const outrasAtivas = await db
-        .select({ id: matriculasTable.id, turmaId: matriculasTable.turmaId, cursoId: cursosTable.id, cursoNome: cursosTable.nome, turmaSigla: turmasTable.sigla, turmaModulo: turmasTable.modulo })
+        .select({ id: matriculasTable.id, turmaId: matriculasTable.turmaId, cursoId: cursosTable.id, cursoNome: cursosTable.nome, turmaSigla: turmasTable.sigla, turmaModulo: turmasTable.modulo, turnoId: matriculasTable.turnoId })
         .from(matriculasTable)
         .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
         .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
@@ -540,12 +584,16 @@ router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request,
           if (moduloNovo !== 0 && moduloExist !== 0 && moduloNovo >= moduloExist) {
             return res.status(422).json({ error: `A segunda enturmação deve ser em módulo inferior ao atual (turma ${m.turmaSigla}, módulo ${m.turmaModulo ?? "—"}).` });
           }
+          if (turnoEfetivoPatch && m.turnoId && turnoEfetivoPatch === m.turnoId) {
+            return res.status(422).json({ error: `O estudante já está enturmado neste turno (turma ${m.turmaSigla}). A segunda enturmação deve ser em turno diferente.` });
+          }
         }
       }
     }
 
     await db.update(matriculasTable).set({
       ...(novaTurmaId !== matAtual.turmaId && { turmaId: novaTurmaId }),
+      ...(body.turnoId   !== undefined && { turnoId: body.turnoId }),
       ...(body.registro  !== undefined && { registro: body.registro }),
       ...(body.ano       !== undefined && { ano: body.ano }),
       ...(body.semestre  !== undefined && { semestre: body.semestre }),

@@ -4,11 +4,14 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { usuariosTable } from "./usuarios";
 import { turmasTable } from "./turmas";
+import { turnosTable } from "./turnos";
 
 export const matriculasTable = pgTable("matriculas", {
   id:           uuid("id").primaryKey().defaultRandom(),
   usuarioId:    uuid("usuario_id").notNull().references(() => usuariosTable.id, { onDelete: "restrict" }),
   turmaId:      uuid("turma_id").notNull().references(() => turmasTable.id,   { onDelete: "restrict" }),
+  // Turno específico em que o estudante frequenta esta turma (pode haver múltiplos turnos por turma)
+  turnoId:      uuid("turno_id").references(() => turnosTable.id, { onDelete: "set null" }),
   // Registro numérico do estudante (fornecido externamente, não calculado)
   registro:     varchar("registro", { length: 20 }).notNull(),
   ano:          integer("ano").notNull(),
@@ -22,7 +25,7 @@ export const matriculasTable = pgTable("matriculas", {
   // Linhas soft-deleted (deletadoEm IS NOT NULL) ficam fora da unicidade,
   // permitindo reenturmação após remoção sem 23505 fantasma.
   // Um estudante não pode estar matriculado na mesma turma mais de uma vez (ativo).
-  // A regra de "mesmo curso, turnos diferentes" é verificada em app-level (API).
+  // A regra de "módulo inferior, turno diferente" é verificada em app-level (API).
   uniqueIndex("uq_matricula_usuario_turma").on(t.usuarioId, t.turmaId).where(sql`${t.deletadoEm} IS NULL`),
   check("ck_semestre", sql`${t.semestre} IN (1, 2)`),
 ]);

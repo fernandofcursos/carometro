@@ -28,9 +28,11 @@ type Turno = { id: string; nome: string };
 
 type Matricula = {
   id: string; usuarioId: string; turmaId: string; turmaSigla: string;
+  turmaModulo?: string | null;
   cursoId: string; cursoNome: string; registro: string;
   ano: number; semestre: number; ativo: boolean; criadoEm: string;
-  turnos: Turno[];
+  turnoId: string | null; turnoNome: string | null;
+  turnos: Turno[]; // todos os turnos da turma (para o formulário)
 };
 
 type DisciplinaAtual = {
@@ -226,7 +228,7 @@ function EnturmarForm({
   // Cascata
   const [cursoId, setCursoId]   = useState(editingMatricula?.cursoId ?? "");
   const [turmaId, setTurmaId]   = useState(editingMatricula?.turmaId ?? "");
-  const [turnoId, setTurnoId]   = useState(editingMatricula?.turnos[0]?.id ?? "");
+  const [turnoId, setTurnoId]   = useState(editingMatricula?.turnoId ?? editingMatricula?.turnos[0]?.id ?? "");
 
   // Dados da matrícula
   const [registro, setRegistro] = useState(editingMatricula?.registro ?? "");
@@ -244,8 +246,6 @@ function EnturmarForm({
   );
 
   const turmaAtual = useMemo(() => turmas.find((t) => t.id === turmaId) ?? null, [turmas, turmaId]);
-  const turnosDisponiveis = turmaAtual?.turnos ?? [];
-  const effectiveTurnoId = turnosDisponiveis.length === 1 ? turnosDisponiveis[0].id : turnoId;
 
   // Disciplinas disponíveis para a combinação curso+turno selecionada
   const ofertasFiltradas = useMemo(
@@ -255,7 +255,7 @@ function EnturmarForm({
   const moduloMenor = ofertasFiltradas.some((o) => o.moduloMenor);
 
   // Detectar se esta é uma enturmação secundária em módulo INFERIOR ao existente
-  // Nesse caso, aplicar limite de 3 disciplinas mesmo que o curso seja "módulo maior"
+  // Nesse caso, aplicar limite de 3 disciplinas e filtrar turnos conflitantes
   const moduloInferiorSecundario = useMemo(() => {
     if (!turmaAtual?.modulo || !estudante?.matriculas?.length || isEditing) return false;
     const moduloNovo = moduloNumerico(turmaAtual.modulo);
@@ -266,6 +266,25 @@ function EnturmarForm({
       return modExist > moduloNovo;
     });
   }, [turmaAtual, estudante, turmas, isEditing]);
+
+  // Turnos já ocupados nas matrículas existentes (para bloquear na segunda enturmação)
+  const turnosOcupados = useMemo(() => {
+    if (!estudante?.matriculas?.length) return new Set<string>();
+    return new Set(estudante.matriculas
+      .filter((m) => !editingMatricula || m.id !== editingMatricula.id)
+      .map((m) => m.turnoId)
+      .filter(Boolean) as string[]);
+  }, [estudante, editingMatricula]);
+
+  // Turnos disponíveis: se módulo inferior, excluir turnos já ocupados
+  const turnosDisponiveis = useMemo(() => {
+    const todos = turmaAtual?.turnos ?? [];
+    if (!moduloInferiorSecundario) return todos;
+    return todos.filter((t) => !turnosOcupados.has(t.id));
+  }, [turmaAtual, moduloInferiorSecundario, turnosOcupados]);
+
+  // Turno efetivo: se há apenas 1 disponível, usa ele automaticamente
+  const effectiveTurnoId = turnosDisponiveis.length === 1 ? turnosDisponiveis[0].id : turnoId;
 
   // Quando o turno muda, reinicializa disciplinas
   useEffect(() => {
@@ -328,7 +347,11 @@ function EnturmarForm({
 
       // POST nova matrícula
       const payload: Record<string, unknown> = {
-        turmaId, registro: registro.trim(), ano: Number(ano), semestre: Number(semestre),
+        turmaId,
+        turnoId: effectiveTurnoId || undefined,
+        registro: registro.trim(),
+        ano: Number(ano),
+        semestre: Number(semestre),
       };
       if (estudante) {
         payload.usuarioId = estudante.id;
@@ -362,7 +385,8 @@ function EnturmarForm({
   const modoEmail = !estudante && !isEditing;
   const emailValido = !modoEmail || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const discValida = ofertasFiltradas.length === 0 || discIds.length > 0;
-  const valid = turmaId && effectiveTurnoId && registro.trim() && /^\d+$/.test(registro.trim()) && emailValido && discValida;
+  const semTurnoDisponivel = moduloInferiorSecundario && turmaId && turnosDisponiveis.length === 0;
+  const valid = turmaId && effectiveTurnoId && registro.trim() && /^\d+$/.test(registro.trim()) && emailValido && discValida && !semTurnoDisponivel;
 
   return (
     <div className="space-y-4 p-4 rounded-lg border bg-muted/20">
@@ -422,6 +446,9 @@ function EnturmarForm({
                 {turnosDisponiveis.map((t) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.nome}</SelectItem>)}
               </SelectContent>
             </Select>
+            {moduloInferiorSecundario && (
+              <p className="text-xs text-amber-700">Turnos já ocupados na turma principal foram removidos.</p>
+            )}
           </div>
         )}
         {turmaId && turnosDisponiveis.length === 1 && (
@@ -430,6 +457,12 @@ function EnturmarForm({
             <div className="h-8 flex items-center px-3 rounded-md border bg-background/60 text-xs text-muted-foreground">
               {turnosDisponiveis[0].nome}
             </div>
+          </div>
+        )}
+        {turmaId && turnosDisponiveis.length === 0 && moduloInferiorSecundario && (
+          <div className="col-span-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Nenhum turno disponível — todos os turnos desta turma já estão ocupados pela enturmação principal.
+            Selecione uma turma com turno diferente.
           </div>
         )}
 
@@ -629,7 +662,7 @@ function EstudanteCard({
                         <tr key={m.id} className="hover:bg-muted/20 transition-colors">
                           <td className="px-3 py-2.5 font-medium">{m.cursoNome}</td>
                           <td className="px-3 py-2.5 text-muted-foreground">
-                            {m.turnos.map((t) => t.nome).join(", ") || "—"}
+                            {m.turnoNome ?? m.turnos.map((t) => t.nome).join(", ") || "—"}
                           </td>
                           <td className="px-3 py-2.5">
                             <span className="inline-flex px-2 py-0.5 rounded bg-secondary font-mono font-semibold">{m.turmaSigla}</span>

@@ -61,17 +61,25 @@ const moduloInferiorSecundario = useMemo(() => {
 matriculasTable: {
   id, usuarioId (FK → usuarios, restrict),
   turmaId (FK → turmas, restrict),
+  turnoId (FK → turnos, set null),  // turno ESPECÍFICO do estudante nesta matrícula
   registro (varchar 20, NOT NULL),
   ano (integer NOT NULL), semestre (smallint NOT NULL, CHECK IN (1,2)),
   ativo (boolean, default true),
   criadoEm, atualizadoEm, deletadoEm
-  // Índice parcial: impede matrícula duplicada na mesma turma (ativo):
   UNIQUE (usuarioId, turmaId) WHERE deletadoEm IS NULL  → "uq_matricula_usuario_turma"
-  // Regras de "mesmo curso / módulo inferior" são verificadas em app-level.
 }
+// Migration: scripts/migrate-matriculas-turno.sql
 ```
 
-> **Por que índice parcial?** Sem o `WHERE deletadoEm IS NULL`, linhas soft-deleted bloqueiam reenturmação com erro 23505 ("enturmado fantasma") — o estudante aparece como livre na UI mas o banco recusa o INSERT.
+> **Por que turnoId na matrícula?** Uma turma pode ter múltiplos turnos. Sem armazenar o turno específico, a API exibia todos os turnos da turma em vez do turno real do aluno, impedindo a validação correta da segunda enturmação.
+
+> **Por que índice parcial?** Sem o `WHERE deletadoEm IS NULL`, linhas soft-deleted bloqueiam reenturmação com erro 23505 ("enturmado fantasma").
+
+### Exibição do Turno na Tabela
+```typescript
+// Mostrar turno específico (turnoNome) ou fallback para todos os turnos da turma
+{m.turnoNome ?? m.turnos.map(t => t.nome).join(", ") || "—"}
+```
 
 ## GET /api/matriculas — query
 
