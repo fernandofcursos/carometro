@@ -6,7 +6,8 @@ Oferecer ao responsável legal (pai/mãe/guardião) um portal de autoatendimento
 
 ## Regras de Acesso
 
-- Role `pai_responsavel` obrigatória
+- Role `pai_responsavel` obrigatória para acesso funcional ao portal
+- **Administrador** (`usuarios:manage` ou `roles:manage`) também vê o menu "Portal do Responsável" para ajuste e teste — sem vínculo com estudantes, a página exibirá lista vazia
 - A lista de estudantes vinculados é obtida via tabela `responsaveis_estudantes` (junction: usuário → estudante)
 - O responsável só visualiza dados dos estudantes vinculados a ele
 - O responsável **sempre pode dar ciência** em ocorrências (sem restrição de idade, diferente do portal estudante)

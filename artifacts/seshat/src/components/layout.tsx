@@ -65,13 +65,15 @@ export function AppSidebar() {
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
   const isEstudante = (user?.roles ?? []).includes("estudante");
   const isPaiResponsavel = (user?.roles ?? []).includes("pai_responsavel");
+  // Admin vê todos os portais para teste e ajuste
+  const isAdmin = hasAny("usuarios:manage", "roles:manage");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);
 
   const groups: NavGroup[] = [
-    // Portal do Estudante — visível apenas para usuários com role 'estudante'
-    ...(isEstudante ? [{
+    // Portal do Estudante — role 'estudante' ou admin (para ajuste/teste)
+    ...(isEstudante || isAdmin ? [{
       label: "Meu Portal",
       icon: CreditCard,
       color: "#0ea5e9",
@@ -80,8 +82,8 @@ export function AppSidebar() {
         nav("Meu Perfil", "/portal", GraduationCap),
       ],
     }] : []),
-    // Portal do Responsável — visível apenas para usuários com role 'pai_responsavel'
-    ...(isPaiResponsavel ? [{
+    // Portal do Responsável — role 'pai_responsavel' ou admin (para ajuste/teste)
+    ...(isPaiResponsavel || isAdmin ? [{
       label: "Portal do Responsável",
       icon: Users,
       color: "#f59e0b",

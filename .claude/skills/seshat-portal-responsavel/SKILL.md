@@ -7,8 +7,12 @@ Portal de autoatendimento para pais/responsáveis legais. Role `pai_responsavel`
 ## Menu
 
 ```
-Grupo: "Portal do Responsável"  (isPaiResponsavel = roles.includes("pai_responsavel"))
+Grupo: "Portal do Responsável"
 └── "Meus Filhos" → /portal-responsavel
+
+Visível para:
+  - roles.includes("pai_responsavel")   ← responsável real
+  - isAdmin (hasAny("usuarios:manage","roles:manage"))  ← admin vê para ajuste/teste
 ```
 
 ## Regras de Negócio

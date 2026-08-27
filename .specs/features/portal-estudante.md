@@ -15,8 +15,11 @@ O Portal do Estudante é o espaço de autoatendimento para usuários com role `e
 |---|---|
 | **Menor de idade** (< 18 anos) | Visualização de dados, enturmação, disciplinas e ocorrências — **sem** dar ciência |
 | **Maior de idade** (≥ 18 anos) | Visualização + **dar ciência** em ocorrências + emitir carteira de estudante e cartão de liberação |
+| **Administrador** (`usuarios:manage` / `roles:manage`) | Vê o menu "Meu Portal" para ajuste e teste — o portal exibirá dados vazios pois admin não é estudante |
 
 A verificação de idade usa `usuarios.data_nascimento`. O campo `isMaior` é computado no backend e enviado na resposta de `/api/portal/me`.
+
+> **Visibilidade do menu:** `isEstudante || isAdmin` — o administrador acessa o portal do estudante para verificar a experiência e ajustar configurações.
 
 ---
 

@@ -28,10 +28,11 @@ function isMaiorDeIdade(dataNascimento: string | null): boolean {
 ## Menu (layout.tsx)
 
 ```typescript
-// Visível apenas quando user.roles.includes('estudante')
 const isEstudante = (user?.roles ?? []).includes("estudante");
+const isAdmin = hasAny("usuarios:manage", "roles:manage");
 
-...(isEstudante ? [{
+// Visível para estudante OU admin (admin vê para ajuste/teste)
+...(isEstudante || isAdmin ? [{
   label: "Meu Portal", icon: CreditCard, color: "#0ea5e9", bgColor: "#f0f9ff",
   items: [nav("Meu Perfil", "/portal", GraduationCap)],
 }] : []),
