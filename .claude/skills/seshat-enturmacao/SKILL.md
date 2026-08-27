@@ -21,8 +21,8 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 | **Até 2 matrículas ativas** | Estudante pode ter **no máximo 2 matrículas ativas**, desde que no **mesmo curso** e em **turnos diferentes**. |
 | **Proibido cursos diferentes** | Se já existe matrícula ativa, a nova turma deve pertencer ao mesmo curso. → 422 se curso diferente. |
 | **Proibido mesmo turno** | No mesmo curso, não é permitido enturmar em turmas do mesmo turno. Verificado via JOIN `turma_turnos`. → 422 se mesmo turno. |
-| **Módulo menor — max 2 disciplinas** | Cursos com `moduloMenor = true` limitam a seleção a 2 disciplinas. Validado na API (PUT usuario-disciplinas) e reforçado na UI (checkbox desabilitado). |
-| **Disciplinas** | Pode cursar **uma ou todas** as disciplinas do curso; para módulo menor, limite é 2. |
+| **Módulo menor — max 3 disciplinas por turno** | Cursos com `moduloMenor = true` limitam a seleção a **3 disciplinas por turno**. Validado na API (PUT usuario-disciplinas, agrupado por cursoId+turnoId) e reforçado na UI (checkbox desabilitado ao atingir limite). |
+| **Módulo maior — 1 ou todas** | Cursos com `moduloMenor = false` exigem que o estudante curse **uma única disciplina ou todas** do turno. Seleção parcial → 422 "Módulo maior: selecione uma ou todas as disciplinas do turno." |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
 | **Visibilidade** | A página lista **todos os estudantes** — com ou sem matrícula ativa |
 
@@ -54,13 +54,13 @@ A lista é a UNIÃO de:
 Implementação: LEFT JOIN de `usuariosRoles(estudante)` com `matriculas`, ou UNION das duas queries, deduplicado por `usuarioId`.
 
 Cada item inclui:
-- `matriculas[]` — matrículas ativas do estudante (vazio se não enturmado)
-- `disciplinas[]` — disciplinas cursadas via `usuario_disciplinas`, com `disciplinaNome`, `cursoNome`, `turnoNome`
+- `matriculas[]` — matrículas ativas, cada uma com `turnos: [{id, nome}]` dos turnos da turma
+- `disciplinas[]` — disciplinas cursadas via `usuario_disciplinas`
 
-```typescript
-// Estratégia: buscar todos com role estudante + LEFT JOIN matriculas
-// + buscar todos com matricula ativa sem role → UNION deduplicada
-```
+## PATCH /api/matriculas/:id — fluxo
+
+Edição de uma matrícula existente. Aceita `{turmaId?, registro?, ano?, semestre?}`.
+Se `turmaId` muda, re-executa todas as validações de negócio considerando as OUTRAS matrículas ativas (excluindo a editada com `ne(matriculasTable.id, id)`).
 
 ## POST /api/matriculas — fluxo
 
@@ -87,7 +87,8 @@ Cada item inclui:
 | Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes." |
 | Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
 | Mesmo turno (app-level) | 422 | "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno. Só é permitido em turnos diferentes." |
-| Módulo menor > 2 disciplinas | 422 | "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso." |
+| Módulo menor > 3 disciplinas/turno | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
+| Módulo maior — seleção parcial | 422 | "Módulo maior: selecione uma ou todas as disciplinas do turno." |
 | 23505 + uq_matricula_usuario_turma | 409 | "Este estudante já está matriculado nesta turma." |
 | 23505 genérico | 409 | "Este estudante já está enturmado nesta turma neste período." |
 | 23503 (FK) | 400 | "Turma ou estudante inválidos." |
@@ -98,36 +99,55 @@ Cada item inclui:
 ## Frontend (`artifacts/seshat/src/pages/enturmacao/index.tsx`)
 
 - `EnturmacaoPage`: lista **todos** os estudantes (com e sem matrícula), busca local por nome
-- `EstudanteCard`: accordion com três seções:
-  1. **Matrículas ativas** (vazio se não enturmado)
-  2. **Disciplinas cursadas** — agrupadas por Curso e Turno
-  3. **Formulário de enturmação** (`MatriculaForm`)
-- `MatriculaForm`: Turma + Registro + Ano + Semestre + **seleção de disciplinas**
-- Remoção de matrícula via AlertDialog → `DELETE /api/matriculas/:id`
+- `EstudanteCard`: accordion mostrando cabeçalho + tabela de enturmações + form inline
+- `EnturmarForm`: formulário em cascata Curso→Turma→Turno→Disciplinas; suporta POST (novo) e PATCH (edição)
+- `DisciplinasSeletor`: seletor de disciplinas por módulo menor/maior
+- Remoção via AlertDialog com 3 botões (Cancelar/Não/Sim)
 - `apiMsg(err, fallback)`: extrai `err.data?.error` para exibir no toast
 
-### Seleção de Disciplinas
+### EstudanteCard — tabela de enturmações
 
-Componente `DisciplinasSelector` exibido dentro do `EstudanteCard` e no `MatriculaForm`:
+| Coluna | Descrição |
+|---|---|
+| Curso | cursoNome |
+| Turno | nomes dos turnos da turma (de `matricula.turnos`) |
+| Turma | turmaSigla |
+| Registro | registro numérico |
+| Semestre | ano/semestre |
+| Ações | lápis (editar) + lixeira (excluir) |
+
+### EnturmarForm — cascata
 
 ```
-Estrutura visual:
-▸ [Curso A]
-  ▸ [Turno Manhã]
-    [✓] Todas as disciplinas   ← toggle que seleciona/deseleciona todas do grupo
-    [✓] Disciplina X
-    [✓] Disciplina Y
-  ▸ [Turno Tarde]
-    [ ] Todas as disciplinas
-    [ ] Disciplina Z
+cursoId → turmasFiltradas (por cursoId)
+turmaId → turnosDisponiveis (turnos da turma selecionada)
+turnoId → ofertasFiltradas (por cursoId + turnoId)
+→ DisciplinasSeletor
+→ registro | ano | semestre
 ```
 
-**Comportamento:**
-- Ao abrir sem seleção prévia: "Todas as disciplinas" marcado por padrão para cada grupo
-- Marcar "Todas as disciplinas": seleciona todos os checkboxes do grupo Curso/Turno
-- Desmarcar "Todas as disciplinas": desmarca todos do grupo
-- Marcar/desmarcar disciplina individual: atualiza o estado de "Todas" do grupo (indeterminate se parcial)
-- Salvar: `POST /api/usuario-disciplinas` com array de `disciplinaOfertaIds`
+- Se `turnosDisponiveis.length === 1`, `effectiveTurnoId` é auto-preenchido
+- `useEffect` em `effectiveTurnoId` reseta seleção de disciplinas (pre-popula se editando)
+- Salvar: chama `PATCH` ou `POST` na matrícula, depois `PUT /api/usuario-disciplinas/:usuarioId`
+
+### DisciplinasSeletor
+
+```typescript
+// Módulo menor
+<Checkbox disabled={!selecionado && selCount >= 3} />
+<Badge>{selCount}/3</Badge>
+
+// Módulo maior
+<Button>Todas ({total})</Button>  // ou "Selecionar uma" → radio buttons
+```
+
+### AlertDialog de exclusão — 3 botões
+
+```typescript
+<Button onClick={() => { setDeleteTarget(null); setOpen(false); }}>Cancelar</Button>  // fecha + colapsa
+<Button onClick={() => setDeleteTarget(null)}>Não</Button>                           // fecha apenas
+<Button onClick={handleDelete}>Sim</Button>                                          // deleta
+```
 
 ## Cópia de senha — tratamento de erro obrigatório
 

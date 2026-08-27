@@ -19,8 +19,8 @@ O menu lateral exibe o grupo **"Enturmação"** com o item **"Estudantes"** apon
 | 2 | **Proibido cursos diferentes**: não é possível enturmar em cursos distintos. Se o estudante já tem matrícula ativa, a nova turma deve pertencer ao mesmo curso. |
 | 3 | **Proibido mesmo turno**: dentro do mesmo curso, não é permitido enturmar em duas turmas do mesmo turno. A verificação é feita via `turma_turnos`. |
 | 4 | **Máximo 2 enturmações ativas**: mesmo no mesmo curso, o limite é 2 matrículas ativas simultaneamente. |
-| 5 | **Módulo menor — máximo 2 disciplinas**: cursos com `modulo_menor = true` limitam a seleção de disciplinas a **no máximo 2** por estudante. Verificado na API (`PUT /api/usuario-disciplinas/:usuarioId`) e reforçado na UI (checkbox desabilitado ao atingir o limite). |
-| 6 | **Disciplinas**: o estudante pode cursar **uma ou todas as disciplinas** do curso. Para módulo menor, o máximo é 2. |
+| 5 | **Módulo menor — máximo 3 disciplinas por turno**: cursos com `modulo_menor = true` limitam a seleção de disciplinas a **no máximo 3 por turno**. Validado na API (`PUT /api/usuario-disciplinas/:usuarioId`) e na UI (checkbox desabilitado ao atingir o limite). |
+| 6 | **Módulo maior — uma ou todas**: cursos com `modulo_menor = false` exigem que o estudante curse **uma única disciplina ou todas as disciplinas** do turno. Seleção parcial intermediária não é permitida. → 422 se parcial. |
 | 7 | **Opção padrão de disciplinas**: ao enturmar sem seleção prévia, a UI inicializa com **todas as disciplinas** selecionadas (para cursos normais). |
 | 8 | **Registro numérico**: fornecido externamente, obrigatório, máximo 20 dígitos. |
 | 9 | **Visibilidade**: a página lista **todos os estudantes** — com ou sem enturmação. |
@@ -83,8 +83,9 @@ Array<{
     semestre: number;
     ativo: boolean;
     criadoEm: string;
+    turnos: Array<{ id: string; nome: string }>;  // turnos da turma
   }>;
-  disciplinas: Array<{      // disciplinas cursadas pelo estudante
+  disciplinas: Array<{
     disciplinaOfertaId: string;
     disciplinaNome: string;
     cursoNome: string;
@@ -92,6 +93,22 @@ Array<{
   }>;
 }>
 ```
+
+### PATCH /api/matriculas/:id
+**Requer:** `estudantes:manage`
+
+Atualiza campos de uma matrícula existente. Aceita qualquer subconjunto de campos:
+
+```typescript
+{
+  turmaId?: string;
+  registro?: string;
+  ano?: number;
+  semestre?: 1 | 2;
+}
+```
+
+Se `turmaId` mudar, re-valida todas as regras de negócio considerando as outras matrículas ativas do estudante (excluindo a que está sendo editada).
 
 ### POST /api/matriculas
 **Requer:** `estudantes:manage`
@@ -139,7 +156,8 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 | Mesmo turno no mesmo curso | 422 | "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno. Só é permitido em turnos diferentes." |
 | Conflito DB (23505 / uq_matricula_usuario_turma) | 409 | "Este estudante já está matriculado nesta turma." |
 | Matrícula duplicada (23505 genérico) | 409 | "Este estudante já está enturmado nesta turma neste período." |
-| Módulo menor — mais de 2 disciplinas | 422 | "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso." |
+| Módulo menor — mais de 3 disciplinas por turno | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
+| Módulo maior — seleção parcial | 422 | "Módulo maior: selecione uma ou todas as disciplinas do turno." |
 | FK inválida (23503) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |
 | Schema desatualizado (42703) | 500 | "Erro de schema no banco de dados. Execute as migrações pendentes." |
 | Erro interno | 500 | "Erro interno ao salvar a enturmação. Tente novamente." |
@@ -148,37 +166,59 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 
 ## Frontend (`/enturmacao`)
 
+### Layout geral
+
 - Rota: `/enturmacao` — visível no menu para `estudantes:manage`
 - Lista **todos os estudantes** (role `estudante` ou com matrícula ativa), incluindo os ainda não enturmados
-- Cada card é expansível (accordion) com três seções: **matrículas ativas**, **disciplinas cursadas** e **formulário de enturmação**
-- Campo `registro` aceita somente dígitos (replace `/\D/g`)
-- Remoção de matrícula via AlertDialog → `DELETE /api/matriculas/:id`
+- Campo de busca por nome (filtro local, client-side)
+- Cada estudante é um `EstudanteCard` (accordion)
 
-### Seleção de Disciplinas na Enturmação
+### EstudanteCard
 
-Ao expandir o card do estudante, é exibida uma seção de **Disciplinas** com:
+Ao expandir o card:
 
-| Elemento | Comportamento |
-|---|---|
-| Agrupamento | Disciplinas agrupadas por **Curso** e depois por **Turno** |
-| Opção padrão | **"Todas as disciplinas"** — selecionado por padrão ao enturmar |
-| Seleção individual | Checkbox por disciplina dentro de cada grupo Curso/Turno |
-| Toggle "Todas" | Ao marcar "Todas as disciplinas", todas as disciplinas do curso são selecionadas; desmarcar volta para seleção individual |
-| Persistência | Seleção salva via `POST /api/usuario-disciplinas` (bulk) |
+1. **Cabeçalho**: nome do estudante + data de cadastro
+2. **Tabela de enturmações**: colunas Curso | Turno | Turma | Registro | Semestre | Ações (lápis + lixeira)
+   - Lápis → abre `EnturmarForm` preenchido para edição da matrícula selecionada
+   - Lixeira → abre AlertDialog de confirmação de remoção
+3. **EnturmarForm** (nova enturmação ou edição inline)
+4. Botão "Nova enturmação" → exibe formulário vazio
 
-**Estrutura visual de agrupamento:**
+### EnturmarForm (cascading)
 
 ```
-▸ Técnico em Informática
-  ▸ Manhã
-    [✓] Todas as disciplinas
-    [ ] Programação Web
-    [ ] Banco de Dados
-  ▸ Tarde
-    [ ] Redes de Computadores
-▸ Técnico em Administração
-  ▸ Noite
-    [✓] Todas as disciplinas
+Curso (select) → Turma (select filtrado por curso) → Turno (auto-preenche se único)
+→ DisciplinasSeletor (filtrado por cursoId + turnoId)
+→ Registro | Ano | Semestre
+→ [Salvar] [Cancelar]
+```
+
+- Se a turma selecionada tem apenas 1 turno, `turnoId` é preenchido automaticamente
+- Ao trocar `turnoId`, a seleção de disciplinas é resetada
+- **Novo:** `POST /api/matriculas` + `PUT /api/usuario-disciplinas/:usuarioId`
+- **Edição:** `PATCH /api/matriculas/:id` + `PUT /api/usuario-disciplinas/:usuarioId`
+
+### DisciplinasSeletor
+
+| Tipo de curso | Comportamento |
+|---|---|
+| **Módulo menor** | Checkboxes individuais; contador `{sel}/3`; ao atingir 3, demais ficam desabilitados |
+| **Módulo maior** | Botões "Todas (N)" ou "Selecionar uma"; ao escolher "Selecionar uma", exibe radio buttons |
+
+### AlertDialog de exclusão (3 botões)
+
+| Botão | Ação |
+|---|---|
+| Cancelar | Fecha o dialog **e** colapsa o card do estudante |
+| Não | Fecha o dialog (sem colapsar) |
+| Sim | Executa `DELETE /api/matriculas/:id` e fecha o dialog |
+
+### Cópia de senha provisória (`NovoUsuarioDialog`)
+
+```typescript
+navigator.clipboard.writeText(senhaGerada)
+  .then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); })
+  .catch(() => {}); // silencioso
 ```
 
 ### Cópia de senha provisória (`NovoUsuarioDialog`)
