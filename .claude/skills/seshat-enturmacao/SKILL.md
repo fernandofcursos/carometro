@@ -96,7 +96,9 @@ Cada item inclui:
 
 ## PATCH /api/matriculas/:id — fluxo
 
-Edição de uma matrícula existente. Aceita `{turmaId?, registro?, ano?, semestre?}`.
+Edição de uma matrícula existente. Aceita `{turmaId?, turnoId?, registro?, ano?, semestre?}`.
+
+> **Crítico:** o frontend DEVE enviar `turnoId: effectiveTurnoId` no body do PATCH. Sem ele, a alteração de turno no formulário não é persistida e o campo continua exibindo o valor anterior.
 Se `turmaId` muda, re-executa todas as validações de negócio considerando as OUTRAS matrículas ativas (excluindo a editada com `ne(matriculasTable.id, id)`).
 
 ## POST /api/matriculas — fluxo

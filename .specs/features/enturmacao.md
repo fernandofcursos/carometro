@@ -143,6 +143,8 @@ Fluxo: valida → resolve/cria usuário → atribui role estudante → verifica 
 { turmaId?: string; turnoId?: string; registro?: string; ano?: number; semestre?: 1 | 2 }
 ```
 
+> **Atenção:** o frontend deve sempre enviar `turnoId: effectiveTurnoId` no body do PATCH para que o turno específico do aluno seja persistido. Omitir `turnoId` mantém o valor anterior no banco.
+
 Se `turmaId` mudar, re-valida todas as regras de enturmação dupla (excluindo a matrícula atual).
 
 ### DELETE /api/matriculas/:id

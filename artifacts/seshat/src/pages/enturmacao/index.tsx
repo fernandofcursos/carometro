@@ -353,7 +353,7 @@ function EnturmarForm({
         // PATCH matrícula + salvar disciplinas
         const patchRes = await fetch(`${BASE}/api/matriculas/${editingMatricula.id}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
-          body: JSON.stringify({ turmaId, registro: registro.trim(), ano: Number(ano), semestre: Number(semestre) }),
+          body: JSON.stringify({ turmaId, turnoId: effectiveTurnoId || undefined, registro: registro.trim(), ano: Number(ano), semestre: Number(semestre) }),
         });
         const patchBody = await patchRes.json().catch(() => ({}));
         if (!patchRes.ok) throw Object.assign(new Error(patchBody.error ?? "Erro"), { data: patchBody });
