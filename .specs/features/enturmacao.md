@@ -5,25 +5,61 @@
 
 ## Conceito
 
-Enturmação é o vínculo entre um estudante (usuário com role `estudante`) e uma **turma** (que representa um curso em um período). Cada vínculo é uma **matrícula**.
+Enturmação é o vínculo entre um estudante (usuário com role `estudante`) e uma **turma** (curso + período + módulo). Cada vínculo é uma **matrícula** na tabela `matriculas`.
 
 O menu lateral exibe o grupo **"Enturmação"** com o item **"Estudantes"** apontando para `/enturmacao`. Visível somente para usuários com `estudantes:manage`.
 
 ---
 
-## Regras de Negócio
+## Regra Central de Enturmação Dupla
 
-| # | Regra |
-|---|---|
-| 1 | **Mesmo curso, turnos diferentes**: o estudante pode estar enturmado em **até 2 turmas**, desde que sejam do **mesmo curso** e de **turnos distintos**. |
-| 2 | **Proibido cursos diferentes**: não é possível enturmar em cursos distintos. Se o estudante já tem matrícula ativa, a nova turma deve pertencer ao mesmo curso. |
-| 3 | **Proibido mesmo turno**: dentro do mesmo curso, não é permitido enturmar em duas turmas do mesmo turno. A verificação é feita via `turma_turnos`. |
-| 4 | **Máximo 2 enturmações ativas**: mesmo no mesmo curso, o limite é 2 matrículas ativas simultaneamente. |
-| 5 | **Módulo menor — máximo 3 disciplinas por turno**: cursos com `modulo_menor = true` limitam a seleção de disciplinas a **no máximo 3 por turno**. Validado na API (`PUT /api/usuario-disciplinas/:usuarioId`) e na UI (checkbox desabilitado ao atingir o limite). |
-| 6 | **Módulo maior — uma ou todas**: cursos com `modulo_menor = false` exigem que o estudante curse **uma única disciplina ou todas as disciplinas** do turno. Seleção parcial intermediária não é permitida. → 422 se parcial. |
-| 7 | **Opção padrão de disciplinas**: ao enturmar sem seleção prévia, a UI inicializa com **todas as disciplinas** selecionadas (para cursos normais). |
-| 8 | **Registro numérico**: fornecido externamente, obrigatório, máximo 20 dígitos. |
-| 9 | **Visibilidade**: a página lista **todos os estudantes** — com ou sem enturmação. |
+> **Um estudante pode estar enturmado em no máximo 2 turmas do mesmo curso, desde que estejam em módulos diferentes e turnos diferentes.**
+> A segunda enturmação deve obrigatoriamente ser em módulo numericamente inferior ao módulo da turma já ativa.
+> No módulo inferior, o estudante pode cursar no máximo 3 disciplinas.
+
+**Exemplo válido:**
+- Turma 1: TDS-II-2026 (Módulo II) — Turno Matutino — módulo principal
+- Turma 2: TDS-I-2026 (Módulo I) — Turno Vespertino — módulo inferior, máx. 3 disciplinas
+
+**Exemplos inválidos:**
+- Turma 1 e 2 no Módulo II → mesmo módulo → bloqueado
+- Turma 1 Módulo I, Turma 2 Módulo II → novo módulo é MAIOR → bloqueado
+- Turma 1 Matutino, Turma 2 Matutino → mesmo turno → bloqueado
+
+---
+
+## Regras de Negócio (completo)
+
+| # | Regra | Validação |
+|---|---|---|
+| 1 | **Mesmo curso obrigatório** | Todas as matrículas ativas devem pertencer ao mesmo curso. → 422 se curso diferente. |
+| 2 | **Máximo 2 matrículas ativas** | Limite absoluto de 2 enturmações simultâneas no mesmo curso. → 422 se já tem 2. |
+| 3 | **Segunda enturmação em módulo inferior** | O módulo da nova turma deve ser numericamente inferior ao módulo da turma já ativa. Comparação via `moduloNumerico()` (converte romano → inteiro). → 422 se módulo novo ≥ existente. Se algum dos módulos não estiver definido (`null`), a regra não é aplicada. |
+| 4 | **Turno diferente do módulo principal** | O `turnoId` armazenado na matrícula nova deve ser diferente do `turnoId` da matrícula existente. Verificação direta por UUID. → 422 se turnoId igual. |
+| 5 | **Turno obrigatório quando turma tem múltiplos turnos** | Se a turma tem > 1 turno associado, `turnoId` deve ser informado no body. → 400 se ausente. Se turma tem exatamente 1 turno, `turnoId` é preenchido automaticamente pela API. |
+| 6 | **Módulo inferior — máx. 3 disciplinas** | Na segunda enturmação (módulo inferior), o estudante pode cursar no máximo 3 disciplinas desse módulo. Validado na UI (checkbox com limite) e pela regra de `moduloMenor` na API de disciplinas se aplicável. |
+| 7 | **Módulo maior (flag de curso) — 1 ou todas** | Cursos com `moduloMenor = false` exigem que o estudante curse **uma única disciplina ou todas** do turno. Seleção parcial → 422 na API de `usuario-disciplinas`. |
+| 8 | **Módulo menor (flag de curso) — máx. 3** | Cursos com `moduloMenor = true` limitam a seleção a 3 disciplinas por turno. |
+| 9 | **Registro numérico** | varchar(20), somente dígitos, obrigatório, fornecido externamente. |
+| 10 | **Visibilidade** | A página lista **todos os estudantes** — com ou sem enturmação ativa. |
+
+---
+
+## Seleção de Módulo no Formulário
+
+O seletor de módulo é **obrigatório** na cascata do formulário e é a peça que viabiliza a enturmação dupla com segurança:
+
+```
+Curso → Módulo → Turma → Turno → Disciplinas
+```
+
+- **Módulo** é derivado das turmas do curso selecionado (campo `turmas.modulo`, romanos ordenados numericamente)
+- Ao selecionar o módulo, a lista de turmas é filtrada para mostrar apenas turmas daquele módulo
+- O seletor de módulo só aparece quando as turmas do curso têm módulo definido
+- Ao selecionar turma de **módulo inferior** (sendo que já existe matrícula em módulo superior), a UI:
+  - Filtra os turnos disponíveis removendo o turno já ocupado na matrícula existente
+  - Exibe aviso se nenhum turno estiver disponível
+  - Força o seletor de disciplinas para modo "módulo inferior — máx. 3" (checkboxes)
 
 ---
 
@@ -31,6 +67,8 @@ O menu lateral exibe o grupo **"Enturmação"** com o item **"Estudantes"** apon
 
 ```
 usuarios (role estudante) (1) ──< matriculas >── (1) turmas → cursos
+                                      │
+                                      └── turnoId FK → turnos (turno específico do aluno)
 ```
 
 ### Tabela `matriculas`
@@ -40,6 +78,7 @@ usuarios (role estudante) (1) ──< matriculas >── (1) turmas → cursos
 | `id` | uuid | PK |
 | `usuarioId` | uuid FK | → usuarios (restrict delete) |
 | `turmaId` | uuid FK | → turmas (restrict delete) |
+| `turnoId` | uuid FK | → turnos (set null on delete) — turno **específico** do estudante nesta matrícula |
 | `registro` | varchar(20) | NOT NULL, somente dígitos |
 | `ano` | integer | NOT NULL |
 | `semestre` | smallint | NOT NULL, CHECK IN (1, 2) |
@@ -47,11 +86,16 @@ usuarios (role estudante) (1) ──< matriculas >── (1) turmas → cursos
 | `criadoEm` | timestamptz | default now() |
 | `atualizadoEm` | timestamptz | default now() |
 | `deletadoEm` | timestamptz | soft delete |
-| UNIQUE parcial | — | (usuarioId, turmaId) WHERE deletadoEm IS NULL — "uq_matricula_usuario_turma" — impede matrícula duplicada na mesma turma |
+| UNIQUE parcial | — | (usuarioId, turmaId) WHERE deletadoEm IS NULL — "uq_matricula_usuario_turma" |
 
-### Relação com disciplinas
+> **Por que `turnoId` na matrícula?** Uma turma pode ter múltiplos turnos. Sem armazenar o turno escolhido pelo aluno, a API exibia todos os turnos da turma em vez do turno real — tornando impossível saber o turno do estudante e bloquear corretamente a segunda enturmação.
 
-Disciplinas cursadas pelo estudante (disciplinas do semestre atual e eventual disciplina de semestre anterior) são geridas via `usuario_disciplinas` → `disciplina_ofertas`. A validação da regra do semestre anterior e turno contrário é feita na camada de API de `usuario_disciplinas`.
+### Migrations
+
+```
+scripts/migrate-matriculas.sql        — criação inicial da tabela
+scripts/migrate-matriculas-turno.sql  — adiciona coluna turno_id
+```
 
 ---
 
@@ -60,82 +104,46 @@ Disciplinas cursadas pelo estudante (disciplinas do semestre atual e eventual di
 ### GET /api/matriculas
 **Requer:** `estudantes:manage`
 
-Retorna **todos os estudantes** (com ou sem matrícula ativa), com suas matrículas e disciplinas cursadas.
-
-A lista é composta pela UNIÃO de:
-- Usuários com role `estudante` (mesmo sem matrícula)
-- Usuários que tenham ao menos uma matrícula ativa (mesmo que a role tenha sido removida)
+Retorna todos os estudantes (role `estudante` ou com matrícula ativa), cada um com:
+- `matriculas[]` — matrículas ativas com `turnoId`, `turnoNome`, `turmaModulo`, `turnos[]` (todos da turma)
+- `disciplinas[]` — disciplinas cursadas via `usuario_disciplinas`
 
 ```typescript
-Array<{
-  id: string;
-  nome: string | null;
-  criadoEm: string;
-  matriculas: Array<{
-    id: string;
-    usuarioId: string;
-    turmaId: string;
-    turmaSigla: string;
-    cursoId: string;
-    cursoNome: string;
-    registro: string;
-    ano: number;
-    semestre: number;
-    ativo: boolean;
-    criadoEm: string;
-    turnos: Array<{ id: string; nome: string }>;  // turnos da turma
-  }>;
-  disciplinas: Array<{
-    disciplinaOfertaId: string;
-    disciplinaNome: string;
-    cursoNome: string;
-    turnoNome: string;
-  }>;
+matriculas: Array<{
+  id, usuarioId, turmaId, turmaSigla, turmaModulo,
+  cursoId, cursoNome, registro, ano, semestre, ativo, criadoEm,
+  turnoId: string | null,   // turno específico do estudante
+  turnoNome: string | null, // nome do turno (ou null se não definido)
+  turnos: Array<{ id, nome }>,  // todos os turnos da turma (para o formulário)
 }>
 ```
-
-### PATCH /api/matriculas/:id
-**Requer:** `estudantes:manage`
-
-Atualiza campos de uma matrícula existente. Aceita qualquer subconjunto de campos:
-
-```typescript
-{
-  turmaId?: string;
-  registro?: string;
-  ano?: number;
-  semestre?: 1 | 2;
-}
-```
-
-Se `turmaId` mudar, re-valida todas as regras de negócio considerando as outras matrículas ativas do estudante (excluindo a que está sendo editada).
 
 ### POST /api/matriculas
 **Requer:** `estudantes:manage`
 
 ```typescript
 {
-  usuarioId: string;
+  usuarioId?: string;   // UUID do usuário existente
+  email?: string;       // alternativa ao usuarioId (cria usuário se necessário)
+  nome?: string;
   turmaId: string;
-  registro: string;   // numérico, máx 20 dígitos
-  ano: number;        // 2000–2100
+  turnoId?: string;     // obrigatório se turma tem múltiplos turnos
+  registro: string;
+  ano: number;
   semestre: 1 | 2;
 }
 ```
 
-**Validações:**
-1. `enturmarSchema.parse(req.body)` — valida tipos e formato de registro
-2. Busca o cursoId da turmaAlvo via JOIN
-3. Se `email` fornecido: busca usuário por `emailHash`; cria se não existir (com bcrypt hash, codigoAcesso, e-mail de boas-vindas)
-4. **`getOrCreateEstudanteRoleId()`** — garante que a role `estudante` existe; cria automaticamente se ausente
-5. Atribui role `estudante` ao usuário (se ainda não tiver)
-6. Verifica unicidade `(usuarioId, ano, semestre)` → 422 se duplicado
-7. `INSERT matriculas`
-8. **Sincroniza `estudantes`** (necessário para o carômetro e para registro de ocorrências):
-   - Se já existe registro em `estudantes` com este `usuarioId` → atualiza `turmaId`
-   - Se existe registro com mesmo `registro` mas sem `usuarioId` → vincula `usuarioId`
-   - Se não existe nenhum → cria registro em `estudantes` com nome, registro, turmaId, usuarioId, dataNascimento
-   - Falha na sincronização não cancela a matrícula (tolerância a falha, apenas loga)
+Fluxo: valida → resolve/cria usuário → atribui role estudante → verifica regras de enturmação dupla → INSERT → sincroniza `estudantes` → emite carteiras.
+
+### PATCH /api/matriculas/:id
+**Requer:** `estudantes:manage`
+
+```typescript
+{ turmaId?: string; turnoId?: string; registro?: string; ano?: number; semestre?: 1 | 2 }
+```
+
+Se `turmaId` mudar, re-valida todas as regras de enturmação dupla (excluindo a matrícula atual).
 
 ### DELETE /api/matriculas/:id
 **Requer:** `estudantes:manage`
@@ -149,97 +157,49 @@ Soft delete: seta `deletadoEm` e `ativo = false`.
 | Situação | Status | Mensagem |
 |---|---|---|
 | `registro` não numérico | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
-| `semestre` inválido | 400 | "Semestre deve ser 1 ou 2." |
+| Turno ausente (múltiplos na turma) | 400 | "Selecione o turno para esta turma (a turma possui múltiplos turnos)." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
 | Curso diferente do atual | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes." |
 | Limite de 2 matrículas ativas | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
-| Mesmo turno no mesmo curso | 422 | "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno. Só é permitido em turnos diferentes." |
-| Conflito DB (23505 / uq_matricula_usuario_turma) | 409 | "Este estudante já está matriculado nesta turma." |
-| Matrícula duplicada (23505 genérico) | 409 | "Este estudante já está enturmado nesta turma neste período." |
-| Módulo menor — mais de 3 disciplinas por turno | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
+| Módulo novo ≥ módulo existente | 422 | "A segunda enturmação deve ser em módulo inferior ao atual (turma &lt;sigla&gt;, módulo &lt;X&gt;)." |
+| Mesmo turno nas duas matrículas | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente." |
+| Conflito DB (uq_matricula_usuario_turma) | 409 | "Este estudante já está matriculado nesta turma." |
+| Módulo menor — mais de 3 disciplinas | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
 | Módulo maior — seleção parcial | 422 | "Módulo maior: selecione uma ou todas as disciplinas do turno." |
-| FK inválida (23503) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |
+| FK inválida (23503) | 400 | "Turma ou estudante inválidos." |
 | Schema desatualizado (42703) | 500 | "Erro de schema no banco de dados. Execute as migrações pendentes." |
-| Erro interno | 500 | "Erro interno ao salvar a enturmação. Tente novamente." |
 
 ---
 
 ## Frontend (`/enturmacao`)
 
-### Layout geral
-
-- Rota: `/enturmacao` — visível no menu para `estudantes:manage`
-- Lista **todos os estudantes** (role `estudante` ou com matrícula ativa), incluindo os ainda não enturmados
-- Campo de busca por nome (filtro local, client-side)
-- Cada estudante é um `EstudanteCard` (accordion)
-
-### EstudanteCard
-
-Ao expandir o card:
-
-1. **Cabeçalho**: nome do estudante + data de cadastro
-2. **Tabela de enturmações**: colunas Curso | Turno | Turma | Registro | Semestre | Ações (lápis + lixeira)
-   - Lápis → abre `EnturmarForm` preenchido para edição da matrícula selecionada
-   - Lixeira → abre AlertDialog de confirmação de remoção
-3. **EnturmarForm** (nova enturmação ou edição inline)
-4. Botão "Nova enturmação" → exibe formulário vazio
-
-### EnturmarForm (cascading)
+### Cascata do Formulário
 
 ```
-Curso (select) → Turma (select filtrado por curso) → Turno (auto-preenche se único)
-→ DisciplinasSeletor (filtrado por cursoId + turnoId)
-→ Registro | Ano | Semestre
-→ [Salvar] [Cancelar]
+Curso → Módulo → Turma → Turno → Disciplinas → Registro | Ano | Semestre
 ```
 
-- Se a turma selecionada tem apenas 1 turno, `turnoId` é preenchido automaticamente
-- Ao trocar `turnoId`, a seleção de disciplinas é resetada
-- **Novo:** `POST /api/matriculas` + `PUT /api/usuario-disciplinas/:usuarioId`
-- **Edição:** `PATCH /api/matriculas/:id` + `PUT /api/usuario-disciplinas/:usuarioId`
-
-### DisciplinasSeletor
-
-| Tipo de curso | Comportamento |
+| Passo | Comportamento |
 |---|---|
-| **Módulo menor** | Checkboxes individuais; contador `{sel}/3`; ao atingir 3, demais ficam desabilitados |
-| **Módulo maior** | Botões "Todas (N)" ou "Selecionar uma"; ao escolher "Selecionar uma", exibe radio buttons |
+| **Curso** | Lista todos os cursos |
+| **Módulo** | Deriva módulos únicos das turmas do curso selecionado, ordenados (I, II, III…). Oculto se turmas não têm módulo definido. |
+| **Turma** | Filtrada por curso + módulo. Desabilitada até módulo selecionado (quando há módulos). Exibe sigla e descrição. |
+| **Turno** | Auto-preenchido se turma tem 1 turno. Select se múltiplos. Em enturmação de módulo inferior: turnos já ocupados na matrícula principal são removidos da lista. |
+| **Disciplinas** | Modo checkbox/máx.3 para módulo inferior secundário ou cursos moduloMenor. Modo "Todas/Uma" para módulo maior. |
 
-### AlertDialog de exclusão (3 botões)
+### Tabela de Enturmações (por estudante)
 
-| Botão | Ação |
-|---|---|
-| Cancelar | Fecha o dialog **e** colapsa o card do estudante |
-| Não | Fecha o dialog (sem colapsar) |
-| Sim | Executa `DELETE /api/matriculas/:id` e fecha o dialog |
+Colunas: **Curso | Turno | Turma | Registro | Semestre | Ações**
 
-### Cópia de senha provisória (`NovoUsuarioDialog`)
+- **Turno**: exibe `turnoNome` (turno específico do aluno) — não todos os turnos da turma
 
-```typescript
-navigator.clipboard.writeText(senhaGerada)
-  .then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); })
-  .catch(() => {}); // silencioso
-```
+### DisciplinasSeletor — Modos
 
-### Cópia de senha provisória (`NovoUsuarioDialog`)
-
-A cópia usa `navigator.clipboard.writeText()` com `.catch()` silencioso — evita "Uncaught (in promise)" quando a API de clipboard é bloqueada por extensão do browser, perda de foco ou contexto inseguro.
-
-```typescript
-navigator.clipboard.writeText(senhaGerada).then(() => {
-  setCopiado(true);
-  setTimeout(() => setCopiado(false), 2000);
-}).catch(() => {});
-```
-
----
-
-## Menu (layout.tsx)
-
-```
-Grupo: "Enturmação"  (visível para estudantes:manage)
-└── Item: "Estudantes" → /enturmacao
-```
+| Contexto | Label | Comportamento |
+|---|---|---|
+| Curso `moduloMenor = true` | "Disciplinas (módulo menor)" | Checkboxes, contador selCount/3 |
+| Segunda enturmação em módulo inferior | "Disciplinas (módulo inferior — máx. 3)" | Checkboxes, limite 3 |
+| Módulo maior (único enrollment ou principal) | "Disciplinas (módulo maior)" | Botões Todas/Selecionar uma + radio |
 
 ---
 
@@ -247,9 +207,10 @@ Grupo: "Enturmação"  (visível para estudantes:manage)
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `lib/db/src/schema/matriculas.ts` | Tabela + `insertMatriculaSchema` |
-| `artifacts/api-server/src/routes/matriculas.ts` | GET, POST, DELETE + validações |
-| `artifacts/seshat/src/pages/enturmacao/index.tsx` | UI accordion por estudante |
-| `artifacts/seshat/src/components/layout.tsx` | Grupo "Enturmação" / item "Estudantes" |
+| `lib/db/src/schema/matriculas.ts` | Schema + insertMatriculaSchema (inclui turnoId) |
+| `artifacts/api-server/src/routes/matriculas.ts` | GET, POST, PATCH, DELETE + validações |
+| `artifacts/seshat/src/pages/enturmacao/index.tsx` | UI accordion + cascata de formulário |
+| `artifacts/seshat/src/components/layout.tsx` | Grupo "Enturmação" |
 | `artifacts/seshat/src/App.tsx` | Rota `/enturmacao` |
-| `scripts/migrate-matriculas.sql` | DDL da tabela matriculas |
+| `scripts/migrate-matriculas.sql` | DDL inicial |
+| `scripts/migrate-matriculas-turno.sql` | Adiciona turno_id |
