@@ -1,4 +1,10 @@
-import { pgTable, uuid, varchar, date, integer, char, bytea, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, date, integer, char, timestamp, customType } from "drizzle-orm/pg-core";
+
+const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() { return "bytea"; },
+  toDriver(value: Buffer): Buffer { return value; },
+  fromDriver(value: Buffer): Buffer { return value; },
+});
 import { estudantesTable } from "./estudantes";
 import { usuariosTable } from "./usuarios";
 
@@ -15,7 +21,7 @@ export const atestadosMedicosTable = pgTable("atestados_medicos", {
   tamanhoBytes:     integer("tamanho_bytes").notNull(),
   iv:               char("iv", { length: 24 }).notNull(),
   hashIntegridade:  char("hash_integridade", { length: 64 }).notNull(),
-  dados:            bytea("dados").notNull(),
+  dados:            bytesAsBuffer("dados").notNull(),
   criadoEm:         timestamp("criado_em",    { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm:     timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
 });
