@@ -1,5 +1,4 @@
 import { Router, Request, Response } from "express";
-import { createHmac } from "crypto";
 import {
   db,
   usuariosTable,
@@ -13,7 +12,7 @@ import {
   disciplinasTable,
   disciplinaOfertasTable,
   usuarioDisciplinasTable,
-  fotosTable,
+  carteirasTable,
   eq,
   and,
   isNull,
@@ -39,27 +38,6 @@ function calcularIdade(dataNascimento: string | null): number | null {
 function isMaiorDeIdade(dataNascimento: string | null): boolean {
   const idade = calcularIdade(dataNascimento);
   return idade !== null && idade >= 18;
-}
-
-const HMAC_KEY = process.env.SESSION_SECRET ?? "carometro-secret";
-
-function gerarTokenCartao(usuarioId: string, tipo: string, validade: string): string {
-  const payload = JSON.stringify({ usuarioId, tipo, validade, ts: Date.now() });
-  const encoded = Buffer.from(payload).toString("base64url");
-  const sig = createHmac("sha256", HMAC_KEY).update(encoded).digest("base64url");
-  return `${encoded}.${sig}`;
-}
-
-function verificarTokenCartao(token: string): { usuarioId: string; tipo: string; validade: string; ts: number } | null {
-  try {
-    const [encoded, sig] = token.split(".");
-    if (!encoded || !sig) return null;
-    const expected = createHmac("sha256", HMAC_KEY).update(encoded).digest("base64url");
-    if (expected !== sig) return null;
-    return JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
-  } catch {
-    return null;
-  }
 }
 
 // ── GET /api/portal/me — dados próprios do estudante logado ───────────────────
@@ -247,58 +225,29 @@ router.post("/ocorrencias/:id/ciencia", async (req: Request, res: Response) => {
   }
 });
 
-// ── GET /api/portal/carteira — token assinado para a carteira de estudante ───
-router.get("/carteira", async (req: Request, res: Response) => {
+// ── GET /api/portal/carteiras — carteiras ativas do estudante logado ─────────
+router.get("/carteiras", async (req: Request, res: Response) => {
   try {
     const usuarioId = req.usuarioId!;
 
-    const [mat] = await db
-      .select({ ano: matriculasTable.ano, semestre: matriculasTable.semestre })
-      .from(matriculasTable)
-      .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm)))
-      .orderBy(matriculasTable.ano, matriculasTable.semestre)
-      .limit(1);
+    const rows = await db
+      .select({
+        id:        carteirasTable.id,
+        tipo:      carteirasTable.tipo,
+        ano:       carteirasTable.ano,
+        semestre:  carteirasTable.semestre,
+        status:    carteirasTable.status,
+        token:     carteirasTable.token,
+        criadoEm:  carteirasTable.criadoEm,
+      })
+      .from(carteirasTable)
+      .where(eq(carteirasTable.usuarioId, usuarioId))
+      .orderBy(carteirasTable.ano, carteirasTable.semestre);
 
-    const validade = mat ? `${mat.semestre}/${mat.ano}` : "N/A";
-    const token = gerarTokenCartao(usuarioId, "carteira", validade);
-
-    res.json({ token, validade });
+    res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao gerar carteira" });
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar carteiras" });
   }
 });
-
-// ── GET /api/verificar/:token — endpoint público para validação de cartão ────
-// Registrado na rota pública (sem requireAuth) — veja index.ts
-export function criarRotaVerificacao() {
-  const pub = Router();
-
-  pub.get("/:token", async (req: Request, res: Response) => {
-    const dados = verificarTokenCartao(req.params.token);
-    if (!dados) return res.status(400).json({ error: "Token inválido ou adulterado." });
-
-    try {
-      const [usuario] = await db
-        .select({ id: usuariosTable.id, nome: usuariosTable.nome, fotoId: usuariosTable.fotoId })
-        .from(usuariosTable)
-        .where(eq(usuariosTable.id, dados.usuarioId));
-
-      if (!usuario) return res.status(404).json({ error: "Estudante não encontrado." });
-
-      res.json({
-        valido:    true,
-        tipo:      dados.tipo,
-        validade:  dados.validade,
-        nome:      usuario.nome,
-        fotoUrl:   usuario.fotoId ? `/api/fotos/${usuario.fotoId}` : null,
-        emitidoEm: new Date(dados.ts).toISOString(),
-      });
-    } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao verificar" });
-    }
-  });
-
-  return pub;
-}
 
 export default router;

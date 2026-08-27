@@ -13,6 +13,7 @@ import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
 import { enviarEmailBoasVindas } from "../lib/mailer.js";
+import { emitirCarteirasParaMatricula } from "./carteiras.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -452,6 +453,14 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
     } catch (syncErr) {
       // Falha na sincronização não cancela a matrícula — apenas loga
       console.error("[matriculas] falha ao sincronizar estudantes:", syncErr);
+    }
+
+    // ── Emitir carteira de estudante e cartão semestral automaticamente ──────
+    try {
+      await emitirCarteirasParaMatricula(usuarioId, matricula.id, body.ano, body.semestre);
+    } catch (cartErr) {
+      // Falha na emissão não cancela a matrícula
+      console.error("[matriculas] falha ao emitir carteiras:", cartErr);
     }
 
     await registrarAuditoria({

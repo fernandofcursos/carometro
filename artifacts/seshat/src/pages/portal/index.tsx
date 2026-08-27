@@ -40,7 +40,10 @@ type OcorrenciaPortal = {
   cienteEm: string | null; cientePorId: string | null;
 };
 
-type CarteiraData = { token: string; validade: string };
+type CarteiraDB = {
+  id: string; tipo: string; ano: number; semestre: number;
+  status: string; token: string; criadoEm: string;
+};
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
 
@@ -85,16 +88,20 @@ function QrCodeCanvas({ value, size = 160 }: { value: string; size?: number }) {
   return <canvas ref={canvasRef} className="rounded" />;
 }
 
+// ── Status badge da carteira ──────────────────────────────────────────────────
+
+function StatusCarteiraBadge({ status }: { status: string }) {
+  if (status === "ativa")     return <Badge className="bg-green-100 text-green-800 border-green-200">Ativa</Badge>;
+  if (status === "cancelada") return <Badge variant="destructive">Cancelada</Badge>;
+  if (status === "revogada")  return <Badge className="bg-gray-200 text-gray-700">Revogada</Badge>;
+  return <Badge variant="outline">{status}</Badge>;
+}
+
 // ── Carteira de Estudante ─────────────────────────────────────────────────────
 // Segue: Lei 12.989/2014, SEEDF, LGPD art. 6º (finalidade e necessidade), ISO 27001 A.9.4
 
-function CarteiraEstudante({ me }: { me: PortalMe }) {
-  const { data } = useQuery<CarteiraData>({
-    queryKey: ["portal-carteira"],
-    queryFn:  () => fetchJson(`${BASE}/api/portal/carteira`),
-  });
-
-  const verUrl = data ? `${window.location.origin}${BASE}/verificar/${data.token}` : "";
+function CarteiraEstudante({ me, carteira }: { me: PortalMe; carteira: CarteiraDB | null }) {
+  const verUrl = carteira ? `${window.location.origin}${BASE}/verificar/${carteira.token}` : "";
   const primeiraMatricula = me.matriculas[0];
 
   return (
@@ -138,14 +145,21 @@ function CarteiraEstudante({ me }: { me: PortalMe }) {
             </div>
           </div>
 
-          {/* Validade */}
+          {/* Validade e status */}
           <div className="flex justify-between items-center text-xs border-t border-blue-500 pt-2">
             <span className="text-blue-300">Validade:</span>
-            <span className="font-semibold">{data?.validade ?? "—"}</span>
+            <span className="font-semibold">
+              {carteira ? `${carteira.semestre}º sem. / ${carteira.ano}` : "—"}
+            </span>
           </div>
+          {carteira && carteira.status !== "ativa" && (
+            <div className="text-center text-xs font-bold text-red-300 bg-red-900/30 rounded py-1">
+              DOCUMENTO {carteira.status.toUpperCase()}
+            </div>
+          )}
 
           {/* QR Code */}
-          {data && (
+          {carteira && carteira.status === "ativa" && (
             <div className="flex flex-col items-center gap-1 mt-1">
               <div className="bg-white p-1.5 rounded">
                 <QrCodeCanvas value={verUrl} size={100} />
@@ -162,10 +176,20 @@ function CarteiraEstudante({ me }: { me: PortalMe }) {
         </CardContent>
       </Card>
 
-      {data && (
+      {carteira && carteira.status === "ativa" && (
         <Button variant="outline" size="sm" onClick={() => window.print()}>
           Imprimir carteira
         </Button>
+      )}
+      {carteira && carteira.status !== "ativa" && (
+        <p className="text-xs text-destructive text-center">
+          Esta carteira foi {carteira.status}. Solicite a renovação ao coordenador.
+        </p>
+      )}
+      {!carteira && (
+        <p className="text-xs text-muted-foreground text-center">
+          Nenhuma carteira emitida. A carteira é gerada automaticamente ao enturmar.
+        </p>
       )}
     </div>
   );
@@ -278,6 +302,22 @@ export default function PortalEstudantePage() {
     queryFn:  () => fetchJson(`${BASE}/api/portal/me`),
   });
 
+  const { data: carteiras = [] } = useQuery<CarteiraDB[]>({
+    queryKey: ["portal-carteiras"],
+    queryFn:  () => fetchJson(`${BASE}/api/portal/carteiras`),
+    enabled:  !!me,
+  });
+
+  // Carteira ativa do tipo 'carteira' (prioriza mais recente)
+  const carteiraAtiva = carteiras
+    .filter((c) => c.tipo === "carteira" && c.status === "ativa")
+    .sort((a, b) => b.ano - a.ano || b.semestre - a.semestre)[0] ?? null;
+
+  // Último registro do tipo 'cartao-semestral' (pode estar cancelado)
+  const cartaoSemestral = carteiras
+    .filter((c) => c.tipo === "cartao-semestral")
+    .sort((a, b) => b.ano - a.ano || b.semestre - a.semestre)[0] ?? null;
+
   if (isLoading) return <p className="p-8 text-muted-foreground">Carregando...</p>;
   if (isError || !me) return (
     <div className="p-8 flex flex-col gap-2 items-center">
@@ -383,21 +423,26 @@ export default function PortalEstudantePage() {
         {/* Aba: Documentos */}
         <TabsContent value="documentos" className="mt-4 flex flex-col gap-6">
           <div>
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <CreditCard className="w-4 h-4" /> Carteira de Estudante
-            </h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <CreditCard className="w-4 h-4" /> Carteira de Estudante
+              </h3>
+              {carteiraAtiva && <StatusCarteiraBadge status={carteiraAtiva.status} />}
+            </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Documento válido para identificação estudantil, meia-entrada em eventos culturais e esportivos
-              (Lei Federal 12.989/2014) e demais benefícios previstos na legislação do Distrito Federal.
-              Dados protegidos pela LGPD (Lei 13.709/2018).
+              Documento válido para identificação estudantil e meia-entrada em eventos culturais e esportivos
+              (Lei Federal 12.989/2014). Emitida automaticamente ao enturmar. Dados protegidos pela LGPD (Lei 13.709/2018).
             </p>
-            <CarteiraEstudante me={me} />
+            <CarteiraEstudante me={me} carteira={carteiraAtiva} />
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Fingerprint className="w-4 h-4" /> Cartão de Liberação
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Fingerprint className="w-4 h-4" /> Cartão de Liberação Semestral
+              </h3>
+              {cartaoSemestral && <StatusCarteiraBadge status={cartaoSemestral.status} />}
+            </div>
             <CartaoLiberacao />
           </div>
         </TabsContent>

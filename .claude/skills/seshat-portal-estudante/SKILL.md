@@ -99,11 +99,39 @@ Foto, Nome, Registro/Matrícula, Curso, Turno, Turma, Validade (semestre/ano), I
 <Button onClick={() => window.print()}>Imprimir carteira</Button>
 ```
 
+## Emissão Automática na Enturmação
+
+```typescript
+// Em matriculas.ts — após INSERT na tabela matriculas:
+try {
+  await emitirCarteirasParaMatricula(usuarioId, matricula.id, body.ano, body.semestre);
+} catch (cartErr) { console.error("[matriculas] falha ao emitir carteiras:", cartErr); }
+```
+
+`emitirCarteirasParaMatricula()` (em carteiras.ts) cria:
+- `tipo = 'carteira'` — carteira de estudante
+- `tipo = 'cartao-semestral'` — cartão de liberação semestral
+
+Idempotente: verifica se já existe ativa antes de criar. Válido para qualquer idade.
+
+## Ciclo de Vida
+
+```
+Enturmação → ativa → cancelada | revogada
+(novo semestre → nova enturmação → novas carteiras ativas)
+```
+
+Gestão por coordenadores em `/carteiras` (`estudantes:manage`):
+- `POST /api/carteiras/:id/cancelar` — extravio, fim de matrícula
+- `POST /api/carteiras/:id/revogar` — fraude, uso indevido
+- `POST /api/carteiras/renovar/:usuarioId` — renovação manual `{ano, semestre}`
+
 ## Cartão de Liberação
 
-**Status: Placeholder.** Dois tipos planejados:
-- Semestral — válido por semestre letivo
-- Diário — válido para um dia específico
+**Status: layout e infraestrutura implementados. Regras de liberação a definir.**
+- `tipo = 'cartao-semestral'` emitido junto com carteira na enturmação
+- Ciclo de vida idêntico à carteira (ativa/cancelada/revogada)
+- Diário: a ser implementado em fase posterior
 
 ## OcorrenciasTab — padrão de ciência
 
@@ -121,9 +149,14 @@ const cienciaMut = useMutation({
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `artifacts/api-server/src/routes/portal-estudante.ts` | Todos os endpoints do portal |
-| `artifacts/api-server/src/index.ts` | Registra `/api/portal` e `/api/verificar` |
-| `artifacts/seshat/src/pages/portal/index.tsx` | UI completa do portal |
-| `artifacts/seshat/src/App.tsx` | Rota `/portal` |
-| `artifacts/seshat/src/components/layout.tsx` | Grupo "Meu Portal" (isEstudante check) |
+| `artifacts/api-server/src/routes/portal-estudante.ts` | GET /me, /ocorrencias, ciência, /carteiras (lista próprias) |
+| `artifacts/api-server/src/routes/carteiras.ts` | CRUD admin: listar, cancelar, revogar, renovar, verificação pública |
+| `artifacts/api-server/src/routes/matriculas.ts` | Chama emitirCarteirasParaMatricula no POST |
+| `artifacts/api-server/src/index.ts` | Registra `/api/portal`, `/api/carteiras`, `/api/verificar` |
+| `lib/db/src/schema/carteiras.ts` | Schema da tabela carteiras |
+| `scripts/migrate-carteiras.sql` | Migration idempotente para criar tabela |
+| `artifacts/seshat/src/pages/portal/index.tsx` | UI do portal do estudante |
+| `artifacts/seshat/src/pages/carteiras/index.tsx` | UI de gestão de carteiras (coordenador) |
+| `artifacts/seshat/src/App.tsx` | Rotas `/portal` e `/carteiras` |
+| `artifacts/seshat/src/components/layout.tsx` | "Meu Portal" (isEstudante) + "Carteiras e Cartões" (canManageCarteiras) |
 | `artifacts/seshat/package.json` | Dependência `qrcode` + `@types/qrcode` |

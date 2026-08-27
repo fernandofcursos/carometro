@@ -60,6 +60,7 @@ export function AppSidebar() {
   const canViewCarometro = hasAny("carometro:view");
   const canViewEstudantes = hasAny("estudantes:view", "estudantes:manage");
   const canManageEstudantes = hasAny("estudantes:manage");
+  const canManageCarteiras  = hasAny("estudantes:manage");
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
   const isEstudante = (user?.roles ?? []).includes("estudante");
@@ -122,6 +123,7 @@ export function AppSidebar() {
       bgColor: "#ecfdf5",
       items: [
         nav("Estudantes", "/enturmacao", Users),
+        nav("Carteiras e Cartões", "/carteiras", CreditCard),
       ],
     }] : []),
     ...((canViewOcorrencias || canManageTiposOcorrencias) ? [{

@@ -23,3 +23,4 @@ export * from "./solicitacoes-lgpd";
 export * from "./webauthn-credenciais";
 export * from "./textos-padrao-ocorrencias";
 export * from "./coordenador-cursos";
+export * from "./carteiras";

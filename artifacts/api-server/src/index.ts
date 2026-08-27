@@ -25,7 +25,8 @@ import importRouter from "./routes/import.js";
 import statsRouter from "./routes/stats.js";
 import fotosRouter from "./routes/fotos.js";
 import biometriaRouter from "./routes/biometria.js";
-import portalEstudanteRouter, { criarRotaVerificacao } from "./routes/portal-estudante.js";
+import portalEstudanteRouter from "./routes/portal-estudante.js";
+import carteirasRouter, { criarRotaVerificacaoCarteira } from "./routes/carteiras.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -69,8 +70,10 @@ app.use("/api/fotos", fotosRouter);
 app.use("/api/auth/biometria", biometriaRouter);
 // Portal do estudante (autoatendimento)
 app.use("/api/portal", portalEstudanteRouter);
-// Verificação pública de cartões/carteiras (sem auth)
-app.use("/api/verificar", criarRotaVerificacao());
+// Gestão de carteiras e cartões (coordenadores / equipe gestora)
+app.use("/api/carteiras", carteirasRouter);
+// Verificação pública de QR Code (sem auth) — verifica status real no banco
+app.use("/api/verificar", criarRotaVerificacaoCarteira());
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos

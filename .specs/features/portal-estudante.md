@@ -167,15 +167,59 @@ url     = {window.location.origin}/verificar/{token}
 
 ---
 
-## Cartão de Liberação
+## Cartão de Liberação Semestral
 
-Status: **Placeholder** — regras de emissão a serem definidas.
+Status: Layout implementado, **regras de liberação a definir**.
 
-Dois tipos planejados:
-- **Semestral**: válido por um semestre letivo
-- **Diário**: válido para um dia específico
+Emitido automaticamente junto com a carteira ao enturmar o estudante (tipo `cartao-semestral`). Pode ser cancelado/revogado independentemente da carteira de estudante. Regras de uso e critérios de liberação serão implementadas em fase posterior.
 
-Infraestrutura preparada: endpoint `GET /api/portal/cartao` retornará token quando as regras forem definidas.
+---
+
+## Emissão Automática na Enturmação
+
+Ao criar uma matrícula (`POST /api/matriculas`), o sistema automaticamente chama `emitirCarteirasParaMatricula()` que cria:
+1. Uma carteira do tipo `carteira` (carteira de estudante)
+2. Uma carteira do tipo `cartao-semestral` (cartão de liberação semestral)
+
+Ambas com `status = 'ativa'` e token HMAC assinado, **independente da idade do estudante**.
+
+Se já existir carteira ativa para aquele período e tipo, não cria nova (idempotente).
+
+---
+
+## Ciclo de Vida das Carteiras
+
+```
+Enturmação → status: 'ativa'
+  ↓ (coordenador ou equipe gestora)
+Cancelamento → status: 'cancelada'   (uso: extravio, término de matrícula)
+Revogação    → status: 'revogada'    (uso: fraude, uso indevido, suspeita)
+  ↓ (novo semestre)
+Renovação    → nova carteira 'ativa' para o período seguinte
+```
+
+Renovação via enturmação no novo semestre (nova matrícula cria novas carteiras) ou via `POST /api/carteiras/renovar/:usuarioId` com `{ano, semestre}`.
+
+---
+
+## Gestão Administrativa (`/carteiras`)
+
+Página acessível para usuários com `estudantes:manage` (coordenadores).
+
+| Ação | Endpoint | Descrição |
+|---|---|---|
+| Listar | `GET /api/carteiras` | Filtros: `usuarioId`, `ano`, `semestre`, `status` |
+| Cancelar | `POST /api/carteiras/:id/cancelar` | Documento perdido/invalido; nova emissão possível |
+| Revogar | `POST /api/carteiras/:id/revogar` | Fraude/uso indevido; QR code invalidado imediatamente |
+| Renovar | `POST /api/carteiras/renovar/:usuarioId` | Emite novas carteiras para novo período |
+
+### Diferença: cancelar vs. revogar
+
+| | Cancelar | Revogar |
+|---|---|---|
+| Uso | Extravio, fim de matrícula | Fraude, uso indevido |
+| Reemissão | Possível (nova enturmação) | Documentar ocorrência antes |
+| Status QR | Inválido imediatamente | Inválido imediatamente |
 
 ---
 
