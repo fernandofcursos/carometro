@@ -57,30 +57,44 @@ router.put("/:usuarioId", requirePermissao("estudantes:manage"), async (req: Req
     const usuarioId = String(req.params.usuarioId);
     const ids = (req.body as { disciplinaOfertaIds?: string[] }).disciplinaOfertaIds ?? [];
 
-    // Regra: módulo menor — máximo 2 disciplinas por curso
+    // Regras de seleção de disciplinas por módulo
     if (ids.length > 0) {
       const ofertaRows = await db
-        .select({ id: disciplinaOfertasTable.id, cursoId: disciplinaOfertasTable.cursoId, moduloMenor: cursosTable.moduloMenor })
+        .select({ id: disciplinaOfertasTable.id, cursoId: disciplinaOfertasTable.cursoId, turnoId: disciplinaOfertasTable.turnoId, moduloMenor: cursosTable.moduloMenor })
         .from(disciplinaOfertasTable)
         .innerJoin(cursosTable, eq(disciplinaOfertasTable.cursoId, cursosTable.id))
         .where(eq(disciplinaOfertasTable.ativo, true));
 
       const ofertaMap = new Map(ofertaRows.map((r) => [r.id, r]));
-      const contPorCurso = new Map<string, { count: number; moduloMenor: boolean }>();
 
+      // Agrupar selecionados por cursoId+turnoId
+      type GrupoKey = string;
+      const contPorGrupo = new Map<GrupoKey, { count: number; moduloMenor: boolean; cursoId: string; turnoId: string }>();
       for (const id of ids) {
         const oferta = ofertaMap.get(id);
         if (!oferta) continue;
-        const entry = contPorCurso.get(oferta.cursoId) ?? { count: 0, moduloMenor: oferta.moduloMenor };
+        const key = `${oferta.cursoId}:${oferta.turnoId}`;
+        const entry = contPorGrupo.get(key) ?? { count: 0, moduloMenor: oferta.moduloMenor, cursoId: oferta.cursoId, turnoId: oferta.turnoId };
         entry.count++;
-        contPorCurso.set(oferta.cursoId, entry);
+        contPorGrupo.set(key, entry);
       }
 
-      for (const [, entry] of contPorCurso) {
-        if (entry.moduloMenor && entry.count > 2) {
-          return res.status(422).json({
-            error: "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso.",
-          });
+      // Total de ofertas por cursoId+turnoId (para validar módulo maior)
+      const totalPorGrupo = new Map<GrupoKey, number>();
+      for (const o of ofertaRows) {
+        const key = `${o.cursoId}:${o.turnoId}`;
+        totalPorGrupo.set(key, (totalPorGrupo.get(key) ?? 0) + 1);
+      }
+
+      for (const [key, entry] of contPorGrupo) {
+        if (entry.moduloMenor && entry.count > 3) {
+          return res.status(422).json({ error: "Módulo menor: máximo 3 disciplinas por turno." });
+        }
+        if (!entry.moduloMenor) {
+          const total = totalPorGrupo.get(key) ?? 0;
+          if (total > 1 && entry.count > 1 && entry.count < total) {
+            return res.status(422).json({ error: "Módulo maior: selecione uma ou todas as disciplinas do turno." });
+          }
         }
       }
     }

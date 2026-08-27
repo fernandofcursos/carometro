@@ -7,7 +7,7 @@ import {
   rolesTable, usuariosRolesTable, usuariosTable,
   estudantesTable, turmaTurnosTable,
   usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, turnosTable,
-  eq, isNull, and, sql,
+  eq, isNull, and, sql, inArray, ne,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
@@ -169,6 +169,22 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
       ))
       .orderBy(matriculasTable.ano, matriculasTable.semestre);
 
+    // 3b. Turnos de cada turma (para exibição na tabela de enturmações)
+    const matTurmaIds = [...new Set(matRows.map((r) => r.turmaId))];
+    const turnosByTurmaId = new Map<string, { id: string; nome: string }[]>();
+    if (matTurmaIds.length > 0) {
+      const turnoLinks = await db
+        .select({ turmaId: turmaTurnosTable.turmaId, turnoId: turnosTable.id, turnoNome: turnosTable.nome })
+        .from(turmaTurnosTable)
+        .innerJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
+        .where(inArray(turmaTurnosTable.turmaId, matTurmaIds));
+      for (const r of turnoLinks) {
+        const arr = turnosByTurmaId.get(r.turmaId) ?? [];
+        arr.push({ id: r.turnoId, nome: r.turnoNome ?? "" });
+        turnosByTurmaId.set(r.turmaId, arr);
+      }
+    }
+
     for (const r of matRows) {
       map.get(r.usuarioId)?.matriculas.push({
         id:        r.matId,
@@ -182,6 +198,7 @@ router.get("/", requirePermissao("estudantes:manage"), async (_req: Request, res
         semestre:  r.semestre,
         ativo:     r.ativo,
         criadoEm:  r.matCriadoEm,
+        turnos:    turnosByTurmaId.get(r.turmaId) ?? [],
       });
     }
 
@@ -452,6 +469,88 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
   } catch (err) {
     const cause = (err as { cause?: unknown })?.cause;
     console.error("[matriculas] POST error:", err, cause ? `\n  cause: ${JSON.stringify(cause)}` : "");
+    const { status, error } = matriculaErrorMessage(err);
+    res.status(status).json({ error });
+  }
+});
+
+// ── PATCH /api/matriculas/:id — alterar enturmação ───────────────────────────
+
+router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
+  try {
+    const body = z.object({
+      turmaId:  z.string().uuid().optional(),
+      registro: z.string().min(1).max(20).regex(/^\d+$/).optional(),
+      ano:      z.number().int().min(2000).max(2100).optional(),
+      semestre: z.number().int().refine((v) => v === 1 || v === 2).optional(),
+    }).parse(req.body);
+
+    // Buscar matrícula atual
+    const [matAtual] = await db
+      .select({
+        id: matriculasTable.id, usuarioId: matriculasTable.usuarioId,
+        turmaId: matriculasTable.turmaId, cursoId: cursosTable.id, cursoNome: cursosTable.nome,
+      })
+      .from(matriculasTable)
+      .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
+      .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+      .where(and(eq(matriculasTable.id, String(req.params.id)), isNull(matriculasTable.deletadoEm)));
+
+    if (!matAtual) return res.status(404).json({ error: "Enturmação não encontrada." });
+
+    const novaTurmaId = body.turmaId ?? matAtual.turmaId;
+
+    // Se turmaId mudou, re-validar regras de enturmação
+    if (body.turmaId && body.turmaId !== matAtual.turmaId) {
+      const [turmaAlvo] = await db
+        .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome })
+        .from(turmasTable)
+        .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+        .where(eq(turmasTable.id, body.turmaId));
+      if (!turmaAlvo) return res.status(400).json({ error: "Turma não encontrada." });
+
+      const novosTurnos = await db
+        .select({ turnoId: turmaTurnosTable.turnoId })
+        .from(turmaTurnosTable)
+        .where(eq(turmaTurnosTable.turmaId, body.turmaId));
+      const novosTurnoIds = new Set(novosTurnos.map((t) => t.turnoId));
+
+      // Outras matrículas ativas (excluindo a atual)
+      const outrasAtivas = await db
+        .select({ id: matriculasTable.id, turmaId: matriculasTable.turmaId, cursoId: cursosTable.id, cursoNome: cursosTable.nome, turmaSigla: turmasTable.sigla })
+        .from(matriculasTable)
+        .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
+        .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+        .where(and(eq(matriculasTable.usuarioId, matAtual.usuarioId), isNull(matriculasTable.deletadoEm), ne(matriculasTable.id, matAtual.id)));
+
+      if (outrasAtivas.length > 0) {
+        const cursoDiferente = outrasAtivas.find((m) => m.cursoId !== turmaAlvo.cursoId);
+        if (cursoDiferente) {
+          return res.status(422).json({ error: `Este estudante já está enturmado no curso "${cursoDiferente.cursoNome}". Não é possível enturmar em cursos diferentes.` });
+        }
+        if (outrasAtivas.length >= 2) {
+          return res.status(422).json({ error: `Limite de 2 enturmações ativas atingido.` });
+        }
+        for (const m of outrasAtivas) {
+          const turnosExistentes = await db.select({ turnoId: turmaTurnosTable.turnoId }).from(turmaTurnosTable).where(eq(turmaTurnosTable.turmaId, m.turmaId));
+          if (turnosExistentes.some((t) => novosTurnoIds.has(t.turnoId))) {
+            return res.status(422).json({ error: `Este estudante já está enturmado na turma "${m.turmaSigla}" neste turno.` });
+          }
+        }
+      }
+    }
+
+    await db.update(matriculasTable).set({
+      ...(novaTurmaId !== matAtual.turmaId && { turmaId: novaTurmaId }),
+      ...(body.registro  !== undefined && { registro: body.registro }),
+      ...(body.ano       !== undefined && { ano: body.ano }),
+      ...(body.semestre  !== undefined && { semestre: body.semestre }),
+      atualizadoEm: new Date(),
+    }).where(eq(matriculasTable.id, matAtual.id));
+
+    await registrarAuditoria({ tabela: "matriculas", operacao: "UPDATE", registroId: matAtual.id, usuarioId: req.usuarioId, ipOrigem: req.ip, endpoint: `PATCH /api/matriculas/${matAtual.id}`, metodoHttp: "PATCH", statusHttp: 200, duracaoMs: req.startTime ? Date.now() - req.startTime : undefined });
+    res.json({ ok: true });
+  } catch (err) {
     const { status, error } = matriculaErrorMessage(err);
     res.status(status).json({ error });
   }
