@@ -18,13 +18,42 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 
 | Regra | Detalhe |
 |---|---|
-| **Até 2 matrículas ativas** | Estudante pode ter **no máximo 2 matrículas ativas**, desde que no **mesmo curso** e em **turnos diferentes**. |
+| **Até 2 matrículas ativas** | Estudante pode ter **no máximo 2 matrículas ativas** no mesmo curso. |
 | **Proibido cursos diferentes** | Se já existe matrícula ativa, a nova turma deve pertencer ao mesmo curso. → 422 se curso diferente. |
-| **Proibido mesmo turno** | No mesmo curso, não é permitido enturmar em turmas do mesmo turno. Verificado via JOIN `turma_turnos`. → 422 se mesmo turno. |
-| **Módulo menor — max 3 disciplinas por turno** | Cursos com `moduloMenor = true` limitam a seleção a **3 disciplinas por turno**. Validado na API (PUT usuario-disciplinas, agrupado por cursoId+turnoId) e reforçado na UI (checkbox desabilitado ao atingir limite). |
-| **Módulo maior — 1 ou todas** | Cursos com `moduloMenor = false` exigem que o estudante curse **uma única disciplina ou todas** do turno. Seleção parcial → 422 "Módulo maior: selecione uma ou todas as disciplinas do turno." |
+| **Segunda enturmação: módulo inferior** | A segunda enturmação deve ser em **módulo numericamente inferior** ao módulo da turma já matriculada. Ex.: já está em Módulo II → pode adicionar Módulo I; não pode adicionar Módulo II ou III. Verificado comparando `turmas.modulo` (romano). → 422 se módulo ≥ existente. |
+| **Módulo inferior — máx. 3 disciplinas** | Quando enturmado em módulo inferior como segunda enturmação, o estudante pode cursar **no máximo 3 disciplinas** desse módulo. UI força modo checkbox com limite; label "Disciplinas (módulo inferior — máx. 3)". |
+| **Turno diferente — verificado nas disciplinas** | O conflito de turno não é verificado na turma, mas nas **disciplinas cursadas** (`usuario-disciplinas`). O estudante deve selecionar disciplinas do módulo inferior em turno diferente das disciplinas do módulo principal. |
+| **Módulo menor (flag de curso) — max 3 disciplinas** | Cursos com `moduloMenor = true` limitam a seleção a **3 disciplinas por turno**. Validado na API (PUT usuario-disciplinas) e reforçado na UI. |
+| **Módulo maior — 1 ou todas** | Cursos com `moduloMenor = false` exigem que o estudante curse **uma única disciplina ou todas** do turno. Seleção parcial → 422. |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
 | **Visibilidade** | A página lista **todos os estudantes** — com ou sem matrícula ativa |
+
+### Comparação de Módulos (Roman → Int)
+
+```typescript
+const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8 };
+function moduloNumerico(m: string | null | undefined): number {
+  if (!m) return 0;
+  return ROMANOS[m.toUpperCase().trim()] ?? parseInt(m ?? "", 10) || 0;
+}
+// moduloNumerico("I") → 1, moduloNumerico("II") → 2
+// Ambos devem ser > 0 para que a validação seja aplicada (se um é nulo, permite)
+```
+
+### Detecção de Módulo Inferior no Frontend
+
+```typescript
+const moduloInferiorSecundario = useMemo(() => {
+  if (!turmaAtual?.modulo || !estudante?.matriculas?.length || isEditing) return false;
+  const moduloNovo = moduloNumerico(turmaAtual.modulo);
+  if (moduloNovo === 0) return false;
+  return estudante.matriculas.some((m) => {
+    const turmaExist = turmas.find((t) => t.id === m.turmaId);
+    return moduloNumerico(turmaExist?.modulo) > moduloNovo;
+  });
+}, [turmaAtual, estudante, turmas, isEditing]);
+// Quando true → DisciplinasSeletor mostra checkboxes com máx 3
+```
 
 ## Schema (`lib/db/src/schema/matriculas.ts`)
 
@@ -38,7 +67,7 @@ matriculasTable: {
   criadoEm, atualizadoEm, deletadoEm
   // Índice parcial: impede matrícula duplicada na mesma turma (ativo):
   UNIQUE (usuarioId, turmaId) WHERE deletadoEm IS NULL  → "uq_matricula_usuario_turma"
-  // Regras de "mesmo curso / turnos diferentes" são verificadas em app-level.
+  // Regras de "mesmo curso / módulo inferior" são verificadas em app-level.
 }
 ```
 

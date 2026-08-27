@@ -64,6 +64,12 @@ function apiMsg(err: unknown, fallback: string): string {
 const anoAtual = new Date().getFullYear();
 const anosOptions = Array.from({ length: 6 }, (_, i) => anoAtual - 1 + i);
 
+const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8, IX:9, X:10 };
+function moduloNumerico(m: string | null | undefined): number {
+  if (!m) return 0;
+  return ROMANOS[m.toUpperCase().trim()] ?? parseInt(m ?? "", 10) || 0;
+}
+
 // ── Dialog: novo usuário criado ───────────────────────────────────────────────
 
 function NovoUsuarioDialog({ nome, senhaGerada, onClose }: { nome: string | null; senhaGerada: string; onClose: () => void }) {
@@ -98,27 +104,33 @@ function NovoUsuarioDialog({ nome, senhaGerada, onClose }: { nome: string | null
 function DisciplinasSeletor({
   ofertas,
   moduloMenor,
+  moduloInferiorSecundario,
   selecionados,
   onChange,
 }: {
   ofertas: Oferta[];
   moduloMenor: boolean;
+  moduloInferiorSecundario?: boolean;
   selecionados: string[];
   onChange: (ids: string[]) => void;
 }) {
+  const modoMenor = moduloMenor || moduloInferiorSecundario;
   const selSet = useMemo(() => new Set(selecionados), [selecionados]);
   const total = ofertas.length;
   const selCount = selecionados.filter((id) => ofertas.some((o) => o.id === id)).length;
 
   if (total === 0) return <p className="text-xs text-muted-foreground italic">Nenhuma disciplina disponível para este turno.</p>;
 
-  if (moduloMenor) {
-    // Módulo menor: checkboxes individuais, max 3
+  if (modoMenor) {
+    // Módulo menor ou inferior secundário: checkboxes, máx 3
     const atingiuLimite = selCount >= 3;
+    const label = moduloInferiorSecundario
+      ? "Disciplinas (módulo inferior — máx. 3)"
+      : "Disciplinas (módulo menor)";
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Disciplinas (módulo menor)</span>
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
           <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
             atingiuLimite ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"
           )}>{selCount}/3</span>
@@ -140,7 +152,7 @@ function DisciplinasSeletor({
             );
           })}
         </div>
-        {atingiuLimite && <p className="text-xs text-amber-700">Limite de 3 disciplinas atingido para este módulo.</p>}
+        {atingiuLimite && <p className="text-xs text-amber-700">Limite de 3 disciplinas atingido para este módulo inferior.</p>}
       </div>
     );
   }
@@ -241,6 +253,19 @@ function EnturmarForm({
     [ofertas, turmaAtual, effectiveTurnoId]
   );
   const moduloMenor = ofertasFiltradas.some((o) => o.moduloMenor);
+
+  // Detectar se esta é uma enturmação secundária em módulo INFERIOR ao existente
+  // Nesse caso, aplicar limite de 3 disciplinas mesmo que o curso seja "módulo maior"
+  const moduloInferiorSecundario = useMemo(() => {
+    if (!turmaAtual?.modulo || !estudante?.matriculas?.length || isEditing) return false;
+    const moduloNovo = moduloNumerico(turmaAtual.modulo);
+    if (moduloNovo === 0) return false;
+    return estudante.matriculas.some((m) => {
+      const turmaExist = turmas.find((t) => t.id === m.turmaId);
+      const modExist = moduloNumerico(turmaExist?.modulo);
+      return modExist > moduloNovo;
+    });
+  }, [turmaAtual, estudante, turmas, isEditing]);
 
   // Quando o turno muda, reinicializa disciplinas
   useEffect(() => {
@@ -438,6 +463,7 @@ function EnturmarForm({
         <DisciplinasSeletor
           ofertas={ofertasFiltradas}
           moduloMenor={moduloMenor}
+          moduloInferiorSecundario={moduloInferiorSecundario}
           selecionados={discIds}
           onChange={setDiscIds}
         />
@@ -746,8 +772,9 @@ export default function EnturmacaoPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">Enturmação — Estudantes</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          Vincule estudantes a turmas. Um estudante pode estar em até 2 turmas do mesmo curso em turnos diferentes.
-          Módulo menor: máx. 3 disciplinas por turno. Módulo maior: uma ou todas as disciplinas.
+          Vincule estudantes a turmas. Um estudante pode estar em uma turma do módulo atual e, opcionalmente,
+          em uma turma de módulo inferior (máx. 3 disciplinas, turno diferente do módulo principal).
+          Módulo maior: uma ou todas as disciplinas.
         </p>
       </div>
 

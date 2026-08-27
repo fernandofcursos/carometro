@@ -37,6 +37,14 @@ function gerarCodigoAcesso(): string {
   return Array.from({ length: 8 }, () => charset[Math.floor(Math.random() * charset.length)]).join("");
 }
 
+// Converte módulo (romano ou numérico) para inteiro para comparação
+const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8, IX:9, X:10 };
+function moduloNumerico(m: string | null | undefined): number {
+  if (!m) return 0;
+  const up = m.toUpperCase().trim();
+  return ROMANOS[up] ?? parseInt(m, 10) || 0;
+}
+
 function pgCode(err: unknown): string {
   // Drizzle encapsula o erro PG em err.cause; o código PG pode estar em err.cause.code
   const e = err as { code?: string; cause?: { code?: string } };
@@ -248,7 +256,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
 
     // ── Verificar turma alvo ──────────────────────────────────────────────────
     const [turmaAlvo] = await db
-      .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome })
+      .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome, modulo: turmasTable.modulo })
       .from(turmasTable)
       .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
       .where(eq(turmasTable.id, body.turmaId));
@@ -327,27 +335,22 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
     }
 
     // ── Regras de enturmação múltipla ────────────────────────────────────────
-    // Regra 1: Não é permitido enturmar em cursos diferentes.
-    // Regra 2: No mesmo curso, é permitido enturmar em até 2 turmas de turnos DISTINTOS.
-    // Regra 3: Não é permitido enturmar em turmas do mesmo turno.
-
-    // Turnos da nova turma
-    const novosTurnos = await db
-      .select({ turnoId: turmaTurnosTable.turnoId })
-      .from(turmaTurnosTable)
-      .where(eq(turmaTurnosTable.turmaId, body.turmaId));
-    const novosTurnoIds = new Set(novosTurnos.map((t) => t.turnoId));
+    // Regra 1: Mesmo curso obrigatório.
+    // Regra 2: Máximo 2 enturmações ativas.
+    // Regra 3: Segunda enturmação deve ser em módulo INFERIOR ao módulo existente.
+    //          O conflito de turno é verificado ao nível das disciplinas cursadas.
 
     // Matrículas ativas do estudante
     const matriculasAtivas = await db
       .select({
-        id:         matriculasTable.id,
-        turmaId:    matriculasTable.turmaId,
-        cursoId:    cursosTable.id,
-        cursoNome:  cursosTable.nome,
-        turmaSigla: turmasTable.sigla,
-        ano:        matriculasTable.ano,
-        semestre:   matriculasTable.semestre,
+        id:          matriculasTable.id,
+        turmaId:     matriculasTable.turmaId,
+        cursoId:     cursosTable.id,
+        cursoNome:   cursosTable.nome,
+        turmaSigla:  turmasTable.sigla,
+        turmaModulo: turmasTable.modulo,
+        ano:         matriculasTable.ano,
+        semestre:    matriculasTable.semestre,
       })
       .from(matriculasTable)
       .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
@@ -355,7 +358,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
       .where(and(eq(matriculasTable.usuarioId, usuarioId), isNull(matriculasTable.deletadoEm)));
 
     if (matriculasAtivas.length > 0) {
-      // Regra 1: Todos os cursos devem ser iguais
+      // Regra 1: Mesmo curso obrigatório
       const cursoDiferente = matriculasAtivas.find((m) => m.cursoId !== turmaAlvo.cursoId);
       if (cursoDiferente) {
         return res.status(422).json({
@@ -363,24 +366,21 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
         });
       }
 
-      // Regra 2: Máximo 2 matrículas no mesmo curso
+      // Regra 2: Máximo 2 enturmações ativas
       if (matriculasAtivas.length >= 2) {
         return res.status(422).json({
           error: `Este estudante já possui 2 enturmações ativas no curso "${turmaAlvo.cursoNome}" (limite máximo). Remova uma enturmação antes de adicionar outra.`,
         });
       }
 
-      // Regra 3: Turno deve ser diferente das matrículas existentes
+      // Regra 3: A nova turma deve ser em módulo INFERIOR ao módulo existente.
+      // O conflito de turno é verificado ao nível das disciplinas, não da turma.
+      const moduloNovo = moduloNumerico(turmaAlvo.modulo);
       for (const mat of matriculasAtivas) {
-        const turnosExistentes = await db
-          .select({ turnoId: turmaTurnosTable.turnoId })
-          .from(turmaTurnosTable)
-          .where(eq(turmaTurnosTable.turmaId, mat.turmaId));
-
-        const conflito = turnosExistentes.some((t) => novosTurnoIds.has(t.turnoId));
-        if (conflito) {
+        const moduloExist = moduloNumerico(mat.turmaModulo);
+        if (moduloNovo !== 0 && moduloExist !== 0 && moduloNovo >= moduloExist) {
           return res.status(422).json({
-            error: `Este estudante já está enturmado na turma "${mat.turmaSigla}" neste turno. No mesmo curso, só é permitido enturmar em turnos diferentes.`,
+            error: `A segunda enturmação deve ser em módulo inferior ao atual (turma ${mat.turmaSigla}, módulo ${mat.turmaModulo ?? "—"}). Módulo selecionado: ${turmaAlvo.modulo ?? "não definido"}.`,
           });
         }
       }
@@ -512,21 +512,15 @@ router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request,
     // Se turmaId mudou, re-validar regras de enturmação
     if (body.turmaId && body.turmaId !== matAtual.turmaId) {
       const [turmaAlvo] = await db
-        .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome })
+        .select({ cursoId: cursosTable.id, cursoNome: cursosTable.nome, modulo: turmasTable.modulo })
         .from(turmasTable)
         .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
         .where(eq(turmasTable.id, body.turmaId));
       if (!turmaAlvo) return res.status(400).json({ error: "Turma não encontrada." });
 
-      const novosTurnos = await db
-        .select({ turnoId: turmaTurnosTable.turnoId })
-        .from(turmaTurnosTable)
-        .where(eq(turmaTurnosTable.turmaId, body.turmaId));
-      const novosTurnoIds = new Set(novosTurnos.map((t) => t.turnoId));
-
       // Outras matrículas ativas (excluindo a atual)
       const outrasAtivas = await db
-        .select({ id: matriculasTable.id, turmaId: matriculasTable.turmaId, cursoId: cursosTable.id, cursoNome: cursosTable.nome, turmaSigla: turmasTable.sigla })
+        .select({ id: matriculasTable.id, turmaId: matriculasTable.turmaId, cursoId: cursosTable.id, cursoNome: cursosTable.nome, turmaSigla: turmasTable.sigla, turmaModulo: turmasTable.modulo })
         .from(matriculasTable)
         .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
         .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
@@ -540,10 +534,11 @@ router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request,
         if (outrasAtivas.length >= 2) {
           return res.status(422).json({ error: `Limite de 2 enturmações ativas atingido.` });
         }
+        const moduloNovo = moduloNumerico(turmaAlvo.modulo);
         for (const m of outrasAtivas) {
-          const turnosExistentes = await db.select({ turnoId: turmaTurnosTable.turnoId }).from(turmaTurnosTable).where(eq(turmaTurnosTable.turmaId, m.turmaId));
-          if (turnosExistentes.some((t) => novosTurnoIds.has(t.turnoId))) {
-            return res.status(422).json({ error: `Este estudante já está enturmado na turma "${m.turmaSigla}" neste turno.` });
+          const moduloExist = moduloNumerico(m.turmaModulo);
+          if (moduloNovo !== 0 && moduloExist !== 0 && moduloNovo >= moduloExist) {
+            return res.status(422).json({ error: `A segunda enturmação deve ser em módulo inferior ao atual (turma ${m.turmaSigla}, módulo ${m.turmaModulo ?? "—"}).` });
           }
         }
       }
