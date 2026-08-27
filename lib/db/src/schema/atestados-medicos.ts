@@ -1,12 +1,12 @@
 import { pgTable, uuid, varchar, date, integer, char, timestamp, customType } from "drizzle-orm/pg-core";
+import { estudantesTable } from "./estudantes";
+import { usuariosTable } from "./usuarios";
 
 const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() { return "bytea"; },
   toDriver(value: Buffer): Buffer { return value; },
   fromDriver(value: Buffer): Buffer { return value; },
 });
-import { estudantesTable } from "./estudantes";
-import { usuariosTable } from "./usuarios";
 
 // Atestado médico enviado pelo responsável — dados armazenados criptografados (LGPD art. 11 — dado sensível)
 export const atestadosMedicosTable = pgTable("atestados_medicos", {
@@ -15,7 +15,6 @@ export const atestadosMedicosTable = pgTable("atestados_medicos", {
   responsavelId:    uuid("responsavel_id").notNull().references(() => usuariosTable.id,  { onDelete: "cascade" }),
   dataInicio:       date("data_inicio").notNull(),
   dataFim:          date("data_fim"),
-  // Dados do arquivo (criptografado AES-256-CBC — chave via ENCRYPTION_KEY)
   nomeArquivo:      varchar("nome_arquivo", { length: 200 }).notNull(),
   mimeType:         varchar("mime_type",    { length: 60 }).notNull().default("application/pdf"),
   tamanhoBytes:     integer("tamanho_bytes").notNull(),
