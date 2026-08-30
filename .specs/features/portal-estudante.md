@@ -142,11 +142,27 @@ Verifica a autenticidade de um cartão/carteira a partir do token gerado.
 | ISO 27001 A.9.4 | Controle de acesso ao documento; autenticação do portador |
 | Resolução SEEDF | Template e dados obrigatórios conforme normativos vigentes da Secretaria de Educação do DF |
 
+### Layout — CIE 2026 (horizontal)
+
+Cartão horizontal (`560×320px`), fundo lavanda `#eaecf8`:
+
+| Elemento | Detalhe |
+|---|---|
+| **Logo esquerda** | Brasão do GDF / SEEDF — embutida em base64 no componente |
+| **Logo direita** | Logo CEP Escola Técnica de Santa Maria — embutida em base64 |
+| **Título** | "Carteira de / Identificação Estudantil" ao lado da logo esquerda |
+| **Faixa lateral** | Strip azul escuro `#1a2f7a` de 14px na borda direita |
+| **Curvas decorativas** | SVG roxo (`#6d28d9` / `#7c3aed` / `#8b5cf6`) no canto inferior esquerdo |
+| **Foto do estudante** | `me.usuario.fotoUrl` — 72×88px, `objectFit: cover`; fallback `UserCircle` |
+| **Ano** | Destaque em 26px bold `#1a2f7a` no rodapé direito |
+| **COD CIE** | Últimos 12 chars do token, abaixo do QR Code |
+| **LGPD** | Texto de rodapé esquerdo |
+
 ### Dados exibidos na carteira
 
 | Campo | Fonte |
 |---|---|
-| Foto | `usuarios.foto_id` → `/api/fotos/{id}` |
+| Foto | `me.usuario.fotoUrl` (via `GET /api/portal/me`) |
 | Nome | `usuarios.nome` |
 | Matrícula/Registro | `matriculas.registro` |
 | Curso | `cursos.nome` |

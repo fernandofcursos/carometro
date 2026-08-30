@@ -93,8 +93,28 @@ function QrCodeCanvas({ value, size = 160 }: { value: string; size?: number }) {
 - **ISO 27001 A.9.4** — controle de acesso ao documento
 - **SEEDF** — normativos vigentes da Secretaria de Educação do DF
 
+### Layout — CIE 2026 (horizontal, 560×320px)
+
+Fundo lavanda `#eaecf8`, faixa azul escuro `#1a2f7a` de 14px na borda direita, curvas decorativas SVG roxas no canto inferior esquerdo.
+
+**Cabeçalho:**
+- **Logo esquerda:** Brasão GDF/SEEDF — embutida em base64 (`data:image/png;base64,...`)
+- **Logo direita:** Logo CEP Escola Técnica de Santa Maria — embutida em base64
+- Título "Carteira de / Identificação Estudantil" ao lado da logo esquerda
+
+**Corpo (3 colunas):**
+1. **Foto** — `me.usuario.fotoUrl`, 72×88px `objectFit: cover`; fallback `<UserCircle>`
+2. **Campos** — Instituição, Curso, Turma, Turno, Matrícula, Data Nasc., Validade
+3. **QR Code** — 76px + COD CIE (últimos 12 chars do token)
+
+**Rodapé:**
+- Esquerda: texto LGPD
+- Direita: ano em 26px bold `#1a2f7a`
+
+> **IMPORTANTE:** As logos são embutidas em base64 diretamente no componente `CarteiraEstudante`. Nunca usar URL externa — a carteira deve renderizar offline e em impressão.
+
 ### Dados obrigatórios na carteira
-Foto, Nome, Registro/Matrícula, Curso, Turno, Turma, Validade (semestre/ano), Instituição, QR Code de validação.
+Foto (`fotoUrl`), Nome, Registro/Matrícula, Curso, Turno, Turma, Validade (semestre/ano), Instituição, QR Code de validação.
 
 ### Impressão
 ```tsx
@@ -110,11 +130,12 @@ try {
 } catch (cartErr) { console.error("[matriculas] falha ao emitir carteiras:", cartErr); }
 ```
 
-`emitirCarteirasParaMatricula()` (em carteiras.ts) cria:
+`emitirCarteirasParaMatricula()` (em carteiras.ts) cria apenas:
 - `tipo = 'carteira'` — carteira de estudante
-- `tipo = 'cartao-semestral'` — cartão de liberação semestral
 
 Idempotente: verifica se já existe ativa antes de criar. Válido para qualquer idade.
+
+> O `cartao-semestral` **não** é emitido automaticamente — requer pedido formal do estudante e emissão manual pelo coordenador via `POST /api/carteiras/emitir-liberacao/:usuarioId`.
 
 ## Ciclo de Vida
 
