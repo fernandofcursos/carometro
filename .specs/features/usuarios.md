@@ -31,10 +31,12 @@ CRUD de usuários do sistema com suporte a roles, disciplinas, foto e credenciai
 - E-mail de boas-vindas enviado de forma assíncrona (não bloqueia a resposta)
 
 ### Atualização (PUT /api/usuarios/:id)
-- Campos opcionais: `nome` (min 2 chars), `dataNascimento` (formato `YYYY-MM-DD`, nullable)
+- Campos opcionais: `nome` (min 2 chars), `email` (formato válido), `dataNascimento` (formato `YYYY-MM-DD`, nullable), `primeiroAcesso` (boolean)
 - Qualquer combinação pode ser enviada — apenas os campos presentes são alterados
 - `dataNascimento: null` limpa a data de nascimento
-- **Retorna:** `{ id, nome, dataNascimento }`
+- **Email atualizado:** criptografado (AES-256-CBC) + hash SHA-256 atualizado; verifica unicidade antes de salvar → HTTP 409 se já existe em outro usuário
+- **Sincronização:** ao atualizar o email, `estudante_emails.tipo='proprio'` do estudante vinculado é automaticamente sincronizado
+- **Retorna:** `{ id, nome, email, dataNascimento, primeiroAcesso }`
 
 ### Validação de roles
 - Roles de estudante exigem `dataNascimento`
@@ -88,7 +90,8 @@ Modal: Selecionar Disciplinas
 
 | Situação | Status | Mensagem |
 |----------|--------|---------|
-| E-mail já cadastrado | 400 | "O e-mail informado já está cadastrado para outro usuário." |
+| E-mail já cadastrado (POST) | 400 | "O e-mail informado já está cadastrado para outro usuário." |
+| E-mail já cadastrado (PUT) | 409 | "Este e-mail já está cadastrado para outro usuário." |
 | Role incompatível | 422 | mensagem descritiva da regra violada |
 | Foto muito grande | 413 | "Foto muito grande. Máximo: ~3.7MB" |
 | Usuário não encontrado | 404 | "Usuário não encontrado" |

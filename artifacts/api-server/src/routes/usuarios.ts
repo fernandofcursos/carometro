@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
+import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, estudantesTable, estudanteEmailsTable, eq, isNull, and, ne } from "@workspace/db";
 import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable, coordenadorCursosTable, fotosTable } from "@workspace/db/schema";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
@@ -336,30 +336,67 @@ router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request
 // PUT /api/usuarios/:id — atualizar dados do usuário
 router.put("/:id", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { nome, dataNascimento } = z.object({
-      nome: z.string().min(2).optional(),
+    const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
+    const { nome, email, dataNascimento, primeiroAcesso } = z.object({
+      nome:           z.string().min(2).optional(),
+      email:          z.string().email("E-mail inválido").optional(),
       dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      primeiroAcesso: z.boolean().optional(),
     }).parse(req.body);
 
+    const usuarioId = String(req.params.id);
     const setFields: Record<string, unknown> = { atualizadoEm: new Date() };
     if (nome !== undefined) setFields.nome = nome;
     if (dataNascimento !== undefined) setFields.dataNascimento = dataNascimento;
+    if (primeiroAcesso !== undefined) setFields.primeiroAcesso = primeiroAcesso;
+
+    if (email !== undefined) {
+      const emailNormalizado = email.toLowerCase().trim();
+      const novoHash = createHash("sha256").update(emailNormalizado).digest("hex");
+      // Verificar unicidade: nenhum outro usuário pode ter o mesmo email
+      const [conflito] = await db
+        .select({ id: usuariosTable.id })
+        .from(usuariosTable)
+        .where(and(eq(usuariosTable.emailHash, novoHash), ne(usuariosTable.id, usuarioId)));
+      if (conflito) return res.status(409).json({ error: "Este e-mail já está cadastrado para outro usuário." });
+      setFields.emailEncrypted = encryptEmail(emailNormalizado, secret);
+      setFields.emailHash      = novoHash;
+    }
 
     const [u] = await db
       .update(usuariosTable)
       .set(setFields)
-      .where(eq(usuariosTable.id, String(req.params.id)))
+      .where(eq(usuariosTable.id, usuarioId))
       .returning();
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    // Sincronizar estudante_emails.tipo='proprio' para manter consistência com carômetro
+    if (email !== undefined) {
+      const emailNormalizado = email.toLowerCase().trim();
+      const [estudante] = await db
+        .select({ id: estudantesTable.id })
+        .from(estudantesTable)
+        .where(eq(estudantesTable.usuarioId, usuarioId));
+      if (estudante) {
+        await db.delete(estudanteEmailsTable)
+          .where(and(eq(estudanteEmailsTable.estudanteId, estudante.id), eq(estudanteEmailsTable.tipo, "proprio")));
+        await db.insert(estudanteEmailsTable)
+          .values({ estudanteId: estudante.id, email: emailNormalizado, tipo: "proprio" });
+      }
+    }
+
     await registrarAuditoria({
       tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
       endpoint: "PUT /api/usuarios/:id", metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
-    res.json({ id: u.id, nome: u.nome, dataNascimento: u.dataNascimento });
+    const emailDecryptado = decryptEmail(u.emailEncrypted, secret);
+    res.json({ id: u.id, nome: u.nome, email: emailDecryptado, dataNascimento: u.dataNascimento, primeiroAcesso: u.primeiroAcesso });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "Dados inválidos";
+    if (msg.includes("23505") || msg.includes("email_hash")) return res.status(409).json({ error: "Este e-mail já está cadastrado para outro usuário." });
+    res.status(400).json({ error: msg });
   }
 });
 
