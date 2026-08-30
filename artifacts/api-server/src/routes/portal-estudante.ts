@@ -284,4 +284,125 @@ router.get("/cartoes-saida", async (req: Request, res: Response) => {
   }
 });
 
+// ── GET /api/portal/dashboard — dados consolidados para o dashboard do estudante ─
+router.get("/dashboard", async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.usuarioId!;
+
+    // Hoje no servidor (evita divergência de fuso no cliente)
+    const hoje = new Date();
+    const hojeStr = hoje.toISOString().substring(0, 10);
+    const diaJS = hoje.getDay(); // 0=dom … 6=sab
+    const diaSemana = diaJS === 0 ? 7 : diaJS; // 1=seg…7=dom (sem aula = 6 ou 7)
+
+    // Estudante vinculado
+    const [estudante] = await db
+      .select({ id: estudantesTable.id })
+      .from(estudantesTable)
+      .where(and(eq(estudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)));
+
+    // Ocorrências — agrupadas por tipo
+    const ocrsRaw = estudante
+      ? await db
+          .select({
+            id:           ocorrenciasTable.id,
+            tipoId:       ocorrenciasTable.tipoOcorrenciaId,
+            tipoDesc:     tiposOcorrenciasTable.descricao,
+            cienteEm:     ocorrenciasTable.cienteEm,
+          })
+          .from(ocorrenciasTable)
+          .innerJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
+          .where(and(eq(ocorrenciasTable.estudanteId, estudante.id), isNull(ocorrenciasTable.deletadoEm)))
+      : [];
+
+    const ocMap = new Map<string, { tipoDescricao: string; total: number; semCiencia: number; ids: string[] }>();
+    for (const o of ocrsRaw) {
+      if (!ocMap.has(o.tipoId)) ocMap.set(o.tipoId, { tipoDescricao: o.tipoDesc ?? "", total: 0, semCiencia: 0, ids: [] });
+      const g = ocMap.get(o.tipoId)!;
+      g.total++;
+      if (!o.cienteEm) { g.semCiencia++; g.ids.push(o.id); }
+    }
+    const resumo = Array.from(ocMap.entries()).map(([tipoId, v]) => ({ tipoId, ...v }));
+
+    // Agenda — tabela horarios_aulas (pode não existir ainda)
+    const DIA_NOME = ["", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"];
+    let agenda: { dia: number; diaNome: string; aulas: { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null; laboratorio: string | null }[] }[] = [];
+    let agendaDisponivel = false;
+    try {
+      // A tabela horarios_aulas é criada pela migração migrate-dashboard.sql
+      // Enquanto não existir, retorna agenda vazia sem erro
+      const { horariosAulasTable } = await import("@workspace/db/schema") as any;
+      if (horariosAulasTable && estudante) {
+        const { disciplinasTable: dt } = await import("@workspace/db") as any;
+        const aulas = await db
+          .select({
+            dia:            horariosAulasTable.diaSemana,
+            horaInicio:     horariosAulasTable.horaInicio,
+            horaFim:        horariosAulasTable.horaFim,
+            disciplinaNome: dt.nome,
+            sala:           horariosAulasTable.sala,
+            laboratorio:    horariosAulasTable.laboratorio,
+          })
+          .from(matriculasTable)
+          .innerJoin(horariosAulasTable, eq(horariosAulasTable.turmaId, matriculasTable.turmaId))
+          .innerJoin(dt, eq(horariosAulasTable.disciplinaId, dt.id))
+          .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm), isNull(horariosAulasTable.deletadoEm)));
+
+        agendaDisponivel = true;
+        const byDia = new Map<number, typeof aulas>();
+        for (const a of aulas) {
+          if (!byDia.has(a.dia)) byDia.set(a.dia, []);
+          byDia.get(a.dia)!.push(a);
+        }
+        agenda = [1, 2, 3, 4, 5].map((d) => ({
+          dia: d, diaNome: DIA_NOME[d],
+          aulas: (byDia.get(d) ?? []).sort((a, b) => String(a.horaInicio).localeCompare(String(b.horaInicio))),
+        }));
+      }
+    } catch { /* tabela ainda não existe — retorna vazio */ }
+
+    // Cardápio — tabela cardapios (pode não existir ainda)
+    let cardapio: { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] }[] = [];
+    let cardapioDisponivel = false;
+    try {
+      const { cardapiosTable } = await import("@workspace/db/schema") as any;
+      if (cardapiosTable) {
+        const { gte, lte } = await import("@workspace/db") as any;
+        const seg = new Date(hoje);
+        seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+        const sex = new Date(seg); sex.setDate(seg.getDate() + 4);
+        const semanaInicio = seg.toISOString().substring(0, 10);
+        const semanaFim    = sex.toISOString().substring(0, 10);
+
+        const rows = await db
+          .select({ data: cardapiosTable.data, refeicao: cardapiosTable.refeicao, descricao: cardapiosTable.descricao })
+          .from(cardapiosTable)
+          .where(and(gte(cardapiosTable.data, semanaInicio), lte(cardapiosTable.data, semanaFim), eq(cardapiosTable.publicado, true)));
+
+        cardapioDisponivel = true;
+        const byDia = new Map<number, { data: string; itens: { refeicao: string; descricao: string }[] }>();
+        for (const c of rows) {
+          const d = new Date(c.data + "T12:00:00"); const dia = d.getDay() === 0 ? 7 : d.getDay();
+          if (!byDia.has(dia)) byDia.set(dia, { data: c.data, itens: [] });
+          byDia.get(dia)!.itens.push({ refeicao: c.refeicao, descricao: c.descricao });
+        }
+        cardapio = [1, 2, 3, 4, 5].filter(d => byDia.has(d))
+          .map(d => ({ dia: d, diaNome: DIA_NOME[d], ...byDia.get(d)! }));
+      }
+    } catch { /* tabela ainda não existe — retorna vazio */ }
+
+    res.json({
+      hoje: hojeStr,
+      diaSemana,
+      ocorrencias: { resumo, totalGeral: ocrsRaw.length },
+      agendaDisponivel,
+      agenda: agendaDisponivel ? agenda : [],
+      cardapioDisponivel,
+      cardapio: cardapioDisponivel ? cardapio : [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao carregar dashboard" });
+  }
+});
+
 export default router;
