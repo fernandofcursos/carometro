@@ -1,119 +1,106 @@
-# Skill: Fotos — Armazenamento, Criptografia e Serviço
+# Skill: Fotos — Sincronização Estudante ↔ Usuário
 
-## Arquitetura
+## Princípio
 
-Fotos são armazenadas **criptografadas (AES-256-CBC)** em uma tabela dedicada `fotos`, separada das tabelas de entidades. Cada entidade (`estudante`, `usuario`) tem no máximo uma foto (UNIQUE por entidade).
+> Foto salva pelo carômetro (estudante) = foto do usuário. Uma única imagem aparece em todas as telas.
 
-```
-estudantes.foto_id ──FK──> fotos.id
-usuarios.foto_id   ──FK──> fotos.id
-```
+---
 
-## Tabela `fotos`
+## Escrita — `POST /api/estudantes/:id/foto`
 
 ```typescript
-fotosTable: {
-  id: uuid PK,
-  entidadeTipo: varchar(20) NOT NULL,  // 'estudante' | 'usuario'
-  entidadeId: uuid NOT NULL,
-  mimeType: varchar(20) DEFAULT 'image/jpeg',
-  tamanhoBytes: integer NOT NULL,
-  iv: char(24) NOT NULL,              // base64 do IV AES-256-CBC
-  hashIntegridade: char(64) NOT NULL, // SHA-256 hex dos bytes originais
-  dados: bytea NOT NULL,              // bytes criptografados
-  criadoEm, atualizadoEm
-  UNIQUE (entidadeTipo, entidadeId)
-}
-```
-
-## Endpoint canônico — GET /api/fotos/:id
-
-```typescript
-// Requer: requireAuth (sem permissão adicional)
-// Lê fotosTable por PK
-// descriptografarFoto(foto.dados, foto.iv) → Buffer
-// verificarIntegridade(buffer, foto.hashIntegridade) → boolean
-// res.set("Cache-Control", "private, max-age=86400")
-// res.set("Content-Type", foto.mimeType)
-// res.send(buffer)
-```
-
-**Erro 404** se foto não existe. **Erro 500** se integridade falhar.
-
-## Padrão de escrita (estudantes e usuarios)
-
-```typescript
-// Upsert na tabela fotos
+// 1. Upsert em fotos com entidade_tipo='estudante'
 const [fotoRow] = await db.insert(fotosTable).values({
   entidadeTipo: "estudante", entidadeId: estudanteId,
-  mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
-  iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados,
+  mimeType, tamanhoBytes, iv, hashIntegridade, dados,
 }).onConflictDoUpdate({
   target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
-  set: { /* todos os campos */ atualizadoEm: new Date() },
+  set: { mimeType, tamanhoBytes, iv, hashIntegridade, dados, atualizadoEm: new Date() },
 }).returning({ id: fotosTable.id });
 
-// Atualizar FK
-await db.update(estudantesTable)
-  .set({ fotoId: fotoRow.id })
-  .where(eq(estudantesTable.id, estudanteId));
-```
+// 2. Atualizar estudantes.foto_id
+const [estudante] = await db.update(estudantesTable)
+  .set({ fotoId: fotoRow.id, atualizadoEm: new Date() })
+  .where(eq(estudantesTable.id, estudanteId))
+  .returning({ id: estudantesTable.id, usuarioId: estudantesTable.usuarioId });
 
-## fotoUrl — Lógica de construção
+// 3. Sincronizar para usuário vinculado
+if (estudante.usuarioId) {
+  const [fotoUsuarioRow] = await db.insert(fotosTable).values({
+    entidadeTipo: "usuario", entidadeId: estudante.usuarioId,
+    mimeType, tamanhoBytes, iv, hashIntegridade, dados,
+  }).onConflictDoUpdate({
+    target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
+    set: { mimeType, tamanhoBytes, iv, hashIntegridade, dados, atualizadoEm: new Date() },
+  }).returning({ id: fotosTable.id });
 
-```typescript
-// Prioridade:
-fotoUrl = fotoId
-  ? `/api/fotos/${fotoId}`             // novo padrão (canônico)
-  : (fotoStorageKey
-    ? `/api/estudantes/${id}/foto`     // fallback legado (sem fotoId ainda)
-    : null)
-```
-
-## Endpoints de compatibilidade retroativa
-
-`GET /api/estudantes/:id/foto` e `GET /api/usuarios/:id/foto`:
-- Se `fotoId` preenchido → `302 redirect` para `/api/fotos/:fotoId`
-- Caso contrário → descriptografa do bytea inline e serve (dados legados)
-
-## Colunas inline legadas (estudantes e usuarios)
-
-`foto_storage_key`, `foto_dados`, `foto_iv`, `foto_mime_type`, `foto_tamanho_bytes`, `foto_hash_integridade` — mantidas para compatibilidade até a migração estar completa.
-
-Após `scripts/migrate-fotos.sql` popular todos os `foto_id`, usar o bloco `DROP COLUMN` comentado no script para remover as colunas legadas.
-
-## Crypto
-
-```typescript
-// lib/api-server/src/lib/crypto.ts
-criptografarFoto(dadosBase64: string): {
-  dadosCriptografados: Buffer, iv: string, hash: string,
-  mimeType: string, tamanhoBytes: number
+  await db.update(usuariosTable)
+    .set({ fotoId: fotoUsuarioRow.id, atualizadoEm: new Date() })
+    .where(eq(usuariosTable.id, estudante.usuarioId));
 }
-
-descriptografarFoto(dados: Buffer, iv: string): Buffer
-
-verificarIntegridade(dadosBrutos: Buffer, hashEsperado: string): boolean
 ```
 
-`ENCRYPTION_KEY` env var (hex 64 chars = 32 bytes AES-256). **Nunca hardcodar.**
+---
 
-## Performance
+## Leitura com Fallback
 
-- Carômetro (`GET /api/carometro`) **não descriptografa mais em lote** — retorna apenas `fotoUrl`
-- Browser busca cada foto individualmente com cache de 24h
-- Uma turma de 100 alunos = 0 decrypts na listagem (vs ~100 decrypts antes)
+### `GET /api/usuarios` / `GET /api/usuarios/:id`
+
+```typescript
+// u = registro da tabela usuarios (db.select().from(usuariosTable))
+let estudanteFotoId: string | null = null;
+if (!u.fotoId) {
+  const [est] = await db.select({ fotoId: estudantesTable.fotoId })
+    .from(estudantesTable)
+    .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+  estudanteFotoId = est?.fotoId ?? null;
+}
+const fotoUrl = u.fotoId
+  ? `/api/fotos/${u.fotoId}`
+  : (estudanteFotoId
+      ? `/api/fotos/${estudanteFotoId}`
+      : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null));
+```
+
+### `GET /api/portal/me`
+
+```typescript
+// Adicionar LEFT JOIN com estudantesTable na query do usuario
+const [usuario] = await db.select({
+  id: usuariosTable.id,
+  fotoId: usuariosTable.fotoId,
+  estudanteFotoId: estudantesTable.fotoId,
+  // ...outros campos
+})
+.from(usuariosTable)
+.leftJoin(estudantesTable, and(
+  eq(estudantesTable.usuarioId, usuariosTable.id),
+  isNull(estudantesTable.deletadoEm),
+))
+.where(and(eq(usuariosTable.id, usuarioId), isNull(usuariosTable.deletadoEm)));
+
+// fotoUrl
+const fotoUrl = usuario.fotoId
+  ? `/api/fotos/${usuario.fotoId}`
+  : (usuario.estudanteFotoId ? `/api/fotos/${usuario.estudanteFotoId}` : null);
+```
+
+---
+
+## Anti-padrões
+
+- ❌ Salvar foto em `fotos(entidade_tipo='estudante')` sem sincronizar para `fotos(entidade_tipo='usuario')` quando `usuario_id` existe
+- ❌ Retornar `fotoUrl` de `usuarios` sem fallback para `estudantes.foto_id`
+- ❌ Usar dois registros em `fotos` com o mesmo `entidade_tipo + entidade_id` (viola UNIQUE)
+
+---
 
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `lib/db/src/schema/fotos.ts` | Schema da tabela fotos |
-| `lib/db/src/schema/estudantes.ts` | FK `fotoId` → fotos |
-| `lib/db/src/schema/usuarios.ts` | FK `fotoId` → fotos |
-| `artifacts/api-server/src/routes/fotos.ts` | GET /api/fotos/:id |
-| `artifacts/api-server/src/routes/estudantes.ts` | Dual-write + fallback read |
-| `artifacts/api-server/src/routes/usuarios.ts` | Dual-write + fallback read |
-| `artifacts/api-server/src/routes/seshat.ts` | fotoUrl sem decrypt em lote |
-| `artifacts/api-server/src/lib/crypto.ts` | criptografarFoto / descriptografarFoto |
-| `scripts/migrate-fotos.sql` | Migration idempotente (Etapa 1 + 2 + DROP comentado) |
+| `lib/db/src/schema/fotos.ts` | Schema com UNIQUE `(entidade_tipo, entidade_id)` |
+| `artifacts/api-server/src/routes/estudantes.ts` | `POST /:id/foto` — sync estudante → usuario |
+| `artifacts/api-server/src/routes/usuarios.ts` | `GET /` e `GET /:id` — fallback estudante |
+| `artifacts/api-server/src/routes/portal-estudante.ts` | `GET /me` — LEFT JOIN + fallback |
+| `.specs/features/fotos.md` | Spec completa |

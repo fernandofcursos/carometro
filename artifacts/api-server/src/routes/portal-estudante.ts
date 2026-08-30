@@ -52,8 +52,10 @@ router.get("/me", async (req: Request, res: Response) => {
         codigoAcesso:   usuariosTable.codigoAcesso,
         dataNascimento: usuariosTable.dataNascimento,
         fotoId:         usuariosTable.fotoId,
+        estudanteFotoId: estudantesTable.fotoId,
       })
       .from(usuariosTable)
+      .leftJoin(estudantesTable, and(eq(estudantesTable.usuarioId, usuariosTable.id), isNull(estudantesTable.deletadoEm)))
       .where(and(eq(usuariosTable.id, usuarioId), isNull(usuariosTable.deletadoEm)));
 
     if (!usuario) return res.status(404).json({ error: "Usuário não encontrado." });
@@ -112,7 +114,9 @@ router.get("/me", async (req: Request, res: Response) => {
         nome:           usuario.nome,
         codigoAcesso:   usuario.codigoAcesso,
         dataNascimento: dnStr,
-        fotoUrl:        usuario.fotoId ? `/api/fotos/${usuario.fotoId}` : null,
+        fotoUrl:        usuario.fotoId
+          ? `/api/fotos/${usuario.fotoId}`
+          : (usuario.estudanteFotoId ? `/api/fotos/${usuario.estudanteFotoId}` : null),
         isMaior:        isMaiorDeIdade(dnStr),
       },
       matriculas,

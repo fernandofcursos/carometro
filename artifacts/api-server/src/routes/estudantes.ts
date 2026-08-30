@@ -272,6 +272,8 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
 });
 
 // POST /api/estudantes/:id/foto — atualizar foto
+// Quando o estudante tem usuario_id, sincroniza a foto também em fotos(entidade_tipo='usuario')
+// e atualiza usuarios.fotoId — garantindo que lista de usuários e carteira mostrem a mesma foto.
 router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
     const { fotoBase64 } = z.object({ fotoBase64: z.string().min(1) }).parse(req.body);
@@ -280,6 +282,7 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
     const estudanteId = String(req.params.id);
     const foto = criptografarFoto(fotoBase64);
 
+    // Salvar/atualizar foto na tabela canônica com entidade_tipo='estudante'
     const [fotoRow] = await db.insert(fotosTable).values({
       entidadeTipo: "estudante", entidadeId: estudanteId,
       mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
@@ -293,9 +296,25 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
       .update(estudantesTable)
       .set({ fotoId: fotoRow.id, atualizadoEm: new Date() })
       .where(eq(estudantesTable.id, estudanteId))
-      .returning({ id: estudantesTable.id });
+      .returning({ id: estudantesTable.id, usuarioId: estudantesTable.usuarioId });
 
     if (!estudante) return res.status(404).json({ error: "Estudante não encontrado" });
+
+    // Sincronizar foto para o usuário vinculado (portal, lista de usuários, carteira)
+    if (estudante.usuarioId) {
+      const [fotoUsuarioRow] = await db.insert(fotosTable).values({
+        entidadeTipo: "usuario", entidadeId: estudante.usuarioId,
+        mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
+        iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados,
+      }).onConflictDoUpdate({
+        target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
+        set: { mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes, iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados, atualizadoEm: new Date() },
+      }).returning({ id: fotosTable.id });
+
+      await db.update(usuariosTable)
+        .set({ fotoId: fotoUsuarioRow.id, atualizadoEm: new Date() })
+        .where(eq(usuariosTable.id, estudante.usuarioId));
+    }
 
     await registrarAuditoria({
       tabela: "estudantes", operacao: "UPDATE", registroId: estudante.id,

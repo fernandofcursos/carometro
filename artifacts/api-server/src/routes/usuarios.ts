@@ -118,6 +118,22 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           .innerJoin(cursosTable, eq(coordenadorCursosTable.cursoId, cursosTable.id))
           .where(eq(coordenadorCursosTable.usuarioId, u.id));
 
+        // Fallback: usa foto do estudante vinculado se o usuário não tiver foto própria
+        let estudanteFotoId: string | null = null;
+        if (!u.fotoId) {
+          const [est] = await db
+            .select({ fotoId: estudantesTable.fotoId })
+            .from(estudantesTable)
+            .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+          estudanteFotoId = est?.fotoId ?? null;
+        }
+
+        const fotoUrl = u.fotoId
+          ? `/api/fotos/${u.fotoId}`
+          : (estudanteFotoId
+              ? `/api/fotos/${estudanteFotoId}`
+              : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null));
+
         return {
           id:              u.id,
           nome:            u.nome,
@@ -125,9 +141,7 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           email:           decryptEmail(u.emailEncrypted, secret),
           codigoAcesso:    u.codigoAcesso,
           primeiroAcesso:  u.primeiroAcesso,
-          fotoUrl:         u.fotoId
-            ? `/api/fotos/${u.fotoId}`
-            : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null),
+          fotoUrl,
           bloqueadoAte:    u.bloqueadoAte,
           ultimoLoginEm:   u.ultimoLoginEm,
           criadoEm:        u.criadoEm,
@@ -164,13 +178,26 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
       .innerJoin(permissoesTable, eq(rolesPermissoesTable.permissaoId, permissoesTable.id))
       .where(eq(usuariosRolesTable.usuarioId, u.id));
 
+    let estudanteFotoIdSingle: string | null = null;
+    if (!u.fotoId) {
+      const [est] = await db
+        .select({ fotoId: estudantesTable.fotoId })
+        .from(estudantesTable)
+        .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+      estudanteFotoIdSingle = est?.fotoId ?? null;
+    }
+
+    const fotoUrlSingle = u.fotoId
+      ? `/api/fotos/${u.fotoId}`
+      : (estudanteFotoIdSingle
+          ? `/api/fotos/${estudanteFotoIdSingle}`
+          : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null));
+
     res.json({
       id: u.id, nome: u.nome,
       dataNascimento: u.dataNascimento ?? null,
       email: decryptEmail(u.emailEncrypted, secret),
-      fotoUrl: u.fotoId
-        ? `/api/fotos/${u.fotoId}`
-        : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null),
+      fotoUrl: fotoUrlSingle,
       codigoAcesso: u.codigoAcesso, primeiroAcesso: u.primeiroAcesso,
       bloqueadoAte: u.bloqueadoAte, ultimoLoginEm: u.ultimoLoginEm, criadoEm: u.criadoEm,
       roles,
