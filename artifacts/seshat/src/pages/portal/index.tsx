@@ -462,15 +462,18 @@ export default function PortalEstudantePage() {
 
       {/* Abas */}
       <Tabs defaultValue="matriculas">
-        <TabsList className="w-full">
+        <TabsList className="w-full flex-wrap h-auto">
           <TabsTrigger value="matriculas" className="flex-1 gap-1.5">
             <BookOpen className="w-4 h-4" /> Minha enturmação
           </TabsTrigger>
           <TabsTrigger value="ocorrencias" className="flex-1 gap-1.5">
             <AlertTriangle className="w-4 h-4" /> Ocorrências
           </TabsTrigger>
-          <TabsTrigger value="documentos" className="flex-1 gap-1.5">
-            <CreditCard className="w-4 h-4" /> Documentos
+          <TabsTrigger value="carteira" className="flex-1 gap-1.5">
+            <CreditCard className="w-4 h-4" /> Carteira
+          </TabsTrigger>
+          <TabsTrigger value="cartao-liberacao" className="flex-1 gap-1.5">
+            <Fingerprint className="w-4 h-4" /> Cartão de Liberação
           </TabsTrigger>
         </TabsList>
 
@@ -525,31 +528,30 @@ export default function PortalEstudantePage() {
           <OcorrenciasTab isMaior={usuario.isMaior} />
         </TabsContent>
 
-        {/* Aba: Documentos */}
-        <TabsContent value="documentos" className="mt-4 flex flex-col gap-6">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <CreditCard className="w-4 h-4" /> Carteira de Estudante
-              </h3>
-              {carteiraAtiva && <StatusCarteiraBadge status={carteiraAtiva.status} />}
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Documento válido para identificação estudantil e meia-entrada em eventos culturais e esportivos
-              (Lei Federal 12.989/2014). Emitida automaticamente ao enturmar. Dados protegidos pela LGPD (Lei 13.709/2018).
-            </p>
-            <CarteiraEstudante me={me} carteira={carteiraAtiva} />
+        {/* Aba: Carteira de Estudante */}
+        <TabsContent value="carteira" className="mt-4 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> Carteira de Estudante
+            </h3>
+            {carteiraAtiva && <StatusCarteiraBadge status={carteiraAtiva.status} />}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Documento válido para identificação estudantil e meia-entrada em eventos culturais e esportivos
+            (Lei Federal 12.989/2014). Emitida automaticamente ao enturmar. Dados protegidos pela LGPD (Lei 13.709/2018).
+          </p>
+          <CarteiraEstudante me={me} carteira={carteiraAtiva} />
+        </TabsContent>
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Fingerprint className="w-4 h-4" /> Cartão de Liberação Semestral
-              </h3>
-              {cartaoSemestral && <StatusCarteiraBadge status={cartaoSemestral.status} />}
-            </div>
-            <CartaoLiberacao />
+        {/* Aba: Cartão de Liberação */}
+        <TabsContent value="cartao-liberacao" className="mt-4 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Fingerprint className="w-4 h-4" /> Cartão de Liberação Semestral
+            </h3>
+            {cartaoSemestral && <StatusCarteiraBadge status={cartaoSemestral.status} />}
           </div>
+          <CartaoLiberacao />
         </TabsContent>
       </Tabs>
     </div>
