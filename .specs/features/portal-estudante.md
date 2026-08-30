@@ -37,7 +37,7 @@ A visibilidade é baseada em `user.roles` (não em permissions), pois o estudant
 ## Abas do Portal
 
 ### Minha Enturmação
-- Matrículas ativas: Curso, Turno(s), Turma, Registro, Semestre/Ano
+- Matrículas ativas: Curso, Turno, Turma, Registro, Semestre/Ano
 - Disciplinas cursadas agrupadas com badges Disciplina · Curso · Turno
 
 ### Ocorrências
@@ -70,7 +70,7 @@ A visibilidade é baseada em `user.roles` (não em permissions), pois o estudant
   matriculas: Array<{
     id: string; turmaId: string; turmaSigla: string; turmaDescricao: string;
     cursoId: string; cursoNome: string; moduloMenor: boolean;
-    turnos: Array<{ id: string; nome: string }>;
+    turnoId: string | null; turnoNome: string | null;  // turno específico da matrícula
     registro: string; ano: number; semestre: number;
   }>;
   disciplinas: Array<{
@@ -166,7 +166,7 @@ Cartão horizontal (`560×320px`), fundo lavanda `#eaecf8`:
 | Nome | `usuarios.nome` |
 | Matrícula/Registro | `matriculas.registro` |
 | Curso | `cursos.nome` |
-| Turno(s) | `turma_turnos → turnos.nome` |
+| Turno | `matriculas.turno_id → turnos.nome` — turno específico da matrícula do estudante |
 | Turma | `turmas.sigla` |
 | Validade | `{semestre}º sem. / {ano}` da primeira matrícula ativa |
 | Instituição | Secretaria de Estado de Educação do Distrito Federal |

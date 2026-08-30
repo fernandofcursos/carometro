@@ -6,7 +6,6 @@ import {
   turmasTable,
   cursosTable,
   turnosTable,
-  turmaTurnosTable,
   ocorrenciasTable,
   tiposOcorrenciasTable,
   disciplinasTable,
@@ -16,7 +15,6 @@ import {
   eq,
   and,
   isNull,
-  inArray,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 
@@ -58,7 +56,7 @@ router.get("/me", async (req: Request, res: Response) => {
 
     if (!usuario) return res.status(404).json({ error: "Usuário não encontrado." });
 
-    // Matrículas ativas
+    // Matrículas ativas — JOIN com o turno específico da matrícula (matriculas.turno_id)
     const matRows = await db
       .select({
         id:            matriculasTable.id,
@@ -71,30 +69,19 @@ router.get("/me", async (req: Request, res: Response) => {
         registro:      matriculasTable.registro,
         ano:           matriculasTable.ano,
         semestre:      matriculasTable.semestre,
+        turnoId:       turnosTable.id,
+        turnoNome:     turnosTable.nome,
       })
       .from(matriculasTable)
       .innerJoin(turmasTable, eq(matriculasTable.turmaId, turmasTable.id))
       .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+      .leftJoin(turnosTable, eq(matriculasTable.turnoId, turnosTable.id))
       .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm)));
 
-    // Turnos das turmas
-    const turmaIds = [...new Set(matRows.map((m) => m.turmaId))];
-    const turnoRows = turmaIds.length > 0
-      ? await db
-          .select({ turmaId: turmaTurnosTable.turmaId, turnoId: turnosTable.id, turnoNome: turnosTable.nome })
-          .from(turmaTurnosTable)
-          .innerJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
-          .where(inArray(turmaTurnosTable.turmaId, turmaIds))
-      : [];
-
-    const turnosByTurma = new Map<string, { id: string; nome: string }[]>();
-    for (const tr of turnoRows) {
-      const arr = turnosByTurma.get(tr.turmaId) ?? [];
-      arr.push({ id: tr.turnoId, nome: tr.turnoNome });
-      turnosByTurma.set(tr.turmaId, arr);
-    }
-
-    const matriculas = matRows.map((m) => ({ ...m, turnos: turnosByTurma.get(m.turmaId) ?? [] }));
+    const matriculas = matRows.map((m) => ({
+      ...m,
+      turnoNome: m.turnoNome ?? null,
+    }));
 
     // Disciplinas cursadas
     const discRows = await db

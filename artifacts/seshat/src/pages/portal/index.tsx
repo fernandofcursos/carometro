@@ -25,7 +25,7 @@ type PortalMe = {
   matriculas: Array<{
     id: string; turmaId: string; turmaSigla: string; turmaDescricao: string;
     cursoId: string; cursoNome: string; moduloMenor: boolean;
-    turnos: { id: string; nome: string }[];
+    turnoId: string | null; turnoNome: string | null;
     registro: string; ano: number; semestre: number;
   }>;
   disciplinas: Array<{
@@ -209,7 +209,7 @@ function CarteiraEstudante({ me, carteira }: { me: PortalMe; carteira: CarteiraD
                   <div>
                     <span style={{ color: "#5a6aac", fontWeight: 600 }}>Turno: </span>
                     <span style={{ color: "#0f1c5e", fontWeight: 500 }}>
-                      {mat.turnos.map((t) => t.nome).join(" / ") || "—"}
+                      {mat.turnoNome ?? "—"}
                     </span>
                   </div>
                   <div>
@@ -490,7 +490,7 @@ export default function PortalEstudantePage() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
                   <div><span className="text-muted-foreground text-xs">Turma:</span> {mat.turmaSigla}</div>
-                  <div><span className="text-muted-foreground text-xs">Turno(s):</span> {mat.turnos.map((t) => t.nome).join(", ") || "—"}</div>
+                  <div><span className="text-muted-foreground text-xs">Turno:</span> {mat.turnoNome ?? "—"}</div>
                   <div><span className="text-muted-foreground text-xs">Registro:</span> {mat.registro}</div>
                   <div><span className="text-muted-foreground text-xs">Período:</span> {mat.semestre}º sem. / {mat.ano}</div>
                 </CardContent>

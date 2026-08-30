@@ -104,7 +104,7 @@ Fundo lavanda `#eaecf8`, faixa azul escuro `#1a2f7a` de 14px na borda direita, c
 
 **Corpo (3 colunas):**
 1. **Foto** — `me.usuario.fotoUrl`, 72×88px `objectFit: cover`; fallback `<UserCircle>`
-2. **Campos** — Instituição, Curso, Turma, Turno, Matrícula, Data Nasc., Validade
+2. **Campos** — Instituição, Curso, Turma, Turno (específico da matrícula), Matrícula, Data Nasc., Validade
 3. **QR Code** — 76px + COD CIE (últimos 12 chars do token)
 
 **Rodapé:**
@@ -114,7 +114,9 @@ Fundo lavanda `#eaecf8`, faixa azul escuro `#1a2f7a` de 14px na borda direita, c
 > **IMPORTANTE:** As logos são embutidas em base64 diretamente no componente `CarteiraEstudante`. Nunca usar URL externa — a carteira deve renderizar offline e em impressão.
 
 ### Dados obrigatórios na carteira
-Foto (`fotoUrl`), Nome, Registro/Matrícula, Curso, Turno, Turma, Validade (semestre/ano), Instituição, QR Code de validação.
+Foto (`fotoUrl`), Nome, Registro/Matrícula, Curso, Turno (específico da matrícula), Turma, Validade (semestre/ano), Instituição, QR Code de validação.
+
+> **Turno na carteira:** use `mat.turnoNome` (string | null) — proveniente de `matriculas.turno_id → turnos.nome` via LEFT JOIN no `GET /api/portal/me`. Nunca usar `mat.turnos.map(...)` — o campo `turnos[]` foi removido da resposta.
 
 ### Impressão
 ```tsx
