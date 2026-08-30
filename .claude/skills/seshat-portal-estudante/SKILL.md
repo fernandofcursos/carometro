@@ -153,10 +153,45 @@ Gestão por coordenadores em `/carteiras` (`estudantes:manage`):
 
 ## Cartão de Liberação
 
-**Status: layout e infraestrutura implementados. Regras de liberação a definir.**
-- `tipo = 'cartao-semestral'` emitido junto com carteira na enturmação
-- Ciclo de vida idêntico à carteira (ativa/cancelada/revogada)
-- Diário: a ser implementado em fase posterior
+Dois tipos, ambos no padrão visual CIE com paletas de cor distintas.
+
+### Semestral
+- Fonte: `carteiras` (tipo = `cartao-semestral`, status = `ativa`)
+- Cor: verde (`#dcfce7` / `#166534`)
+- Exibido após aprovação do requerimento pela coordenação/supervisão/direção
+- Emitido via `POST /api/carteiras/emitir-liberacao/:usuarioId`
+
+### Diário
+- Fonte: `cartoes_saida` (status = `aprovado`)
+- Endpoint: `GET /api/portal/cartoes-saida` — retorna aprovados do estudante logado
+- **Janela de validade**: visível apenas entre `horario_saida - 5min` e `horario_saida + 5min` do dia `data_saida`
+- Revalida a cada **30s** (`refetchInterval: 30_000`) — sem reload manual
+- Fora da janela → nova solicitação obrigatória (todo fluxo)
+
+### Paleta por dia da semana (diário)
+
+```typescript
+const COR_DIA: Record<number, ...> = {
+  1: // Segunda — Lua: azul-claro (#dbeafe / #1d4ed8)
+  2: // Terça   — Marte: vermelho (#fee2e2 / #991b1b)
+  3: // Quarta  — Mercúrio: amarelo (#fefce8 / #a16207)
+  4: // Quinta  — Júpiter: roxo (#ede9fe / #3730a3)
+  5: // Sexta   — Vênus: rosa (#fdf2f8 / #9d174d)
+};
+```
+
+### Lógica de exibição do diário
+
+```typescript
+function dentroJanelaHorario(dataSaida: string, horarioSaida: string | null): boolean {
+  // Retorna true se hoje === dataSaida E |agora - horario| <= 5 min
+}
+// Exibe CartaoLiberacaoCard apenas se dentroJanelaHorario === true
+// Caso contrário, mostra o próximo cartão aprovado (pendente de horário)
+```
+
+### QR Code
+Lido pelo app Seshat para validar saída e registrar ocorrência de saída antecipada automaticamente.
 
 ## OcorrenciasTab — padrão de ciência
 

@@ -12,6 +12,8 @@ import {
   disciplinaOfertasTable,
   usuarioDisciplinasTable,
   carteirasTable,
+  cartoesSaidaTable,
+  estudantesTable,
   eq,
   and,
   isNull,
@@ -234,6 +236,41 @@ router.get("/carteiras", async (req: Request, res: Response) => {
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar carteiras" });
+  }
+});
+
+// ── GET /api/portal/cartoes-saida — cartões de liberação diários do estudante ──
+// Retorna cartões aprovados; cliente filtra os válidos no momento (janela ±5 min)
+router.get("/cartoes-saida", async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.usuarioId!;
+
+    const [estudante] = await db
+      .select({ id: estudantesTable.id })
+      .from(estudantesTable)
+      .where(eq(estudantesTable.usuarioId, usuarioId));
+
+    if (!estudante) return res.json([]);
+
+    const rows = await db
+      .select({
+        id:                  cartoesSaidaTable.id,
+        dataSaida:           cartoesSaidaTable.dataSaida,
+        horarioSaida:        cartoesSaidaTable.horarioSaida,
+        motivo:              cartoesSaidaTable.motivo,
+        status:              cartoesSaidaTable.status,
+        aprovadoEm:          cartoesSaidaTable.aprovadoEm,
+        observacaoAprovador: cartoesSaidaTable.observacaoAprovador,
+        token:               cartoesSaidaTable.token,
+        criadoEm:            cartoesSaidaTable.criadoEm,
+      })
+      .from(cartoesSaidaTable)
+      .where(and(eq(cartoesSaidaTable.estudanteId, estudante.id), eq(cartoesSaidaTable.status, "aprovado")))
+      .orderBy(cartoesSaidaTable.dataSaida);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar cartões de saída" });
   }
 });
 

@@ -186,9 +186,46 @@ url     = {window.location.origin}/verificar/{token}
 
 ---
 
-## Cartão de Liberação Semestral
+## Cartão de Liberação
 
-Status: Layout implementado, **regras de liberação a definir**.
+### Tipos
+
+| Tipo | Fonte de dados | Condição de exibição |
+|---|---|---|
+| **Semestral** | `carteiras` (tipo = `cartao-semestral`, status = `ativa`) | Após aprovação de requerimento pela coordenação/supervisão/direção |
+| **Diário** | `cartoes_saida` (status = `aprovado`) | Somente na janela de ±5 min do `horario_saida` no dia `data_saida` |
+
+### Regras de Emissão
+
+- **Semestral**: requerimento preenchido pelo estudante → aprovação coordenação/supervisão/direção → emitido via `POST /api/carteiras/emitir-liberacao/:usuarioId`
+- **Diário — menor de idade**: requerimento preenchido pelo pai/responsável → aprovação → disponível apenas na janela horária
+- **Diário — maior de idade**: requerimento preenchido pelo próprio estudante → aprovação → disponível apenas na janela horária
+- **Janela de validade**: cartão diário visível somente entre `horario_saida - 5min` e `horario_saida + 5min`. Fora dessa janela, nova solicitação necessária.
+- **QR Code**: lido pelo app Seshat para validar saída e registrar ocorrência de saída antecipada.
+
+### Layout Visual (padrão CIE)
+
+Mesmo layout da Carteira de Estudante, com paleta de cor diferente por tipo:
+
+| Tipo | Paleta |
+|---|---|
+| **Semestral** | Verde (`#dcfce7` fundo, `#166534` faixa) |
+| **Diário — Segunda** | Azul-claro/prata (Lua) |
+| **Diário — Terça** | Vermelho/vinho (Marte) |
+| **Diário — Quarta** | Amarelo/laranja (Mercúrio) |
+| **Diário — Quinta** | Roxo/azul-royal (Júpiter) |
+| **Diário — Sexta** | Rosa/pastel (Vênus) |
+
+A cor é determinada pelo `dia da semana` de `data_saida`. Sábado/domingo seguem o padrão de Segunda.
+
+### Endpoints
+
+- `GET /api/portal/cartoes-saida` — retorna cartões diários aprovados do estudante (filtra `estudanteId` via `usuario_id`)
+- `GET /api/portal/carteiras` — inclui o semestral (`tipo = 'cartao-semestral'`)
+
+### Revalidação
+
+O frontend revalida a query `portal-cartoes-saida` a cada **30 segundos** para verificar se a janela horária foi atingida sem exigir reload manual.
 
 Emitido automaticamente junto com a carteira ao enturmar o estudante (tipo `cartao-semestral`). Pode ser cancelado/revogado independentemente da carteira de estudante. Regras de uso e critérios de liberação serão implementadas em fase posterior.
 
