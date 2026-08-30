@@ -10,7 +10,8 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UserCircle, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, CreditCard, Fingerprint } from "lucide-react";
+import { UserCircle, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, CreditCard, Fingerprint, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -678,6 +679,14 @@ export default function PortalEstudantePage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto flex flex-col gap-6">
+      {/* Botão de retorno ao dashboard */}
+      <Link href="/">
+        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2 w-fit">
+          <ArrowLeft className="w-4 h-4" />
+          Início
+        </Button>
+      </Link>
+
       {/* Cabeçalho do perfil */}
       <div className="flex items-center gap-4">
         {usuario.fotoUrl ? (
