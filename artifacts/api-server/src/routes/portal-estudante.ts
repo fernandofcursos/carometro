@@ -47,12 +47,14 @@ router.get("/me", async (req: Request, res: Response) => {
 
     const [usuario] = await db
       .select({
-        id:             usuariosTable.id,
-        nome:           usuariosTable.nome,
-        codigoAcesso:   usuariosTable.codigoAcesso,
-        dataNascimento: usuariosTable.dataNascimento,
-        fotoId:         usuariosTable.fotoId,
+        id:              usuariosTable.id,
+        nome:            usuariosTable.nome,
+        codigoAcesso:    usuariosTable.codigoAcesso,
+        dataNascimento:  usuariosTable.dataNascimento,
+        fotoId:          usuariosTable.fotoId,
+        estudanteId:     estudantesTable.id,
         estudanteFotoId: estudantesTable.fotoId,
+        estudanteFotoStorageKey: estudantesTable.fotoStorageKey,
       })
       .from(usuariosTable)
       .leftJoin(estudantesTable, and(eq(estudantesTable.usuarioId, usuariosTable.id), isNull(estudantesTable.deletadoEm)))
@@ -116,7 +118,11 @@ router.get("/me", async (req: Request, res: Response) => {
         dataNascimento: dnStr,
         fotoUrl:        usuario.fotoId
           ? `/api/fotos/${usuario.fotoId}`
-          : (usuario.estudanteFotoId ? `/api/fotos/${usuario.estudanteFotoId}` : null),
+          : usuario.estudanteFotoId
+            ? `/api/fotos/${usuario.estudanteFotoId}`
+            : (usuario.estudanteId && usuario.estudanteFotoStorageKey)
+              ? `/api/estudantes/${usuario.estudanteId}/foto`
+              : null,
         isMaior:        isMaiorDeIdade(dnStr),
       },
       matriculas,

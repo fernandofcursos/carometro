@@ -19,7 +19,9 @@ O Portal do Estudante é o espaço de autoatendimento para usuários com role `e
 
 A verificação de idade usa `usuarios.data_nascimento`. O campo `isMaior` é computado no backend e enviado na resposta de `/api/portal/me`.
 
-> **Visibilidade do menu:** `isEstudante || isAdmin` — o administrador acessa o portal do estudante para verificar a experiência e ajustar configurações.
+> **Visibilidade do menu "Meu Portal":** `isEstudante || isAdmin` — o administrador acessa o portal do estudante para verificar a experiência e ajustar configurações.
+>
+> **Carômetro administrativo:** NUNCA visível para `estudante` ou `pai_responsavel`, mesmo que esses perfis tenham a permissão `carometro:view` atribuída no banco. A verificação é dupla: permissão **E** ausência dos roles `estudante`/`pai_responsavel`.
 
 ---
 

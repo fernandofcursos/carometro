@@ -52,21 +52,23 @@ export function AppSidebar() {
   const hasAny = (...ps: string[]) => ps.some((p) => perms.has(p));
   const isMobile = useIsMobile();
 
+  const isEstudante = (user?.roles ?? []).includes("estudante");
+  const isPaiResponsavel = (user?.roles ?? []).includes("pai_responsavel");
+  // Admin vê todos os portais para teste e ajuste
+  const isAdmin = hasAny("usuarios:manage", "roles:manage");
+
   const canManageGeral = hasAny("turmas:manage", "cursos:manage", "turnos:manage");
   const canImport = hasAny("import:execute");
   const canManageUsuarios = hasAny("usuarios:manage");
   const canManageRoles = hasAny("roles:manage");
   const canManageDisciplinas = hasAny("disciplinas:manage");
-  const canViewCarometro = hasAny("carometro:view");
+  // Estudante e pai/responsável nunca veem o carômetro administrativo
+  const canViewCarometro = hasAny("carometro:view") && !isEstudante && !isPaiResponsavel;
   const canViewEstudantes = hasAny("estudantes:view", "estudantes:manage");
   const canManageEstudantes = hasAny("estudantes:manage");
   const canManageCarteiras  = hasAny("estudantes:manage");
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
-  const isEstudante = (user?.roles ?? []).includes("estudante");
-  const isPaiResponsavel = (user?.roles ?? []).includes("pai_responsavel");
-  // Admin vê todos os portais para teste e ajuste
-  const isAdmin = hasAny("usuarios:manage", "roles:manage");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);

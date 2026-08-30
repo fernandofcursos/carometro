@@ -56,10 +56,13 @@ fotoUrl = usuarios.foto_id → /api/fotos/{id}
 ### `GET /api/portal/me`
 
 ```
-fotoUrl = usuarios.foto_id → /api/fotos/{id}
-         OU estudantes.foto_id (fallback LEFT JOIN estudantes)
+fotoUrl = usuarios.foto_id         → /api/fotos/{id}
+         OU estudantes.foto_id      → /api/fotos/{id}   (sincronizado pelo POST /:id/foto)
+         OU estudantes.foto_storage_key → /api/estudantes/{estudante_id}/foto  (legado inline)
          OU null
 ```
+
+> O fallback para `foto_storage_key` (legado) garante que fotos antigas que ainda não foram migradas para a tabela `fotos` apareçam corretamente sem necessidade de re-upload.
 
 ### `GET /api/estudantes` / `GET /api/estudantes/:id`
 

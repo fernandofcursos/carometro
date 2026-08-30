@@ -28,15 +28,28 @@ function isMaiorDeIdade(dataNascimento: string | null): boolean {
 ## Menu (layout.tsx)
 
 ```typescript
+// Declarados ANTES das demais variáveis de permissão
 const isEstudante = (user?.roles ?? []).includes("estudante");
+const isPaiResponsavel = (user?.roles ?? []).includes("pai_responsavel");
 const isAdmin = hasAny("usuarios:manage", "roles:manage");
 
-// Visível para estudante OU admin (admin vê para ajuste/teste)
+// Carômetro administrativo — NUNCA visível para estudante ou pai/responsável
+const canViewCarometro = hasAny("carometro:view") && !isEstudante && !isPaiResponsavel;
+
+// "Meu Portal" — visível para estudante OU admin (admin vê para ajuste/teste)
 ...(isEstudante || isAdmin ? [{
   label: "Meu Portal", icon: CreditCard, color: "#0ea5e9", bgColor: "#f0f9ff",
   items: [nav("Meu Perfil", "/portal", GraduationCap)],
 }] : []),
+
+// "Portal do Responsável" — visível para pai_responsavel OU admin
+...(isPaiResponsavel || isAdmin ? [{
+  label: "Portal do Responsável", icon: Users, color: "#f59e0b", bgColor: "#fffbeb",
+  items: [nav("Meus Filhos", "/portal-responsavel", GraduationCap)],
+}] : []),
 ```
+
+> **Regra de negócio:** Mesmo que um estudante ou pai/responsável tenha a permissão `carometro:view` atribuída erroneamente no banco, o menu Carômetro **nunca** é exibido para eles.
 
 ## Endpoints
 
@@ -103,7 +116,7 @@ Fundo lavanda `#eaecf8`, faixa azul escuro `#1a2f7a` de 14px na borda direita, c
 - Título "Carteira de / Identificação Estudantil" ao lado da logo esquerda
 
 **Corpo (3 colunas):**
-1. **Foto** — `me.usuario.fotoUrl`, 72×88px `objectFit: cover`; fallback `<UserCircle>`
+1. **Foto** — `me.usuario.fotoUrl`, 72×88px `objectFit: cover`; fallback `<UserCircle>`. O backend resolve a URL com prioridade: `usuarios.foto_id` → `estudantes.foto_id` (tabela fotos) → `estudantes.foto_storage_key` (legado inline)
 2. **Campos** — Instituição, Curso, Turma, Turno (específico da matrícula), Matrícula, Data Nasc., Validade
 3. **QR Code** — 76px + COD CIE (últimos 12 chars do token)
 

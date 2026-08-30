@@ -65,12 +65,12 @@ const fotoUrl = u.fotoId
 ### `GET /api/portal/me`
 
 ```typescript
-// Adicionar LEFT JOIN com estudantesTable na query do usuario
 const [usuario] = await db.select({
-  id: usuariosTable.id,
-  fotoId: usuariosTable.fotoId,
+  id:              usuariosTable.id,
+  fotoId:          usuariosTable.fotoId,
+  estudanteId:     estudantesTable.id,
   estudanteFotoId: estudantesTable.fotoId,
-  // ...outros campos
+  estudanteFotoStorageKey: estudantesTable.fotoStorageKey, // fallback legado
 })
 .from(usuariosTable)
 .leftJoin(estudantesTable, and(
@@ -79,10 +79,18 @@ const [usuario] = await db.select({
 ))
 .where(and(eq(usuariosTable.id, usuarioId), isNull(usuariosTable.deletadoEm)));
 
-// fotoUrl
+// Resolução de fotoUrl — prioridade:
+// 1. usuarios.foto_id → /api/fotos/{id}
+// 2. estudantes.foto_id → /api/fotos/{id}   (sincronizado pelo POST /:id/foto)
+// 3. estudantes.foto_storage_key → /api/estudantes/{id}/foto  (legado inline)
+// 4. null
 const fotoUrl = usuario.fotoId
   ? `/api/fotos/${usuario.fotoId}`
-  : (usuario.estudanteFotoId ? `/api/fotos/${usuario.estudanteFotoId}` : null);
+  : usuario.estudanteFotoId
+    ? `/api/fotos/${usuario.estudanteFotoId}`
+    : (usuario.estudanteId && usuario.estudanteFotoStorageKey)
+      ? `/api/estudantes/${usuario.estudanteId}/foto`
+      : null;
 ```
 
 ---
