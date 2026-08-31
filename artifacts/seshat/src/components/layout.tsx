@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft, Crown, Building2, Mail, CreditCard,
+  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -62,6 +62,7 @@ export function AppSidebar() {
   const canManageUsuarios = hasAny("usuarios:manage");
   const canManageRoles = hasAny("roles:manage");
   const canManageDisciplinas = hasAny("disciplinas:manage");
+  const canManageHorarios = hasAny("horarios:manage");
   // Estudante e pai/responsável nunca veem o carômetro administrativo
   const canViewCarometro = hasAny("carometro:view") && !isEstudante && !isPaiResponsavel;
   const canViewEstudantes = hasAny("estudantes:view", "estudantes:manage");
@@ -129,6 +130,7 @@ export function AppSidebar() {
         nav("Turnos", "/turnos", Clock),
         nav("Turmas", "/turmas", Building),
         ...(canManageDisciplinas ? [nav("Disciplinas", "/disciplinas", GraduationCap)] : []),
+        ...(canManageHorarios ? [nav("Quadro de Horários", "/horarios", CalendarDays)] : []),
       ],
     }] : []),
     ...(canManageEstudantes ? [{
