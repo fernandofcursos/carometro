@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange,
+  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -248,6 +248,24 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="px-3 py-4 flex flex-col h-full">
+        {/* Início — disponível para todos os perfis */}
+        <Link href="/">
+          <div className={cn(
+            "flex items-center gap-2.5 px-3 py-2 rounded-md mb-2 text-sm font-medium transition-colors cursor-pointer",
+            location === "/"
+              ? "bg-primary/10 text-primary"
+              : "text-foreground/80 hover:bg-muted/60",
+          )}>
+            <div className={cn(
+              "p-1.5 rounded-lg",
+              location === "/" ? "bg-primary/15" : "bg-muted",
+            )}>
+              <Home className="w-4 h-4" style={{ color: location === "/" ? "hsl(var(--primary))" : undefined }} />
+            </div>
+            <span className="group-data-[collapsible=icon]:hidden">Início</span>
+          </div>
+        </Link>
+
         <div className="flex-1 overflow-y-auto">
           <Accordion
             type="single"

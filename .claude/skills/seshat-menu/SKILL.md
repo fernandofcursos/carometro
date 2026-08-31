@@ -40,6 +40,26 @@ const canViewOcorrencias    = hasAny("ocorrencias:view", "ocorrencias:create");
 const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
 ```
 
+## Item fixo: Início
+
+Acima de todos os grupos, logo abaixo do `SidebarHeader`, existe um link fixo para `/` disponível para **todos os perfis** (sem guard de permissão):
+
+```tsx
+<Link href="/">
+  <div className={cn("flex items-center gap-2.5 px-3 py-2 rounded-md mb-2 text-sm font-medium ...",
+    location === "/" ? "bg-primary/10 text-primary" : "text-foreground/80 hover:bg-muted/60",
+  )}>
+    <Home className="w-4 h-4" />
+    <span>Início</span>
+  </div>
+</Link>
+```
+
+- Ícone: `Home` (lucide-react)
+- Destino: `/` (Dashboard)
+- Ativo: quando `location === "/"`
+- Visível: sempre, independente de perfil ou permissão
+
 ## Estrutura de grupos do menu
 
 ### Carômetro
