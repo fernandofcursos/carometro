@@ -22,7 +22,7 @@ type OcorrenciaResumo = {
   tipoId: string; tipoDescricao: string;
   total: number; semCiencia: number; ids: string[];
 };
-type AulaItem = { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null; laboratorio: string | null };
+type AulaItem = { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null };
 type DiaAgenda = { dia: number; diaNome: string; aulas: AulaItem[] };
 type DiaCardapio = { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] };
 
@@ -256,12 +256,12 @@ function QuadroHorariosWidget({
                           "rounded px-1.5 py-1 leading-tight border text-[11px] font-medium",
                           COR_DIA_BG[dia],
                         )}
-                        title={`${aula.disciplinaNome}${aula.sala ? ` · ${aula.sala}` : aula.laboratorio ? ` · Lab. ${aula.laboratorio}` : ""}`}
+                        title={`${aula.disciplinaNome}${aula.sala ? ` · ${aula.sala}` : ""}`}
                       >
                         <div className="truncate max-w-[80px] mx-auto">{aula.disciplinaNome}</div>
-                        {(aula.sala || aula.laboratorio) && (
+                        {aula.sala && (
                           <div className="opacity-60 truncate max-w-[80px] mx-auto text-[10px]">
-                            {aula.laboratorio ? `Lab. ${aula.laboratorio}` : aula.sala}
+                            {aula.sala}
                           </div>
                         )}
                       </div>

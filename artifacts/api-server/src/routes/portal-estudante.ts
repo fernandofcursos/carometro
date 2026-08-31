@@ -329,24 +329,30 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     let agenda: { dia: number; diaNome: string; aulas: { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null; laboratorio: string | null }[] }[] = [];
     let agendaDisponivel = false;
     try {
-      // A tabela horarios_aulas é criada pela migração migrate-dashboard.sql
-      // Enquanto não existir, retorna agenda vazia sem erro
       const { horariosAulasTable } = await import("@workspace/db/schema") as any;
       if (horariosAulasTable && estudante) {
-        const { disciplinasTable: dt } = await import("@workspace/db") as any;
+        const anoAtual = hoje.getFullYear();
+        const semestreAtual: 1 | 2 = hoje.getMonth() < 6 ? 1 : 2;
         const aulas = await db
           .select({
             dia:            horariosAulasTable.diaSemana,
             horaInicio:     horariosAulasTable.horaInicio,
             horaFim:        horariosAulasTable.horaFim,
-            disciplinaNome: dt.nome,
+            disciplinaNome: disciplinasTable.nome,
             sala:           horariosAulasTable.sala,
-            laboratorio:    horariosAulasTable.laboratorio,
           })
           .from(matriculasTable)
-          .innerJoin(horariosAulasTable, eq(horariosAulasTable.turmaId, matriculasTable.turmaId))
-          .innerJoin(dt, eq(horariosAulasTable.disciplinaId, dt.id))
-          .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm), isNull(horariosAulasTable.deletadoEm)));
+          .innerJoin(
+            horariosAulasTable,
+            and(
+              eq(horariosAulasTable.turmaId, matriculasTable.turmaId),
+              eq(horariosAulasTable.ano, anoAtual),
+              eq(horariosAulasTable.semestre, semestreAtual),
+            ),
+          )
+          .leftJoin(disciplinaOfertasTable, eq(disciplinaOfertasTable.id, horariosAulasTable.disciplinaOfertaId))
+          .leftJoin(disciplinasTable, eq(disciplinasTable.id, disciplinaOfertasTable.disciplinaId))
+          .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm)));
 
         agendaDisponivel = true;
         const byDia = new Map<number, typeof aulas>();
