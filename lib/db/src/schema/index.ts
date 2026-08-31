@@ -28,3 +28,4 @@ export * from "./responsaveis-estudantes";
 export * from "./cartoes-saida";
 export * from "./atestados-medicos";
 export * from "./calendario";
+export * from "./horarios";

@@ -1,6 +1,6 @@
 # Spec: Quadro de Horários
 
-**Status:** Spec aprovada — implementação pendente
+**Status:** Implementado
 
 ---
 

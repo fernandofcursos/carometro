@@ -30,6 +30,7 @@ import carteirasRouter, { criarRotaVerificacaoCarteira } from "./routes/carteira
 import portalResponsavelRouter from "./routes/portal-responsavel.js";
 import gestaoResponsaveisRouter from "./routes/gestao-responsaveis.js";
 import calendarioRouter from "./routes/calendario.js";
+import horariosRouter from "./routes/horarios.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -83,6 +84,7 @@ app.use("/api/portal-responsavel", portalResponsavelRouter);
 // Rotas disponíveis em /api/gestao-responsaveis/{vinculos, cartoes-saida, atestados-medicos}
 app.use("/api/gestao-responsaveis", gestaoResponsaveisRouter);
 app.use("/api/calendario", calendarioRouter);
+app.use("/api/horarios", horariosRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos
