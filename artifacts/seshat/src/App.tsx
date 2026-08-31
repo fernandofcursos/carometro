@@ -49,6 +49,7 @@ import PortalEstudantePage from "@/pages/portal/index";
 import CarteirasPage from "@/pages/carteiras/index";
 import PortalResponsavelPage from "@/pages/portal-responsavel/index";
 import HorariosPage from "@/pages/horarios/index";
+import CalendarioPage from "@/pages/calendario/index";
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ function AppRoutes() {
           <Route path="/permissoes" component={PermissoesPage} />
           <Route path="/auditoria" component={AuditoriaPage} />
           <Route path="/horarios" component={HorariosPage} />
+          <Route path="/calendario" component={CalendarioPage} />
           <Route path="/iso27001" component={Iso27001Page} />
           <Route component={NotFound} />
         </Switch>

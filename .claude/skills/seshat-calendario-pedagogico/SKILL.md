@@ -1,6 +1,46 @@
 # Skill: Calendário Pedagógico
 
+## Status: Implementado
+
 ## Conceito
+
+### Arquivos implementados
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `lib/db/src/schema/calendario.ts` | Schema Drizzle: `calendarioSemestresTable` + `calendarioDiasTable` |
+| `artifacts/api-server/src/lib/calendario-categorias.ts` | `getCor()`, `getIcone()`, `CATEGORIAS_CONFIG` |
+| `artifacts/api-server/src/lib/seedf-2026.ts` | `CALENDARIO_SEEDF_2026` + `SEMESTRES_SEEDF_2026` |
+| `artifacts/api-server/src/routes/calendario.ts` | CRUD completo + `POST /importar-seedf` |
+| `artifacts/api-server/src/index.ts` | Registra `/api/calendario` |
+| `artifacts/seshat/src/pages/calendario/index.tsx` | Grade anual 12 meses, seleção múltipla, modais |
+| `artifacts/seshat/src/App.tsx` | Rota `/calendario` |
+| `artifacts/seshat/src/components/layout.tsx` | Menu "Calendário Escolar" no grupo "Calendário" |
+| `scripts/migrate-calendario.sql` | DDL das duas tabelas |
+
+### Menu
+
+```
+Grupo: "Calendário"  (canManageCalendario = hasAny("calendario:manage"))
+└── "Calendário Escolar" → /calendario   (ícone CalendarRange)
+```
+
+### UI implementada
+
+- **Grade anual**: 12 meses em grid 4 colunas, célula por dia com ícones de evento
+- **Navegação de ano**: botões ◀ ▶ + label central
+- **SemestreBar**: exibe início/fim dos semestres; botão "Configurar" abre inputs inline para edição
+- **Legenda**: todas as 9 categorias com cor e ícone
+- **Seleção de dias**:
+  - Clique simples → abre `EventoModal` diretamente
+  - Ctrl+Clique → toggle de seleção múltipla
+  - Shift+Clique → seleciona range de datas
+  - Barra flutuante no rodapé quando múltiplos dias selecionados
+- **EventoModal**: seleção de categoria, título, descrição, emoji; suporta criar (N datas) ou editar (1 evento)
+- **ImportarModal**: preview + confirmação antes de importar SEEDF 2026
+- Dias fora dos semestres: fundo opaco e opacidade reduzida
+- Dia atual: borda indigo + ponto indicador
+- Dias selecionados: fundo indigo claro com ring
 
 Calendário escolar anual com dois semestres, categorias por dia (feriado, letivo, recesso, evento…), seleção múltipla de dias e importação do Calendário SEEDF pré-definido. Baseado no Calendário Escolar 2026 e Agenda Pedagógica 2º Semestre 2026 da SEEDF.
 

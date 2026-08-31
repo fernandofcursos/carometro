@@ -1,6 +1,6 @@
 # Spec: Calendário Pedagógico — Agenda Escolar
 
-**Status:** Spec aprovada — implementação pendente
+**Status:** Implementado
 
 ---
 
