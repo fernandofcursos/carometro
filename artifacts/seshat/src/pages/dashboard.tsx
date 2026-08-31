@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, UtensilsCrossed, ChevronRight } from "lucide-react";
+import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, UtensilsCrossed, ChevronRight, TableProperties } from "lucide-react";
 import { LgpdBanner } from "@/components/lgpd-banner";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
@@ -130,51 +130,6 @@ function OcorrenciasWidget({
   );
 }
 
-// ─────────────────────────── AgendaWidget ────────────────────────────────────
-
-function AgendaWidget({ agenda, agendaDisponivel, diaSemana }: { agenda: DiaAgenda[]; agendaDisponivel: boolean; diaSemana: number }) {
-  const byDia = new Map(agenda.map((d) => [d.dia, d]));
-
-  if (!agendaDisponivel)
-    return (
-      <div className="flex flex-col items-center gap-2 py-8 text-center">
-        <CalendarDays className="w-8 h-8 text-indigo-200" />
-        <p className="text-sm text-muted-foreground">Horário de aulas não disponível ainda.</p>
-        <p className="text-xs text-muted-foreground">Em breve a grade horária será publicada.</p>
-      </div>
-    );
-
-  return (
-    <DiaTabs diaSemana={diaSemana} accentColor="#4f46e5">
-      {(aba) => {
-        const dia = byDia.get(aba);
-        if (!dia || dia.aulas.length === 0)
-          return <p className="text-sm text-muted-foreground text-center py-6">Sem aulas programadas.</p>;
-        return (
-          <div className="space-y-2">
-            {dia.aulas.map((a, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-lg border border-indigo-100 bg-white px-3 py-2.5 shadow-sm">
-                <div className="text-right min-w-[70px]">
-                  <p className="text-xs font-bold text-indigo-600">{String(a.horaInicio).substring(0, 5)}</p>
-                  <p className="text-xs text-slate-400">{String(a.horaFim).substring(0, 5)}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-700">{a.disciplinaNome}</p>
-                  {(a.sala || a.laboratorio) && (
-                    <p className="text-xs text-slate-400">
-                      {a.laboratorio ? `Lab. ${a.laboratorio}` : `Sala ${a.sala}`}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      }}
-    </DiaTabs>
-  );
-}
-
 // ─────────────────────────── CardapioWidget ──────────────────────────────────
 
 function CardapioWidget({ cardapio, cardapioDisponivel, diaSemana }: { cardapio: DiaCardapio[]; cardapioDisponivel: boolean; diaSemana: number }) {
@@ -207,6 +162,120 @@ function CardapioWidget({ cardapio, cardapioDisponivel, diaSemana }: { cardapio:
         );
       }}
     </DiaTabs>
+  );
+}
+
+// ─────────────────────────── QuadroHorariosWidget ────────────────────────────
+
+const COR_DIA_BG: Record<number, string> = {
+  1: "bg-blue-50 text-blue-800 border-blue-200",
+  2: "bg-violet-50 text-violet-800 border-violet-200",
+  3: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  4: "bg-amber-50 text-amber-800 border-amber-200",
+  5: "bg-rose-50 text-rose-800 border-rose-200",
+};
+const COR_DIA_HEADER: Record<number, string> = {
+  1: "bg-blue-600 text-white",
+  2: "bg-violet-600 text-white",
+  3: "bg-emerald-600 text-white",
+  4: "bg-amber-600 text-white",
+  5: "bg-rose-600 text-white",
+};
+const DIAS_ABREV = ["", "Seg", "Ter", "Qua", "Qui", "Sex"] as const;
+
+function QuadroHorariosWidget({
+  agenda, agendaDisponivel, diaSemana,
+}: { agenda: DiaAgenda[]; agendaDisponivel: boolean; diaSemana: number }) {
+  // Constrói mapa: "dia-horaInicio" → AulaItem
+  const aulaMap = new Map<string, AulaItem>();
+  // Coleta todos os horários únicos presentes em qualquer dia
+  const slotsSet = new Map<string, { horaInicio: string; horaFim: string }>();
+  for (const d of agenda) {
+    for (const a of d.aulas) {
+      const hi = String(a.horaInicio).slice(0, 5);
+      const hf = String(a.horaFim).slice(0, 5);
+      aulaMap.set(`${d.dia}-${hi}`, a);
+      if (!slotsSet.has(hi)) slotsSet.set(hi, { horaInicio: hi, horaFim: hf });
+    }
+  }
+  const linhas = [...slotsSet.values()].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+
+  if (!agendaDisponivel || linhas.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 text-center">
+        <TableProperties className="w-8 h-8 text-indigo-200" />
+        <p className="text-sm text-muted-foreground">Quadro de horários não disponível ainda.</p>
+        <p className="text-xs text-muted-foreground">Em breve a grade horária será publicada.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="w-full border-collapse text-xs min-w-[480px]">
+        <thead>
+          <tr>
+            <th className="py-2 px-2 text-left text-muted-foreground font-medium w-24 text-[11px]">
+              <Clock className="w-3 h-3 inline mr-1 opacity-50" />Horário
+            </th>
+            {[1, 2, 3, 4, 5].map((dia) => (
+              <th
+                key={dia}
+                className={cn(
+                  "py-1.5 px-1 text-center text-[11px] font-semibold rounded-t",
+                  COR_DIA_HEADER[dia],
+                  dia === diaSemana && "ring-2 ring-offset-0 ring-white/60",
+                )}
+              >
+                {DIAS_ABREV[dia]}
+                {dia === diaSemana && <span className="ml-0.5 opacity-80">★</span>}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((linha, i) => (
+            <tr key={linha.horaInicio} className={i % 2 === 0 ? "bg-gray-50/60" : ""}>
+              <td className="py-1.5 px-2 align-middle whitespace-nowrap text-[11px] text-muted-foreground font-medium">
+                {linha.horaInicio}–{linha.horaFim}
+              </td>
+              {[1, 2, 3, 4, 5].map((dia) => {
+                const aula = aulaMap.get(`${dia}-${linha.horaInicio}`);
+                const isHoje = dia === diaSemana;
+                return (
+                  <td
+                    key={dia}
+                    className={cn(
+                      "py-1 px-1 align-middle text-center",
+                      isHoje && "bg-indigo-50/60",
+                    )}
+                  >
+                    {aula ? (
+                      <div
+                        className={cn(
+                          "rounded px-1.5 py-1 leading-tight border text-[11px] font-medium",
+                          COR_DIA_BG[dia],
+                        )}
+                        title={`${aula.disciplinaNome}${aula.sala ? ` · ${aula.sala}` : aula.laboratorio ? ` · Lab. ${aula.laboratorio}` : ""}`}
+                      >
+                        <div className="truncate max-w-[80px] mx-auto">{aula.disciplinaNome}</div>
+                        {(aula.sala || aula.laboratorio) && (
+                          <div className="opacity-60 truncate max-w-[80px] mx-auto text-[10px]">
+                            {aula.laboratorio ? `Lab. ${aula.laboratorio}` : aula.sala}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-gray-300 text-[10px]">—</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -283,11 +352,25 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
         <p className="text-xs text-slate-500 hidden sm:block capitalize">{formatarHoje(hoje)}</p>
       </div>
 
-      {/* Grid principal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {/* Quadro de Horários — largura total */}
+      <Card className="shadow-sm border-indigo-100">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <TableProperties className="w-4 h-4 text-indigo-500" />
+            Quadro de Horários
+            {!agendaDisponivel && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <QuadroHorariosWidget agenda={agenda} agendaDisponivel={agendaDisponivel} diaSemana={diaSemana} />
+        </CardContent>
+      </Card>
+
+      {/* Grid secundário: Ocorrências + Cardápio */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         {/* Ocorrências */}
-        <Card className="shadow-sm border-border/50 md:col-span-1">
+        <Card className="shadow-sm border-border/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -310,22 +393,8 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
           </CardContent>
         </Card>
 
-        {/* Agenda */}
-        <Card className="shadow-sm border-border/50 md:col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <CalendarDays className="w-4 h-4 text-indigo-400" />
-              Agenda da Semana
-              {!agendaDisponivel && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AgendaWidget agenda={agenda} agendaDisponivel={agendaDisponivel} diaSemana={diaSemana} />
-          </CardContent>
-        </Card>
-
         {/* Cardápio */}
-        <Card className="shadow-sm border-amber-100 md:col-span-2 xl:col-span-1">
+        <Card className="shadow-sm border-amber-100">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <UtensilsCrossed className="w-4 h-4 text-amber-500" />
