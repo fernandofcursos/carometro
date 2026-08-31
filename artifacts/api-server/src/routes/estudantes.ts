@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
-import { db, estudantesTable, estudanteEmailsTable, usuariosTable, turmasTable, turmaTurnosTable, cursosTable, turnosTable, eq, isNull, and, inArray, ilike, or, ne } from "@workspace/db";
+import { db, estudantesTable, estudanteEmailsTable, usuariosTable, turmasTable, cursosTable, turnosTable, matriculasTable, eq, isNull, and, inArray, ilike, or, ne } from "@workspace/db";
 import { fotosTable } from "@workspace/db/schema";
 import {
   criptografarFoto,
@@ -96,8 +96,12 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
       .from(estudantesTable)
       .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
-      .leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
+      .leftJoin(matriculasTable, and(
+        eq(matriculasTable.usuarioId, estudantesTable.usuarioId),
+        eq(matriculasTable.turmaId, estudantesTable.turmaId),
+        isNull(matriculasTable.deletadoEm),
+      ))
+      .leftJoin(turnosTable, eq(turnosTable.id, matriculasTable.turnoId))
       .where(and(...condicoes))
       .orderBy(estudantesTable.nome);
 
@@ -149,8 +153,12 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       .from(estudantesTable)
       .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .leftJoin(turmaTurnosTable, eq(turmaTurnosTable.turmaId, estudantesTable.turmaId))
-      .leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
+      .leftJoin(matriculasTable, and(
+        eq(matriculasTable.usuarioId, estudantesTable.usuarioId),
+        eq(matriculasTable.turmaId, estudantesTable.turmaId),
+        isNull(matriculasTable.deletadoEm),
+      ))
+      .leftJoin(turnosTable, eq(turnosTable.id, matriculasTable.turnoId))
       .leftJoin(usuariosTable, eq(estudantesTable.usuarioId, usuariosTable.id))
       .where(eq(estudantesTable.id, String(req.params.id)));
 
