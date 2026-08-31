@@ -6,7 +6,7 @@ import {
   calendarioDiasTable,
   eq, and, sql,
 } from "@workspace/db";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { getCor, getIcone } from "../lib/calendario-categorias.js";
 import { CALENDARIO_SEEDF_2026, SEMESTRES_SEEDF_2026 } from "../lib/seedf-2026.js";
