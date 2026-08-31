@@ -187,7 +187,8 @@ Horário   | Segunda  | Terça   | Quarta  | Quinta  | Sexta
 |---|---|
 | Visualizar e editar quadro | `horarios:manage` |
 | Importar do Urania | `horarios:manage` |
-| Visualizar (estudante/responsável) | via `/api/portal/dashboard` — somente leitura |
+| Visualizar (estudante) | via `GET /api/portal/dashboard` — agenda do próprio estudante |
+| Visualizar (pai/responsável) | via `GET /api/portal/dashboard` — agenda de todos os filhos/dependentes vinculados em `responsaveis_estudantes` |
 
 ---
 
@@ -197,5 +198,7 @@ Horário   | Segunda  | Terça   | Quarta  | Quinta  | Sexta
 |---|---|
 | `lib/db/src/schema/horarios.ts` | Schema `horarios_aulas` |
 | `artifacts/api-server/src/routes/horarios.ts` | CRUD + turma-info + importar-urania |
+| `artifacts/api-server/src/routes/portal-estudante.ts` | `GET /api/portal/dashboard` — resolve estudantes próprios ou via `responsaveis_estudantes` |
 | `artifacts/seshat/src/pages/horarios/index.tsx` | UI grade + modals |
+| `artifacts/seshat/src/pages/dashboard.tsx` | `QuadroHorariosWidget` — renderiza grade no dashboard |
 | `scripts/migrate-horarios.sql` | DDL da tabela |

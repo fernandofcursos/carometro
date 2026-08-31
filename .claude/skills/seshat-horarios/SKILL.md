@@ -185,6 +185,34 @@ INSERT INTO permissoes (recurso, acao) VALUES ('horarios', 'manage')
 ON CONFLICT (recurso, acao) DO NOTHING;
 ```
 
+## Dashboard do estudante e pai/responsável
+
+`GET /api/portal/dashboard` (`artifacts/api-server/src/routes/portal-estudante.ts`) retorna `agendaDisponivel` + `agenda[]`.
+
+### Resolução do estudante
+
+```typescript
+// Estudante próprio (role estudante)
+const [estudanteProprio] = await db.select({ id, usuarioId }).from(estudantesTable)
+  .where(and(eq(estudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)));
+
+// Pai/responsável: busca filhos/dependentes via responsaveis_estudantes
+let estudantes = estudanteProprio ? [estudanteProprio]
+  : await db.select({ id, usuarioId }).from(responsaveisEstudantesTable)
+      .innerJoin(estudantesTable, eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId))
+      .where(and(eq(responsaveisEstudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)));
+```
+
+- `inArray(matriculasTable.usuarioId, estudanteUsuarioIds)` — agenda de todos os dependentes
+- `inArray(ocorrenciasTable.estudanteId, estudanteIds)` — ocorrências de todos os dependentes
+- Quando `horarios_aulas` não existir: try/catch retorna `agendaDisponivel: false` → UI exibe "Em breve"
+
+### Anti-padrões da query de agenda
+
+- ❌ `eq(matriculasTable.usuarioId, usuarioId)` — não funciona para pai_responsavel (o usuarioId é do responsável, não do filho)
+- ❌ `horariosAulasTable.disciplinaId` — coluna inexistente; usar `disciplinaOfertaId → disciplinaOfertasTable → disciplinasTable`
+- ❌ `horariosAulasTable.deletadoEm` / `horariosAulasTable.laboratorio` — colunas inexistentes no schema
+
 ## Anti-padrões
 
 - ❌ Importar operadores (`eq`, `and`) de `drizzle-orm` direto — usar `@workspace/db`
