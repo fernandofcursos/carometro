@@ -1,24 +1,17 @@
 # Skill: Quadro de Horários
 
-## Status: Implementado
-
 ## Menu
 
 ```
-Grupo: "Modulação"  (canManageGeral — turmas:manage | cursos:manage | turnos:manage)
+Grupo: "Modulação"  (canManageGeral)
 └── "Quadro de Horários" → /horarios   (visível só se canManageHorarios = hasAny("horarios:manage"))
 ```
 
-Ícone: `CalendarDays` (lucide-react). Declarado em `layout.tsx`:
-```typescript
-const canManageHorarios = hasAny("horarios:manage");
-// no grupo Modulação:
-...(canManageHorarios ? [nav("Quadro de Horários", "/horarios", CalendarDays)] : []),
-```
+Ícone: `CalendarDays` (lucide-react).
 
 ## Permissão
 
-`horarios:manage` — deve ser inserida na tabela `permissoes`:
+`horarios:manage` — inserida na tabela `permissoes`:
 
 ```sql
 INSERT INTO permissoes (recurso, acao) VALUES ('horarios', 'manage')
@@ -29,65 +22,140 @@ ON CONFLICT (recurso, acao) DO NOTHING;
 
 ```typescript
 export const horariosAulasTable = pgTable("horarios_aulas", {
-  id, turmaId (FK turmas CASCADE), disciplinaOfertaId (FK disciplina_ofertas SET NULL),
-  diaSemana (smallint 1–5), horaInicio (time), horaFim (time),
-  sala (varchar 50), ano (integer), semestre (smallint 1|2),
-  criadoEm, atualizadoEm
-}, [
-  uniqueIndex("uq_slot_turma").on(turmaId, diaSemana, horaInicio, ano, semestre),
-  index("idx_horarios_turma").on(turmaId, ano, semestre),
+  id:                  uuid("id").primaryKey().defaultRandom(),
+  turmaId:             uuid("turma_id").notNull().references(() => turmasTable.id, { onDelete: "cascade" }),
+  disciplinaOfertaId:  uuid("disciplina_oferta_id").references(() => disciplinaOfertasTable.id, { onDelete: "set null" }),
+  diaSemana:           smallint("dia_semana").notNull(),           // 1=seg … 5=sex
+  horaInicio:          time("hora_inicio").notNull(),
+  horaFim:             time("hora_fim").notNull(),
+  sala:                varchar("sala", { length: 50 }),
+  ano:                 integer("ano").notNull(),
+  semestre:            smallint("semestre").notNull(),
+  criadoEm:            timestamp("criado_em",    { withTimezone: true }).defaultNow().notNull(),
+  atualizadoEm:        timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("uq_slot_turma").on(t.turmaId, t.diaSemana, t.horaInicio, t.ano, t.semestre),
+  index("idx_horarios_turma").on(t.turmaId, t.ano, t.semestre),
 ]);
-```
-
-Exportado em `lib/db/src/schema/index.ts`:
-```typescript
-export * from "./horarios";
 ```
 
 ## API (`artifacts/api-server/src/routes/horarios.ts`)
 
-| Método | Rota | Permissão | Descrição |
-|---|---|---|---|
-| GET | `/api/horarios?turmaId=&ano=&semestre=` | requireAuth | Lista slots com joins disciplina/curso/turno |
-| GET | `/api/horarios/disciplinas-oferta?turmaId=` | requireAuth | Disciplinas disponíveis para a turma (filtra por curso) |
-| POST | `/api/horarios` | `horarios:manage` | Cria slot; 409 se conflito de unique |
-| PUT | `/api/horarios/:id` | `horarios:manage` | Atualiza slot parcialmente |
-| DELETE | `/api/horarios/:id` | `horarios:manage` | Remove slot |
-
-Registrado em `artifacts/api-server/src/index.ts`:
+Importar de `@workspace/db` (nunca direto de `drizzle-orm`):
 ```typescript
-import horariosRouter from "./routes/horarios.js";
-app.use("/api/horarios", horariosRouter);
+import { db, horariosAulasTable, turmaTurnosTable, turnosTable, turmasTable, cursosTable,
+         disciplinaOfertasTable, disciplinasTable, eq, and } from "@workspace/db";
 ```
+
+### Endpoints
+
+| Método | Path | Descrição |
+|---|---|---|
+| GET | `/api/horarios?turmaId=&ano=&semestre=` | Lista slots do quadro |
+| GET | `/api/horarios/turma-info?turmaId=` | Turma + turnos vinculados |
+| GET | `/api/horarios/disciplinas-oferta?turmaId=&turnoId=` | Disciplinas disponíveis |
+| POST | `/api/horarios` | Criar slot |
+| PUT | `/api/horarios/:id` | Editar slot |
+| DELETE | `/api/horarios/:id` | Remover slot |
+| POST | `/api/horarios/importar-urania` | Importação em lote (JSON) |
+
+### `GET /api/horarios/turma-info`
+
+```typescript
+// Retorna:
+{ id, sigla, cursoNome, turnos: [{ id, nome }] }
+
+// Query:
+const turnos = await db
+  .select({ id: turnosTable.id, nome: turnosTable.nome })
+  .from(turmaTurnosTable)
+  .innerJoin(turnosTable, eq(turnosTable.id, turmaTurnosTable.turnoId))
+  .where(eq(turmaTurnosTable.turmaId, turmaId));
+```
+
+### `POST /api/horarios/importar-urania`
+
+```typescript
+// Request body:
+{
+  turmaId: string, ano: number, semestre: 1|2,
+  horarios: Array<{
+    diaSemana: 1|2|3|4|5,
+    horaInicio: string,   // "HH:MM"
+    horaFim: string,
+    disciplina?: string,  // nome tentativo para match
+    sala?: string,
+  }>
+}
+// Response:
+{ total, criados, atualizados, semDisciplina, naoCorrespondidos: string[] }
+```
+
+**Match de disciplina:**
+1. Exato por nome (case-insensitive)
+2. Substring bidirecional
+3. Sem match → slot criado sem `disciplinaOfertaId`
+
+Conflito (23505) → atualiza disciplina + sala em vez de criar.
+
+## Slots de Horário por Turno
+
+Derivados do nome do turno no frontend:
+
+```typescript
+function getSlotsDoTurno(turnoNome: string): SlotHorario[] {
+  const n = turnoNome.toLowerCase();
+  if (n.includes("mat")) return [
+    { inicio: "08:00", fim: "09:00", label: "08:00 – 09:00" },
+    { inicio: "09:00", fim: "10:00", label: "09:00 – 10:00" },
+    { inicio: "10:00", fim: "11:00", label: "10:00 – 11:00" },
+    { inicio: "11:00", fim: "12:00", label: "11:00 – 12:00" },
+  ];
+  if (n.includes("ves") || n.includes("tar")) return [
+    { inicio: "13:00", fim: "14:00", label: "13:00 – 14:00" },
+    // ... 14-15, 15-16, 16-17
+  ];
+  if (n.includes("not") || n.includes("notur")) return [
+    { inicio: "18:30", fim: "19:20", label: "18:30 – 19:20" },
+    // ... 19:20-20:10, 20:20-21:10, 21:10-22:00
+  ];
+  return [];
+}
+```
+
+Slots personalizados (fora do template) aparecem como linhas extras na grade.
 
 ## UI (`artifacts/seshat/src/pages/horarios/index.tsx`)
 
-- **Filtros**: Select de Turma (usa `GET /api/turmas`), Input de Ano, Select de Semestre
-- **Grade 5 colunas** (Seg–Sex) com header colorido por dia
-  - `1=azul, 2=violeta, 3=esmeralda, 4=âmbar, 5=rosa`
-- **SlotCard**: mostra disciplina, horário, sala; hover revela botão Trash2 para deletar
-- **SlotModal**: Dialog com select de dia, time pickers início/fim, input de sala, select de disciplina (carregado via `/api/horarios/disciplinas-oferta?turmaId=`)
-- Clique em slot → `openEdit(slot)` → SlotModal em modo edição
-- Clique em "+ Adicionar" de cada coluna → `openCreate(dia)` → SlotModal pré-preenchido com o dia
-- **AlertDialog** de confirmação antes de deletar
+### Grade (tabela HTML)
 
-Rota registrada em `artifacts/seshat/src/App.tsx`:
-```typescript
-import HorariosPage from "@/pages/horarios/index";
-<Route path="/horarios" component={HorariosPage} />
-```
+Formato igual ao PDF do Urania:
+- Linhas = slots de horário (08:00–09:00, 09:00–10:00, ...)
+- Colunas = dias da semana (Seg, Ter, Qua, Qui, Sex)
+- Célula vazia → botão `[+]` → SlotModal pré-preenchido
+- Célula preenchida → clicável → SlotModal em edição
 
-## Dashboard do estudante
+Chave do mapa de slots: `"${diaSemana}-${horaInicio.slice(0,5)}"`
 
-`GET /api/portal/dashboard` retorna `agenda[]` com os horários da semana atual.
-Quando a tabela `horarios_aulas` não existir ainda, a query é envolvida em try/catch
-e `agendaDisponivel: false` é retornado — a UI exibe "Em breve".
+### SlotModal
+
+- Dia: botões Seg/Ter/Qua/Qui/Sex
+- Horário: botões dos slots do turno; link "Personalizar" → inputs livres
+- Disciplina: select filtrado por turnoId (se disponível)
+- Sala: input de texto
+
+**Reset de estado ao reabrir:** `useEffect` com `[open, slot?.id]` + `key={slot?.id ?? "novo"}` no SlotModal.
+
+### ImportacaoModal
+
+- Textarea com JSON
+- Após importação: cards com totais + badges dos não correspondidos
+- Guia o admin a atribuir disciplinas manualmente nos slots criados sem match
 
 ## Migração SQL
 
-Execute **depois** de `scripts/migrate-dashboard.sql` (que já contém a DDL da tabela):
-
 ```sql
+-- scripts/migrate-horarios.sql
 CREATE TABLE IF NOT EXISTS horarios_aulas (
   id                    uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   turma_id              uuid        NOT NULL REFERENCES turmas(id) ON DELETE CASCADE,
@@ -104,17 +172,14 @@ CREATE TABLE IF NOT EXISTS horarios_aulas (
   CONSTRAINT uq_slot_turma UNIQUE (turma_id, dia_semana, hora_inicio, ano, semestre)
 );
 CREATE INDEX IF NOT EXISTS idx_horarios_turma ON horarios_aulas (turma_id, ano, semestre);
-INSERT INTO permissoes (recurso, acao) VALUES ('horarios', 'manage') ON CONFLICT DO NOTHING;
+
+INSERT INTO permissoes (recurso, acao) VALUES ('horarios', 'manage')
+ON CONFLICT (recurso, acao) DO NOTHING;
 ```
 
-## Arquivos implementados
+## Anti-padrões
 
-| Arquivo | Responsabilidade |
-|---|---|
-| `lib/db/src/schema/horarios.ts` | Schema Drizzle |
-| `lib/db/src/schema/index.ts` | Exporta schema |
-| `artifacts/api-server/src/routes/horarios.ts` | CRUD completo + disciplinas-oferta |
-| `artifacts/api-server/src/index.ts` | Registra `/api/horarios` |
-| `artifacts/seshat/src/pages/horarios/index.tsx` | UI: grade + SlotModal + AlertDialog |
-| `artifacts/seshat/src/App.tsx` | Rota `/horarios` |
-| `artifacts/seshat/src/components/layout.tsx` | Menu + permissão `horarios:manage` |
+- ❌ Importar operadores (`eq`, `and`) de `drizzle-orm` direto — usar `@workspace/db`
+- ❌ Grade em colunas por dia sem linhas de horário — o formato correto é tabela com linhas de hora
+- ❌ Slots de horário hardcoded sem derivar do turno selecionado
+- ❌ Modal sem reset de estado ao trocar de slot — usar `key={slot?.id ?? "novo"}` + `useEffect`
