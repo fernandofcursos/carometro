@@ -57,13 +57,16 @@ export function AppSidebar() {
   // Admin vê todos os portais para teste e ajuste
   const isAdmin = hasAny("usuarios:manage", "roles:manage");
 
-  const canManageGeral = hasAny("turmas:manage", "cursos:manage", "turnos:manage");
-  const canImport = hasAny("import:execute");
-  const canManageUsuarios = hasAny("usuarios:manage");
-  const canManageRoles = hasAny("roles:manage");
+  const canManageCursos = hasAny("cursos:manage");
+  const canManageTurnos = hasAny("turnos:manage");
+  const canManageTurmas = hasAny("turmas:manage");
   const canManageDisciplinas = hasAny("disciplinas:manage");
   const canManageHorarios = hasAny("horarios:manage");
   const canManageCalendario = hasAny("calendario:manage");
+  const canManageGeral = canManageCursos || canManageTurnos || canManageTurmas;
+  const canImport = hasAny("import:execute");
+  const canManageUsuarios = hasAny("usuarios:manage");
+  const canManageRoles = hasAny("roles:manage");
   // Estudante e pai/responsável nunca veem o carômetro administrativo
   const canViewCarometro = hasAny("carometro:view") && !isEstudante && !isPaiResponsavel;
   const canViewEstudantes = hasAny("estudantes:view", "estudantes:manage");
@@ -127,9 +130,9 @@ export function AppSidebar() {
       color: "#0ea5e9",
       bgColor: "#f0f9ff",
       items: [
-        nav("Cursos", "/cursos", BookOpen),
-        nav("Turnos", "/turnos", Clock),
-        nav("Turmas", "/turmas", Building),
+        ...(canManageCursos ? [nav("Cursos", "/cursos", BookOpen)] : []),
+        ...(canManageTurnos ? [nav("Turnos", "/turnos", Clock)] : []),
+        ...(canManageTurmas ? [nav("Turmas", "/turmas", Building)] : []),
         ...(canManageDisciplinas ? [nav("Disciplinas", "/disciplinas", GraduationCap)] : []),
         ...(canManageHorarios ? [nav("Quadro de Horários", "/horarios", CalendarDays)] : []),
         ...(canManageCalendario ? [nav("Calendário Escolar", "/calendario", CalendarRange)] : []),
