@@ -141,7 +141,7 @@ function SlotModal({
   const [horaInicio, setHoraInicio] = useState(slot?.horaInicio?.slice(0, 5) ?? horaInicioInicial ?? "");
   const [horaFim, setHoraFim] = useState(slot?.horaFim?.slice(0, 5) ?? horaFimInicial ?? "");
   const [sala, setSala] = useState(slot?.sala ?? "");
-  const [disciplinaOfertaId, setDisciplinaOfertaId] = useState(slot?.disciplinaOfertaId ?? "");
+  const [disciplinaOfertaId, setDisciplinaOfertaId] = useState(slot?.disciplinaOfertaId ?? "none");
   const [modoManual, setModoManual] = useState(
     isEdit && slotsTemplate.length > 0
       ? !slotsTemplate.some((s) => s.inicio === slot?.horaInicio?.slice(0, 5))
@@ -155,7 +155,7 @@ function SlotModal({
       setHoraInicio(slot?.horaInicio?.slice(0, 5) ?? horaInicioInicial ?? "");
       setHoraFim(slot?.horaFim?.slice(0, 5) ?? horaFimInicial ?? "");
       setSala(slot?.sala ?? "");
-      setDisciplinaOfertaId(slot?.disciplinaOfertaId ?? "");
+      setDisciplinaOfertaId(slot?.disciplinaOfertaId ?? "none");
       setModoManual(
         isEdit && slotsTemplate.length > 0
           ? !slotsTemplate.some((s) => s.inicio === slot?.horaInicio?.slice(0, 5))
@@ -184,7 +184,7 @@ function SlotModal({
         diaSemana: Number(diaSemana),
         horaInicio, horaFim,
         sala: sala || null,
-        disciplinaOfertaId: disciplinaOfertaId || null,
+        disciplinaOfertaId: disciplinaOfertaId && disciplinaOfertaId !== "none" ? disciplinaOfertaId : null,
       };
       return isEdit
         ? sendJson("PUT", `${BASE}/api/horarios/${slot!.id}`, body)
@@ -286,7 +286,7 @@ function SlotModal({
                 <SelectValue placeholder="Selecione a disciplina..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Nenhuma —</SelectItem>
+                <SelectItem value="none">— Nenhuma —</SelectItem>
                 {ofertas.map((o) => (
                   <SelectItem key={o.id} value={o.id}>
                     {o.disciplinaNome}
