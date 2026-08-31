@@ -132,6 +132,7 @@ export function AppSidebar() {
         nav("Turmas", "/turmas", Building),
         ...(canManageDisciplinas ? [nav("Disciplinas", "/disciplinas", GraduationCap)] : []),
         ...(canManageHorarios ? [nav("Quadro de Horários", "/horarios", CalendarDays)] : []),
+        ...(canManageCalendario ? [nav("Calendário Escolar", "/calendario", CalendarRange)] : []),
       ],
     }] : []),
     ...(canManageEstudantes ? [{
@@ -142,15 +143,6 @@ export function AppSidebar() {
       items: [
         nav("Estudantes", "/enturmacao", Users),
         nav("Carteiras e Cartões", "/carteiras", CreditCard),
-      ],
-    }] : []),
-    ...(canManageCalendario ? [{
-      label: "Calendário",
-      icon: CalendarRange,
-      color: "#0891b2",
-      bgColor: "#ecfeff",
-      items: [
-        nav("Calendário Escolar", "/calendario", CalendarRange),
       ],
     }] : []),
     ...((canViewOcorrencias || canManageTiposOcorrencias) ? [{

@@ -302,7 +302,7 @@ Retorna todos os dias registrados para o ano, agrupados por mês, com semestres.
 
 | Operação | Permissão |
 |---|---|
-| Visualizar calendário | `usuarios:manage` ou `estudantes:view` (leitura para equipe) |
+| Visualizar calendário (menu) | `calendario:manage` — item fica no grupo **Modulação** |
 | Criar/editar/excluir eventos | `calendario:manage` (nova permissão) |
 | Importar SEEDF | `calendario:manage` |
 | Configurar semestres | `calendario:manage` |

@@ -21,9 +21,11 @@
 ### Menu
 
 ```
-Grupo: "Calendário"  (canManageCalendario = hasAny("calendario:manage"))
-└── "Calendário Escolar" → /calendario   (ícone CalendarRange)
+Grupo: "Modulação"  (canManageGeral — turmas:manage | cursos:manage | turnos:manage)
+└── "Calendário Escolar" → /calendario   (visível só se canManageCalendario = hasAny("calendario:manage"))
 ```
+
+O item está dentro do grupo Modulação — não existe grupo separado "Calendário".
 
 ### UI implementada
 
