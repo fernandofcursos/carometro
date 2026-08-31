@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, UtensilsCrossed, ChevronRight } from "lucide-react";
 import { LgpdBanner } from "@/components/lgpd-banner";
 import { Link } from "wouter";
@@ -338,6 +339,9 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
         </Card>
       </div>
 
+      {/* Calendário do mês */}
+      <CalendarioMesWidget hoje={hoje} />
+
       {/* Atalho para Meu Perfil */}
       <Link href="/portal">
         <button className="w-full flex items-center justify-between rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-3 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors">
@@ -370,10 +374,144 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
   );
 }
 
+// ─────────────────────────── CalendarioMesWidget ─────────────────────────────
+
+type CalendarioEvento = {
+  id: string; categoria: string; titulo: string | null; cor: string; icone: string;
+};
+type CalendarioDia = { data: string; diaSemana: number; eventos: CalendarioEvento[] };
+type CalendarioMes = { mes: number; mesNome: string; dias: CalendarioDia[] };
+type CalendarioResp = { ano: number; semestres: { semestre: 1|2; inicio: string; fim: string }[]; meses: CalendarioMes[] };
+
+const DIAS_CAB = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const r = await fetch(url, { credentials: "include" });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? r.statusText);
+  return r.json();
+}
+
+function CalendarioMesWidget({ hoje }: { hoje: string }) {
+  const [ano, mes] = hoje.split("-").map(Number);
+
+  const { data, isLoading } = useQuery<CalendarioResp>({
+    queryKey: ["calendario-dash", ano],
+    queryFn: () => fetchJson(`${BASE}/api/calendario?ano=${ano}`),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const mesData = data?.meses.find((m) => m.mes === mes);
+  const semestres = data?.semestres ?? [];
+
+  const emSemestre = (dataStr: string) =>
+    semestres.some((s) => dataStr >= s.inicio && dataStr <= s.fim);
+
+  const offset = mesData?.dias[0]?.diaSemana ?? 0;
+
+  return (
+    <Card className="shadow-sm border-border/50">
+      <CardHeader className="pb-2 flex-row items-center justify-between">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-cyan-600" />
+          {mesData?.mesNome ?? "Calendário"} {ano}
+        </CardTitle>
+        <Link href="/calendario">
+          <span className="text-xs text-cyan-600 hover:underline cursor-pointer flex items-center gap-0.5">
+            Ver completo <ChevronRight className="w-3 h-3" />
+          </span>
+        </Link>
+      </CardHeader>
+      <CardContent className="pt-1">
+        {isLoading ? (
+          <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
+            Carregando...
+          </div>
+        ) : !mesData ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">Calendário não configurado para {ano}.</p>
+        ) : (
+          <div>
+            {/* Cabeçalho dias da semana */}
+            <div className="grid grid-cols-7 mb-1">
+              {DIAS_CAB.map((d) => (
+                <div key={d} className="text-[10px] text-center text-muted-foreground font-medium py-0.5">{d}</div>
+              ))}
+            </div>
+            {/* Grade */}
+            <div className="grid grid-cols-7 gap-px">
+              {Array.from({ length: offset }).map((_, i) => <div key={`o${i}`} />)}
+              {mesData.dias.map((dia) => {
+                const isHoje = dia.data === hoje;
+                const fds = dia.diaSemana === 0 || dia.diaSemana === 6;
+                const ativo = emSemestre(dia.data);
+                const primEv = dia.eventos[0];
+                return (
+                  <Tooltip key={dia.data}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          "rounded p-0.5 min-h-[34px] flex flex-col items-center justify-start",
+                          fds ? "opacity-50" : !ativo ? "opacity-40" : "",
+                          isHoje && "ring-2 ring-indigo-400 rounded bg-indigo-50",
+                          primEv && !isHoje && "bg-opacity-30 rounded",
+                        )}
+                        style={primEv && !isHoje ? { background: primEv.cor + "22" } : undefined}
+                      >
+                        <span className={cn(
+                          "text-[11px] font-semibold leading-tight",
+                          isHoje ? "text-indigo-600" : fds ? "text-slate-400" : "text-slate-700",
+                        )}>
+                          {new Date(dia.data + "T12:00:00").getDate()}
+                        </span>
+                        {dia.eventos.slice(0, 2).map((ev) => (
+                          <span key={ev.id} className="text-[10px] leading-none">{ev.icone}</span>
+                        ))}
+                      </div>
+                    </TooltipTrigger>
+                    {dia.eventos.length > 0 && (
+                      <TooltipContent side="top" className="max-w-[180px] space-y-1">
+                        {dia.eventos.map((ev) => (
+                          <p key={ev.id} className="text-xs">
+                            {ev.icone} {ev.titulo ?? ev.categoria}
+                          </p>
+                        ))}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                );
+              })}
+            </div>
+            {/* Legenda dos eventos do mês */}
+            {mesData.dias.some((d) => d.eventos.length > 0) && (
+              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                {Array.from(
+                  new Map(
+                    mesData.dias.flatMap((d) => d.eventos).map((ev) => [ev.categoria, ev])
+                  ).values()
+                ).map((ev) => (
+                  <span key={ev.categoria} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="w-2 h-2 rounded-full inline-block" style={{ background: ev.cor }} />
+                    {ev.icone} {ev.categoria.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─────────────────────────── DashboardAdmin ──────────────────────────────────
 
 function DashboardAdmin() {
   const { data: stats, isLoading } = useGetStats();
+  const { data: hojeData } = useQuery<{ hoje: string }>({
+    queryKey: ["servidor-hoje"],
+    queryFn: () => fetchJson(`${BASE}/api/hoje`),
+    staleTime: 60 * 60 * 1000,
+  });
+  const hojeServer = hojeData?.hoje ?? new Date().toISOString().slice(0, 10);
   const coveragePercentage = stats?.totalEstudantes
     ? Math.round((stats.comFoto / stats.totalEstudantes) * 100)
     : 0;
@@ -416,25 +554,28 @@ function DashboardAdmin() {
           </Card>
         ))}
       </div>
-      <Card className="shadow-sm border-border/50 max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <Camera className="w-5 h-5 text-muted-foreground" /> Cobertura Fotográfica
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Progresso geral</span>
-            <span className="font-medium text-primary">{coveragePercentage}% concluído</span>
-          </div>
-          <Progress value={coveragePercentage} className="h-3 bg-muted" />
-          <p className="text-sm text-muted-foreground">
-            {stats?.semFoto
-              ? `Faltam fotos de ${stats.semFoto} estudante${stats.semFoto !== 1 ? "s" : ""} no sistema.`
-              : "Todos os estudantes possuem foto."}
-          </p>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Camera className="w-5 h-5 text-muted-foreground" /> Cobertura Fotográfica
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Progresso geral</span>
+              <span className="font-medium text-primary">{coveragePercentage}% concluído</span>
+            </div>
+            <Progress value={coveragePercentage} className="h-3 bg-muted" />
+            <p className="text-sm text-muted-foreground">
+              {stats?.semFoto
+                ? `Faltam fotos de ${stats.semFoto} estudante${stats.semFoto !== 1 ? "s" : ""} no sistema.`
+                : "Todos os estudantes possuem foto."}
+            </p>
+          </CardContent>
+        </Card>
+        <CalendarioMesWidget hoje={hojeServer} />
+      </div>
     </div>
   );
 }

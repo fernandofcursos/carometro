@@ -41,6 +41,11 @@ app.get("/api/healthz", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+// Data do servidor — usada por dashboards para exibir o mês correto
+app.get("/api/hoje", (_req: Request, res: Response) => {
+  res.json({ hoje: new Date().toISOString().slice(0, 10) });
+});
+
 // Registrar rota de autenticação — DEVE vir antes de qualquer router com requireAuth
 app.use("/api/auth", authRouter);
 

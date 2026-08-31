@@ -293,6 +293,54 @@ export const cardapiosTable = pgTable("cardapios", {
 
 ---
 
+## Calendário do Mês Corrente nos Dashboards
+
+### Regra
+
+Ambos os dashboards (`DashboardEstudante` e `DashboardAdmin`) exibem o calendário do **mês corrente** usando a data do servidor (`hoje`).
+
+### `GET /api/hoje`
+
+Endpoint público (sem autenticação) que retorna a data ISO do servidor:
+
+```json
+{ "hoje": "2026-08-31" }
+```
+
+`DashboardAdmin` usa esse endpoint para obter `hojeServer`.  
+`DashboardEstudante` usa `data.hoje` retornado por `GET /api/portal/dashboard`.
+
+### `CalendarioMesWidget({ hoje: string })`
+
+```tsx
+function CalendarioMesWidget({ hoje }: { hoje: string }) {
+  const [ano, mes] = hoje.split("-").map(Number);
+
+  const { data, isLoading } = useQuery<CalendarioResp>({
+    queryKey: ["calendario-dash", ano],
+    queryFn: () => fetchJson(`${BASE}/api/calendario?ano=${ano}`),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const mesData = data?.meses.find((m) => m.mes === mes);
+  // ... grade 7 colunas, tooltips, legenda de categorias, link "Ver completo"
+}
+```
+
+- Usa `Tooltip`/`TooltipTrigger`/`TooltipContent` (shadcn) para eventos ao hover
+- Dia de hoje: `ring-2 ring-indigo-400 bg-indigo-50`
+- Dias fora dos semestres: `opacity-40`
+- Finais de semana: `opacity-50`
+- Células com evento: fundo com `cor + "22"` (22 = 13% alpha)
+- Legenda: categorias únicas do mês com bolinha colorida + ícone + nome
+- Link "Ver completo" → `/calendario`
+
+### Posição nos Dashboards
+
+**`DashboardEstudante`**: depois do grid de 3 widgets (ocorrências, agenda, cardápio), antes do atalho "Meu Perfil".
+
+**`DashboardAdmin`**: ao lado do card de cobertura fotográfica, em grid `lg:grid-cols-2`.
+
 ## Anti-padrões
 
 - ❌ Usar `new Date()` no frontend para determinar o dia da semana — usar `dashboard.diaSemana`
