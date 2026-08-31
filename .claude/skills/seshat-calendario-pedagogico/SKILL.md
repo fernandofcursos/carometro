@@ -34,10 +34,12 @@ O item está dentro do grupo Modulação — não existe grupo separado "Calend�
 - **SemestreBar**: exibe início/fim dos semestres; botão "Configurar" abre inputs inline para edição
 - **Legenda**: todas as 9 categorias com cor e ícone
 - **Seleção de dias**:
-  - Clique simples → abre `EventoModal` diretamente
-  - Ctrl+Clique → toggle de seleção múltipla
-  - Shift+Clique → seleciona range de datas
-  - Barra flutuante no rodapé quando múltiplos dias selecionados
+  - Clique simples → seleciona o dia (deseleciona se era o único selecionado)
+  - Ctrl+Clique → toggle individual (acumula seleção)
+  - Shift+Clique → seleciona range do último clicado até o atual
+  - Barra flutuante no rodapé a partir de **1** data selecionada
+  - Modal abre **somente** via botão "Adicionar evento" na barra flutuante
+  - Clique no emoji de evento existente → `EventoModal` em modo edição (direto)
 - **EventoModal**: seleção de categoria, título, descrição; suporta criar (N datas) ou editar (1 evento)
   - Ao trocar categoria: emoji reverte para o padrão da nova categoria (`handleCategoriaChange`)
   - Emoji personalizado: somente visível após marcar checkbox "Personalizar ícone emoji"

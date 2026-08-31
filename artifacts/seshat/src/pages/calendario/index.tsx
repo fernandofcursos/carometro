@@ -562,6 +562,7 @@ export default function CalendarioPage() {
 
   const handleDiaClick = useCallback((data: string, shift: boolean, ctrl: boolean) => {
     if (shift && ultimoClicado) {
+      // Shift+clique: seleciona range do último clicado até aqui
       const idx1 = todasDatas.indexOf(ultimoClicado);
       const idx2 = todasDatas.indexOf(data);
       const [a, b] = idx1 < idx2 ? [idx1, idx2] : [idx2, idx1];
@@ -572,18 +573,24 @@ export default function CalendarioPage() {
         return next;
       });
     } else if (ctrl) {
+      // Ctrl+clique: toggle individual
       setSelecionados((prev) => {
         const next = new Set(prev);
         next.has(data) ? next.delete(data) : next.add(data);
         return next;
       });
     } else {
-      // clique simples — abre modal imediatamente
-      setSelecionados(new Set([data]));
-      setUltimoClicado(data);
-      setEventoEdit(null);
-      setModalOpen(true);
-      return;
+      // Clique simples: seleciona/deseleciona o dia — modal abre via barra flutuante
+      setSelecionados((prev) => {
+        const next = new Set(prev);
+        if (next.has(data) && next.size === 1) {
+          next.delete(data); // deseleciona se era o único
+        } else {
+          next.clear();
+          next.add(data);
+        }
+        return next;
+      });
     }
     setUltimoClicado(data);
   }, [todasDatas, ultimoClicado]);
@@ -664,9 +671,13 @@ export default function CalendarioPage() {
       )}
 
       {/* Barra de seleção múltipla */}
-      {selecionados.size > 1 && (
+      {selecionados.size >= 1 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-2.5 rounded-full shadow-xl">
-          <span className="text-sm font-medium">{selecionados.size} dias selecionados</span>
+          <span className="text-sm font-medium">
+            {selecionados.size === 1
+              ? `${fmt(Array.from(selecionados)[0])} selecionado`
+              : `${selecionados.size} dias selecionados`}
+          </span>
           <Button
             size="sm"
             variant="ghost"
