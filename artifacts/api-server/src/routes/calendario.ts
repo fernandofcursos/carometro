@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db } from "@workspace/db";
 import {
+  db,
   calendarioSemestresTable,
   calendarioDiasTable,
+  eq, and, sql,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { getCor, getIcone } from "../lib/calendario-categorias.js";
