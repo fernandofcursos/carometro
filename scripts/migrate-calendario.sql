@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_calendario_dias_data
   ON calendario_dias (data);
 
 CREATE INDEX IF NOT EXISTS idx_calendario_dias_ano
-  ON calendario_dias (EXTRACT(year FROM data)::integer, data);
+  ON calendario_dias (EXTRACT(year FROM data), data);
 
 COMMENT ON TABLE calendario_dias IS 'Eventos e marcações do calendário escolar por data';
 COMMENT ON COLUMN calendario_dias.cor_override IS 'Cor hexadecimal personalizada; substitui a cor padrão da categoria';
