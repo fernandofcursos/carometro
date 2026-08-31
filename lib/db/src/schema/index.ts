@@ -27,3 +27,4 @@ export * from "./carteiras";
 export * from "./responsaveis-estudantes";
 export * from "./cartoes-saida";
 export * from "./atestados-medicos";
+export * from "./calendario";
