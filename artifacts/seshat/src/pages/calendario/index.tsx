@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CalendarRange, ChevronLeft, ChevronRight, Download, Loader2, Plus, Trash2, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -23,7 +24,8 @@ type Evento = {
   titulo: string | null;
   descricao: string | null;
   cor: string;
-  icone: string;
+  icone: string;           // resolvido para exibição (nunca null)
+  iconeOverride: string | null; // valor bruto do banco — null = usa padrão da categoria
 };
 
 type DiaCalendario = {
@@ -112,19 +114,39 @@ function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
   const [categoria, setCategoria] = useState(evento?.categoria ?? "letivo");
   const [titulo, setTitulo] = useState(evento?.titulo ?? "");
   const [descricao, setDescricao] = useState(evento?.descricao ?? "");
-  const [icone, setIcone] = useState(evento?.icone ?? "");
+
+  // Emoji personalizado: ativo somente se o evento já tem override no banco
+  const [customIcone, setCustomIcone] = useState(!!evento?.iconeOverride);
+  const [icone, setIcone] = useState(evento?.iconeOverride ?? "");
 
   const isEdit = !!evento;
 
+  // Ao trocar categoria: emoji volta para o padrão da nova categoria
+  function handleCategoriaChange(val: string) {
+    setCategoria(val);
+    setCustomIcone(false);
+    setIcone("");
+  }
+
+  const cat = getCat(categoria);
+
   const mut = useMutation({
     mutationFn: () => {
+      const iconeEnviar = customIcone && icone ? icone : null;
       if (isEdit) {
         return sendJson("PUT", `${BASE}/api/calendario/dias/${evento.id}`, {
-          categoria, titulo: titulo || null, descricao: descricao || null, icone: icone || null,
+          categoria,
+          titulo: titulo || null,
+          descricao: descricao || null,
+          icone: iconeEnviar,
         });
       }
       return sendJson("POST", `${BASE}/api/calendario/dias`, {
-        datas, categoria, titulo: titulo || null, descricao: descricao || null, icone: icone || null,
+        datas,
+        categoria,
+        titulo: titulo || null,
+        descricao: descricao || null,
+        icone: iconeEnviar,
       });
     },
     onSuccess: () => {
@@ -134,8 +156,6 @@ function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
     },
     onError: (err) => toast({ title: "Erro ao salvar", description: apiMsg(err, "Verifique os dados."), variant: "destructive" }),
   });
-
-  const cat = getCat(categoria);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -155,7 +175,7 @@ function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
 
           <div className="space-y-1.5">
             <Label>Categoria</Label>
-            <Select value={categoria} onValueChange={setCategoria}>
+            <Select value={categoria} onValueChange={handleCategoriaChange}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -172,12 +192,21 @@ function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
             </Select>
           </div>
 
+          {/* Ícone atual da categoria (informativo) */}
+          <div className="flex items-center gap-3 rounded-lg bg-muted/50 border px-3 py-2">
+            <span className="text-2xl">{cat.icone}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">Ícone da categoria</p>
+              <p className="text-sm font-medium truncate">{cat.label}</p>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Título</Label>
             <Input
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder={getCat(categoria).label}
+              placeholder={cat.label}
               maxLength={200}
             />
           </div>
@@ -192,15 +221,34 @@ function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Ícone emoji <span className="text-muted-foreground">(opcional)</span></Label>
-            <Input
-              value={icone}
-              onChange={(e) => setIcone(e.target.value)}
-              placeholder={cat.icone}
-              maxLength={10}
-              className="w-24"
-            />
+          {/* Personalizar emoji — somente quando o usuário opta */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="custom-icone"
+                checked={customIcone}
+                onCheckedChange={(v) => {
+                  setCustomIcone(!!v);
+                  if (!v) setIcone("");
+                }}
+              />
+              <label htmlFor="custom-icone" className="text-sm cursor-pointer select-none">
+                Personalizar ícone emoji
+              </label>
+            </div>
+            {customIcone && (
+              <div className="flex items-center gap-2 pl-6">
+                <Input
+                  value={icone}
+                  onChange={(e) => setIcone(e.target.value)}
+                  placeholder={cat.icone}
+                  maxLength={10}
+                  className="w-24 text-center text-lg"
+                  autoFocus
+                />
+                <span className="text-xs text-muted-foreground">emoji personalizado</span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -72,6 +72,7 @@ router.get("/", async (req, res) => {
           descricao: e.descricao ?? null,
           cor: getCor(e.categoria, e.corOverride),
           icone: getIcone(e.categoria, e.icone),
+          iconeOverride: e.icone ?? null,   // valor bruto — null = usa padrão da categoria
         }));
         diasMes.push({ data: dataStr, diaSemana, eventos });
       }
