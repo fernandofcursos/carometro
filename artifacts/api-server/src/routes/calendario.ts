@@ -148,10 +148,10 @@ router.post("/dias", requirePermissao("calendario:manage"), async (req, res) => 
     const schema = z.object({
       datas: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1),
       categoria: z.string().min(1),
-      titulo: z.string().max(200).optional(),
-      descricao: z.string().optional(),
-      corOverride: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-      icone: z.string().max(10).optional(),
+      titulo: z.string().max(200).nullable().optional(),
+      descricao: z.string().nullable().optional(),
+      corOverride: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+      icone: z.string().max(10).nullable().optional(),
     });
     const body = schema.parse(req.body);
 
