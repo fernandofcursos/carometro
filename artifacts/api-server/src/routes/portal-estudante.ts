@@ -14,9 +14,11 @@ import {
   carteirasTable,
   cartoesSaidaTable,
   estudantesTable,
+  responsaveisEstudantesTable,
   eq,
   and,
   isNull,
+  inArray,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 
@@ -295,14 +297,30 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     const diaJS = hoje.getDay(); // 0=dom … 6=sab
     const diaSemana = diaJS === 0 ? 7 : diaJS; // 1=seg…7=dom (sem aula = 6 ou 7)
 
-    // Estudante vinculado
-    const [estudante] = await db
-      .select({ id: estudantesTable.id })
+    // Resolve estudantes do perfil logado:
+    // - estudante próprio → usa seu próprio registro
+    // - pai_responsavel → usa os filhos/dependentes vinculados
+    const [estudanteProprio] = await db
+      .select({ id: estudantesTable.id, usuarioId: estudantesTable.usuarioId })
       .from(estudantesTable)
       .where(and(eq(estudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)));
 
-    // Ocorrências — agrupadas por tipo
-    const ocrsRaw = estudante
+    let estudantes: { id: string; usuarioId: string | null }[];
+    if (estudanteProprio) {
+      estudantes = [estudanteProprio];
+    } else {
+      estudantes = await db
+        .select({ id: estudantesTable.id, usuarioId: estudantesTable.usuarioId })
+        .from(responsaveisEstudantesTable)
+        .innerJoin(estudantesTable, eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId))
+        .where(and(eq(responsaveisEstudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)));
+    }
+
+    const estudanteIds = estudantes.map((e) => e.id);
+    const estudanteUsuarioIds = estudantes.map((e) => e.usuarioId).filter(Boolean) as string[];
+
+    // Ocorrências — agrupadas por tipo (todos os estudantes vinculados)
+    const ocrsRaw = estudanteIds.length > 0
       ? await db
           .select({
             id:           ocorrenciasTable.id,
@@ -312,7 +330,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
           })
           .from(ocorrenciasTable)
           .innerJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
-          .where(and(eq(ocorrenciasTable.estudanteId, estudante.id), isNull(ocorrenciasTable.deletadoEm)))
+          .where(and(inArray(ocorrenciasTable.estudanteId, estudanteIds), isNull(ocorrenciasTable.deletadoEm)))
       : [];
 
     const ocMap = new Map<string, { tipoDescricao: string; total: number; semCiencia: number; ids: string[] }>();
@@ -326,11 +344,11 @@ router.get("/dashboard", async (req: Request, res: Response) => {
 
     // Agenda — tabela horarios_aulas (pode não existir ainda)
     const DIA_NOME = ["", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"];
-    let agenda: { dia: number; diaNome: string; aulas: { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null; laboratorio: string | null }[] }[] = [];
+    let agenda: { dia: number; diaNome: string; aulas: { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null }[] }[] = [];
     let agendaDisponivel = false;
     try {
       const { horariosAulasTable } = await import("@workspace/db/schema") as any;
-      if (horariosAulasTable && estudante) {
+      if (horariosAulasTable && estudanteUsuarioIds.length > 0) {
         const anoAtual = hoje.getFullYear();
         const semestreAtual: 1 | 2 = hoje.getMonth() < 6 ? 1 : 2;
         const aulas = await db
@@ -352,7 +370,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
           )
           .leftJoin(disciplinaOfertasTable, eq(disciplinaOfertasTable.id, horariosAulasTable.disciplinaOfertaId))
           .leftJoin(disciplinasTable, eq(disciplinasTable.id, disciplinaOfertasTable.disciplinaId))
-          .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm)));
+          .where(and(inArray(matriculasTable.usuarioId, estudanteUsuarioIds), eq(matriculasTable.ativo, true), isNull(matriculasTable.deletadoEm)));
 
         agendaDisponivel = true;
         const byDia = new Map<number, typeof aulas>();
