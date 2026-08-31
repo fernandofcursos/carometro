@@ -40,7 +40,9 @@ O item está dentro do grupo Modulação — não existe grupo separado "Calend�
   - Barra flutuante no rodapé a partir de **1** data selecionada
   - Modal abre **somente** via botão "Adicionar evento" na barra flutuante
   - Clique no emoji de evento existente → `EventoModal` em modo edição (direto)
-- **EventoModal**: seleção de categoria, título, descrição; suporta criar (N datas) ou editar (1 evento)
+- **EventoModal**: seleção de categoria, título, descrição; suporta criar (N datas), editar ou excluir (1 evento)
+  - Em modo edição: botão "Excluir" (vermelho, esquerda do rodapé) chama `onDelete(id, titulo)`
+  - `onDelete` abre o `AlertDialog` de confirmação → `DELETE /api/calendario/dias/:id`
   - Ao trocar categoria: emoji reverte para o padrão da nova categoria (`handleCategoriaChange`)
   - Emoji personalizado: somente visível após marcar checkbox "Personalizar ícone emoji"
   - `iconeOverride` (valor bruto do banco) determina se o checkbox inicia marcado

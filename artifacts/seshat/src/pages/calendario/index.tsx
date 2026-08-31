@@ -105,9 +105,10 @@ type EventoModalProps = {
   datas: string[];
   evento?: Evento | null;
   ano: number;
+  onDelete?: (id: string, titulo: string | null) => void;
 };
 
-function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
+function EventoModal({ open, onClose, datas, evento, ano, onDelete }: EventoModalProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -252,12 +253,24 @@ function EventoModal({ open, onClose, datas, evento, ano }: EventoModalProps) {
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
-            {mut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Salvar
-          </Button>
+        <DialogFooter className="flex-row items-center justify-between gap-2">
+          {isEdit && onDelete && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="mr-auto gap-1.5"
+              onClick={() => { onDelete(evento.id, evento.titulo); onClose(); }}
+            >
+              <Trash2 className="w-4 h-4" /> Excluir
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
+              {mut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -704,6 +717,7 @@ export default function CalendarioPage() {
           datas={datasArr}
           evento={eventoEdit}
           ano={ano}
+          onDelete={(id, titulo) => setDeleteEvento({ id, titulo })}
         />
       )}
 
