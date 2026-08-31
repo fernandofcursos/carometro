@@ -75,25 +75,30 @@ const TEXT_DIA: Record<number, string> = {
 // Slots de horário por tipo de turno (derivado do nome)
 type SlotHorario = { inicio: string; fim: string; label: string };
 
+// Horários oficiais — Centro de Educação Profissional Escola Técnica de Santa Maria
+// Fonte: documento "Horários das Aulas" (SEEDF/CRE Santa Maria)
 function getSlotsDoTurno(turnoNome: string): SlotHorario[] {
   const n = turnoNome.toLowerCase();
   if (n.includes("mat")) return [
-    { inicio: "08:00", fim: "09:00", label: "08:00 – 09:00" },
-    { inicio: "09:00", fim: "10:00", label: "09:00 – 10:00" },
-    { inicio: "10:00", fim: "11:00", label: "10:00 – 11:00" },
-    { inicio: "11:00", fim: "12:00", label: "11:00 – 12:00" },
+    { inicio: "08:00", fim: "08:50", label: "1º  08:00 – 08:50" },
+    { inicio: "08:50", fim: "09:40", label: "2º  08:50 – 09:40" },
+    // intervalo: 09:40–10:10
+    { inicio: "10:10", fim: "11:05", label: "3º  10:10 – 11:05" },
+    { inicio: "11:05", fim: "12:00", label: "4º  11:05 – 12:00" },
   ];
   if (n.includes("ves") || n.includes("tar")) return [
-    { inicio: "13:00", fim: "14:00", label: "13:00 – 14:00" },
-    { inicio: "14:00", fim: "15:00", label: "14:00 – 15:00" },
-    { inicio: "15:00", fim: "16:00", label: "15:00 – 16:00" },
-    { inicio: "16:00", fim: "17:00", label: "16:00 – 17:00" },
+    { inicio: "13:30", fim: "14:20", label: "1º  13:30 – 14:20" },
+    { inicio: "14:20", fim: "15:10", label: "2º  14:20 – 15:10" },
+    // intervalo: 15:10–15:40
+    { inicio: "15:40", fim: "16:35", label: "3º  15:40 – 16:35" },
+    { inicio: "16:35", fim: "17:30", label: "4º  16:35 – 17:30" },
   ];
   if (n.includes("not") || n.includes("notur")) return [
-    { inicio: "18:30", fim: "19:20", label: "18:30 – 19:20" },
-    { inicio: "19:20", fim: "20:10", label: "19:20 – 20:10" },
-    { inicio: "20:20", fim: "21:10", label: "20:20 – 21:10" },
-    { inicio: "21:10", fim: "22:00", label: "21:10 – 22:00" },
+    { inicio: "19:00", fim: "19:45", label: "1º  19:00 – 19:45" },
+    { inicio: "19:45", fim: "20:30", label: "2º  19:45 – 20:30" },
+    // intervalo: 20:30–21:00
+    { inicio: "21:00", fim: "21:45", label: "3º  21:00 – 21:45" },
+    { inicio: "21:45", fim: "22:30", label: "4º  21:45 – 22:30" },
   ];
   return [];
 }

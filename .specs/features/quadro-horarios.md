@@ -21,12 +21,40 @@ Gerenciar o quadro semanal de aulas de cada turma: dia da semana, horário de in
 
 ### Slots de horário por turno
 
-| Turno (nome contém) | Slots |
-|---|---|
-| "mat" (Matutino) | 08:00–09:00, 09:00–10:00, 10:00–11:00, 11:00–12:00 |
-| "ves"/"tar" (Vespertino) | 13:00–14:00, 14:00–15:00, 15:00–16:00, 16:00–17:00 |
-| "not"/"notur" (Noturno) | 18:30–19:20, 19:20–20:10, 20:20–21:10, 21:10–22:00 |
+Horários oficiais — Centro de Educação Profissional Escola Técnica de Santa Maria (SEEDF/CRE Santa Maria).
+Cada período tem ~50 min, com intervalo entre o 2º e o 3º horário.
 
+**Matutino** (nome contém "mat"):
+
+| Horário | Início | Fim |
+|---|---|---|
+| 1º | 08:00 | 08:50 |
+| 2º | 08:50 | 09:40 |
+| *Intervalo* | *09:40* | *10:10* |
+| 3º | 10:10 | 11:05 |
+| 4º | 11:05 | 12:00 |
+
+**Vespertino** (nome contém "ves" ou "tar"):
+
+| Horário | Início | Fim |
+|---|---|---|
+| 1º | 13:30 | 14:20 |
+| 2º | 14:20 | 15:10 |
+| *Intervalo* | *15:10* | *15:40* |
+| 3º | 15:40 | 16:35 |
+| 4º | 16:35 | 17:30 |
+
+**Noturno** (nome contém "not" ou "notur"):
+
+| Horário | Início | Fim |
+|---|---|---|
+| 1º | 19:00 | 19:45 |
+| 2º | 19:45 | 20:30 |
+| *Intervalo* | *20:30* | *21:00* |
+| 3º | 21:00 | 21:45 |
+| 4º | 21:45 | 22:30 |
+
+- O intervalo não aparece como linha na grade (não é uma aula)
 - Slots personalizados (fora do template) são exibidos como linhas extras na grade
 - O usuário pode personalizar horário manualmente no modal (link "Personalizar")
 
