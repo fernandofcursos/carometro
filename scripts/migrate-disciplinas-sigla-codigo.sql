@@ -23,11 +23,10 @@ ALTER TABLE disciplinas
   ALTER COLUMN sigla           SET NOT NULL,
   ALTER COLUMN codigo_modulacao SET NOT NULL;
 
--- 4. Adicionar constraint UNIQUE na sigla
-ALTER TABLE disciplinas
-  ADD CONSTRAINT IF NOT EXISTS disciplinas_sigla_unique UNIQUE (sigla);
+-- 4. Criar índice UNIQUE na sigla (equivale a UNIQUE constraint, suportado em todas as versões)
+CREATE UNIQUE INDEX IF NOT EXISTS disciplinas_sigla_unique ON disciplinas (sigla);
 
--- 5. Criar índice de busca rápida por sigla
-CREATE INDEX IF NOT EXISTS idx_disciplinas_sigla ON disciplinas (sigla);
+-- 5. Criar índice de busca rápida por sigla (já coberto pelo UNIQUE acima, mas explícito)
+CREATE INDEX IF NOT EXISTS idx_disciplinas_sigla ON disciplinas (lower(sigla));
 
 COMMIT;
