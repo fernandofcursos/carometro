@@ -2,6 +2,31 @@
 -- Renomeia o conceito de "Disciplinas" para "Unidade Curricular" no banco (schema permanece "disciplinas")
 -- Executar: docker compose run --rm dev psql "$DATABASE_URL" -f scripts/migrate-disciplinas-sigla-codigo.sql
 
+-- ─── Função genérica reutilizável ────────────────────────────────────────────
+-- Adiciona uma constraint a uma tabela somente se ela ainda não existir.
+-- Uso: SELECT add_constraint_if_not_exists('tabela', 'nome_constraint', 'UNIQUE (coluna)');
+
+CREATE OR REPLACE FUNCTION add_constraint_if_not_exists(
+  t_name          text,
+  c_name          text,
+  constraint_sql  text
+) RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = c_name
+  ) THEN
+    EXECUTE 'ALTER TABLE ' || quote_ident(t_name)
+         || ' ADD CONSTRAINT ' || quote_ident(c_name)
+         || ' ' || constraint_sql;
+    RAISE NOTICE 'Constraint % adicionada à tabela %.', c_name, t_name;
+  ELSE
+    RAISE NOTICE 'Constraint % já existe em % — ignorada.', c_name, t_name;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ─── Migração ─────────────────────────────────────────────────────────────────
+
 DO $$
 BEGIN
 
@@ -36,22 +61,7 @@ BEGIN
   ALTER TABLE disciplinas ALTER COLUMN codigo_modulacao SET NOT NULL;
   RAISE NOTICE 'disciplinas: colunas sigla e codigo_modulacao definidas como NOT NULL.';
 
-  -- 5. Criar índice UNIQUE na sigla (se não existir)
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'disciplinas' AND indexname = 'disciplinas_sigla_unique'
-  ) THEN
-    CREATE UNIQUE INDEX disciplinas_sigla_unique ON disciplinas (sigla);
-    RAISE NOTICE 'disciplinas: índice UNIQUE disciplinas_sigla_unique criado.';
-  END IF;
-
-  -- 6. Criar índice de busca por sigla em lowercase (se não existir)
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'disciplinas' AND indexname = 'idx_disciplinas_sigla'
-  ) THEN
-    CREATE INDEX idx_disciplinas_sigla ON disciplinas (lower(sigla));
-    RAISE NOTICE 'disciplinas: índice idx_disciplinas_sigla criado.';
-  END IF;
-
 END $$;
+
+-- 5. Adicionar constraint UNIQUE na sigla (via função genérica)
+SELECT add_constraint_if_not_exists('disciplinas', 'disciplinas_sigla_unique', 'UNIQUE (sigla)');
