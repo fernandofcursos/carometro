@@ -491,43 +491,42 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       if (!o.cienteEm) { g.semCiencia++; g.ids.push(o.id); }
     }
 
-    // Agenda em lote para todos os estudantes
+    // Agenda em lote — usa turmaId diretamente para cobrir estudantes sem usuarioId
     let agendaDisponivel = false;
+    // chave: estudanteId → dia → aulas
     const agendaMap = new Map<string, Map<number, { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null }[]>>();
     try {
       const { horariosAulasTable } = await import("@workspace/db/schema") as any;
-      if (horariosAulasTable && estudanteUsuarioIds.length > 0) {
+      const turmaIds = vinculados.map((e) => e.turmaId);
+      if (horariosAulasTable && turmaIds.length > 0) {
         const aulas = await db
           .select({
-            usuarioId:      matriculasTable.usuarioId,
+            turmaId:        horariosAulasTable.turmaId,
             dia:            horariosAulasTable.diaSemana,
             horaInicio:     horariosAulasTable.horaInicio,
             horaFim:        horariosAulasTable.horaFim,
             disciplinaNome: disciplinasTable.nome,
             sala:           horariosAulasTable.sala,
           })
-          .from(matriculasTable)
-          .innerJoin(
-            horariosAulasTable,
-            and(
-              eq(horariosAulasTable.turmaId, matriculasTable.turmaId),
-              eq(horariosAulasTable.ano, anoAtual),
-              eq(horariosAulasTable.semestre, semestreAtual),
-            ),
-          )
+          .from(horariosAulasTable)
           .leftJoin(disciplinaOfertasTable, eq(disciplinaOfertasTable.id, horariosAulasTable.disciplinaOfertaId))
           .leftJoin(disciplinasTable, eq(disciplinasTable.id, disciplinaOfertasTable.disciplinaId))
           .where(and(
-            inArray(matriculasTable.usuarioId, estudanteUsuarioIds),
-            eq(matriculasTable.ativo, true),
-            isNull(matriculasTable.deletadoEm),
+            inArray(horariosAulasTable.turmaId, turmaIds),
+            eq(horariosAulasTable.ano, anoAtual),
+            eq(horariosAulasTable.semestre, semestreAtual),
           ));
+
+        // Mapeia turmaId → estudanteId (um estudante por turma neste contexto)
+        const turmaToEstudante = new Map<string, string>();
+        for (const v of vinculados) turmaToEstudante.set(v.turmaId, v.id);
 
         agendaDisponivel = true;
         for (const a of aulas) {
-          if (!a.usuarioId) continue;
-          if (!agendaMap.has(a.usuarioId)) agendaMap.set(a.usuarioId, new Map());
-          const byDia = agendaMap.get(a.usuarioId)!;
+          const estId = turmaToEstudante.get(a.turmaId);
+          if (!estId) continue;
+          if (!agendaMap.has(estId)) agendaMap.set(estId, new Map());
+          const byDia = agendaMap.get(estId)!;
           if (!byDia.has(a.dia)) byDia.set(a.dia, []);
           byDia.get(a.dia)!.push({
             horaInicio:     String(a.horaInicio).slice(0, 5),
@@ -574,7 +573,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     const estudantes = vinculados.map((e) => {
       const ocTipos = ocMap.get(e.id) ?? new Map();
       const resumo = Array.from(ocTipos.entries()).map(([tipoId, v]) => ({ tipoId, ...v }));
-      const byDia = agendaMap.get(e.usuarioId ?? "") ?? new Map();
+      const byDia = agendaMap.get(e.id) ?? new Map();
       const agenda = [1, 2, 3, 4, 5].map((d) => ({
         dia: d, diaNome: DIA_NOME[d],
         aulas: (byDia.get(d) ?? []).sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),

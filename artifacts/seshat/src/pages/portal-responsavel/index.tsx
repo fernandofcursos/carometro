@@ -469,12 +469,14 @@ export default function PortalResponsavelPage() {
   const { data: me, isLoading, isError } = useQuery<PortalMe>({
     queryKey: ["portal-responsavel-me"],
     queryFn:  () => fetchJson(`${BASE}/api/portal-responsavel/me`),
-    onSuccess: (data) => {
-      if (data.estudantes.length > 0 && !estudanteSelecionado) {
-        setEstudanteSelecionado(data.estudantes[0].id);
-      }
-    },
-  } as any);
+  });
+
+  // Inicializar seleção ao primeiro carregamento (compatível com React Query v5)
+  useEffect(() => {
+    if (me && me.estudantes.length > 0 && !estudanteSelecionado) {
+      setEstudanteSelecionado(me.estudantes[0].id);
+    }
+  }, [me]);
 
   if (isLoading) return <p className="p-8 text-muted-foreground">Carregando...</p>;
   if (isError || !me) return (
