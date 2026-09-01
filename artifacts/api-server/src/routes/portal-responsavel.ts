@@ -15,6 +15,8 @@ import {
   cartoesSaidaTable,
   atestadosMedicosTable,
   matriculasTable,
+  disciplinaOfertasTable,
+  disciplinasTable,
   eq, and, isNull, inArray,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
@@ -421,6 +423,177 @@ router.get("/atestados/:estudanteId/:id/download", async (req: Request, res: Res
     res.send(dadosBrutos);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao baixar atestado" });
+  }
+});
+
+// ── GET /api/portal-responsavel/dashboard ─────────────────────────────────────
+router.get("/dashboard", async (req: Request, res: Response) => {
+  try {
+    const usuarioId = req.usuarioId!;
+    const DIA_NOME = ["", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"];
+
+    const hoje = new Date();
+    const hojeStr = hoje.toISOString().substring(0, 10);
+    const diaJS = hoje.getDay();
+    const diaSemana = diaJS === 0 ? 7 : diaJS;
+    const anoAtual = hoje.getFullYear();
+    const semestreAtual: 1 | 2 = hoje.getMonth() < 6 ? 1 : 2;
+
+    // Estudantes vinculados
+    const vinculados = await db
+      .select({
+        id:             estudantesTable.id,
+        nome:           estudantesTable.nome,
+        fotoId:         estudantesTable.fotoId,
+        fotoStorageKey: estudantesTable.fotoStorageKey,
+        usuarioId:      estudantesTable.usuarioId,
+        turmaId:        estudantesTable.turmaId,
+        turmaSigla:     turmasTable.sigla,
+        cursoNome:      cursosTable.nome,
+      })
+      .from(responsaveisEstudantesTable)
+      .innerJoin(estudantesTable, eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId))
+      .innerJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+      .innerJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+      .where(and(
+        eq(responsaveisEstudantesTable.usuarioId, usuarioId),
+        isNull(estudantesTable.deletadoEm),
+      ));
+
+    if (vinculados.length === 0) {
+      return res.json({ hoje: hojeStr, diaSemana, estudantes: [], cardapioDisponivel: false, cardapio: [] });
+    }
+
+    const estudanteIds = vinculados.map((e) => e.id);
+    const estudanteUsuarioIds = vinculados.map((e) => e.usuarioId).filter(Boolean) as string[];
+
+    // Ocorrências em lote para todos os estudantes
+    const ocrsRaw = await db
+      .select({
+        estudanteId: ocorrenciasTable.estudanteId,
+        id:          ocorrenciasTable.id,
+        tipoId:      ocorrenciasTable.tipoOcorrenciaId,
+        tipoDesc:    tiposOcorrenciasTable.descricao,
+        cienteEm:    ocorrenciasTable.cienteEm,
+      })
+      .from(ocorrenciasTable)
+      .innerJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
+      .where(and(inArray(ocorrenciasTable.estudanteId, estudanteIds), isNull(ocorrenciasTable.deletadoEm)));
+
+    // Agrupar ocorrências por estudanteId
+    const ocMap = new Map<string, Map<string, { tipoDescricao: string; total: number; semCiencia: number; ids: string[] }>>();
+    for (const o of ocrsRaw) {
+      if (!ocMap.has(o.estudanteId)) ocMap.set(o.estudanteId, new Map());
+      const m = ocMap.get(o.estudanteId)!;
+      if (!m.has(o.tipoId)) m.set(o.tipoId, { tipoDescricao: o.tipoDesc ?? "", total: 0, semCiencia: 0, ids: [] });
+      const g = m.get(o.tipoId)!;
+      g.total++;
+      if (!o.cienteEm) { g.semCiencia++; g.ids.push(o.id); }
+    }
+
+    // Agenda em lote para todos os estudantes
+    let agendaDisponivel = false;
+    const agendaMap = new Map<string, Map<number, { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null }[]>>();
+    try {
+      const { horariosAulasTable } = await import("@workspace/db/schema") as any;
+      if (horariosAulasTable && estudanteUsuarioIds.length > 0) {
+        const aulas = await db
+          .select({
+            usuarioId:      matriculasTable.usuarioId,
+            dia:            horariosAulasTable.diaSemana,
+            horaInicio:     horariosAulasTable.horaInicio,
+            horaFim:        horariosAulasTable.horaFim,
+            disciplinaNome: disciplinasTable.nome,
+            sala:           horariosAulasTable.sala,
+          })
+          .from(matriculasTable)
+          .innerJoin(
+            horariosAulasTable,
+            and(
+              eq(horariosAulasTable.turmaId, matriculasTable.turmaId),
+              eq(horariosAulasTable.ano, anoAtual),
+              eq(horariosAulasTable.semestre, semestreAtual),
+            ),
+          )
+          .leftJoin(disciplinaOfertasTable, eq(disciplinaOfertasTable.id, horariosAulasTable.disciplinaOfertaId))
+          .leftJoin(disciplinasTable, eq(disciplinasTable.id, disciplinaOfertasTable.disciplinaId))
+          .where(and(
+            inArray(matriculasTable.usuarioId, estudanteUsuarioIds),
+            eq(matriculasTable.ativo, true),
+            isNull(matriculasTable.deletadoEm),
+          ));
+
+        agendaDisponivel = true;
+        for (const a of aulas) {
+          if (!a.usuarioId) continue;
+          if (!agendaMap.has(a.usuarioId)) agendaMap.set(a.usuarioId, new Map());
+          const byDia = agendaMap.get(a.usuarioId)!;
+          if (!byDia.has(a.dia)) byDia.set(a.dia, []);
+          byDia.get(a.dia)!.push({
+            horaInicio:     String(a.horaInicio).slice(0, 5),
+            horaFim:        String(a.horaFim).slice(0, 5),
+            disciplinaNome: a.disciplinaNome ?? "—",
+            sala:           a.sala,
+          });
+        }
+      }
+    } catch { /* horarios_aulas ainda não existe */ }
+
+    // Cardápio da semana (único — compartilhado por todos)
+    let cardapioDisponivel = false;
+    let cardapio: { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] }[] = [];
+    try {
+      const { cardapiosTable } = await import("@workspace/db/schema") as any;
+      if (cardapiosTable) {
+        const { gte, lte } = await import("@workspace/db") as any;
+        const seg = new Date(hoje);
+        seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+        const sex = new Date(seg); sex.setDate(seg.getDate() + 4);
+        const rows = await db
+          .select({ data: cardapiosTable.data, refeicao: cardapiosTable.refeicao, descricao: cardapiosTable.descricao })
+          .from(cardapiosTable)
+          .where(and(
+            gte(cardapiosTable.data, seg.toISOString().substring(0, 10)),
+            lte(cardapiosTable.data, sex.toISOString().substring(0, 10)),
+            eq(cardapiosTable.publicado, true),
+          ));
+        cardapioDisponivel = true;
+        const byDia = new Map<number, { data: string; itens: { refeicao: string; descricao: string }[] }>();
+        for (const c of rows) {
+          const d = new Date(c.data + "T12:00:00"); const dia = d.getDay() === 0 ? 7 : d.getDay();
+          if (!byDia.has(dia)) byDia.set(dia, { data: c.data, itens: [] });
+          byDia.get(dia)!.itens.push({ refeicao: c.refeicao, descricao: c.descricao });
+        }
+        cardapio = [1, 2, 3, 4, 5]
+          .filter((d) => byDia.has(d))
+          .map((d) => ({ dia: d, diaNome: DIA_NOME[d], ...byDia.get(d)! }));
+      }
+    } catch { /* cardapios ainda não existe */ }
+
+    // Montar resposta por estudante
+    const estudantes = vinculados.map((e) => {
+      const ocTipos = ocMap.get(e.id) ?? new Map();
+      const resumo = Array.from(ocTipos.entries()).map(([tipoId, v]) => ({ tipoId, ...v }));
+      const byDia = agendaMap.get(e.usuarioId ?? "") ?? new Map();
+      const agenda = [1, 2, 3, 4, 5].map((d) => ({
+        dia: d, diaNome: DIA_NOME[d],
+        aulas: (byDia.get(d) ?? []).sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
+      }));
+      return {
+        id:       e.id,
+        nome:     e.nome,
+        fotoUrl:  e.fotoId ? `/api/fotos/${e.fotoId}` : (e.fotoStorageKey ? `/api/estudantes/${e.id}/foto` : null),
+        turmaSigla:  e.turmaSigla ?? "",
+        cursoNome:   e.cursoNome ?? "",
+        agendaDisponivel,
+        agenda,
+        ocorrencias: { resumo, totalGeral: resumo.reduce((s, r) => s + r.total, 0) },
+      };
+    });
+
+    res.json({ hoje: hojeStr, diaSemana, estudantes, cardapioDisponivel, cardapio });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao carregar dashboard" });
   }
 });
 

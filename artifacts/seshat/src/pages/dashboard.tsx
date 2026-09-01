@@ -571,6 +571,202 @@ function CalendarioMesWidget({ hoje }: { hoje: string }) {
   );
 }
 
+// ─────────────────────────── DashboardResponsavel ────────────────────────────
+
+type EstudanteResumo = {
+  id: string; nome: string; fotoUrl: string | null;
+  turmaSigla: string; cursoNome: string;
+  agendaDisponivel: boolean;
+  agenda: DiaAgenda[];
+  ocorrencias: { resumo: OcorrenciaResumo[]; totalGeral: number };
+};
+
+type DashboardResponsavelData = {
+  hoje: string; diaSemana: number;
+  estudantes: EstudanteResumo[];
+  cardapioDisponivel: boolean;
+  cardapio: DiaCardapio[];
+};
+
+function EstudanteCard({
+  estudante, diaSemana, onDarCiencia,
+}: { estudante: EstudanteResumo; diaSemana: number; onDarCiencia: (ids: string[]) => void }) {
+  const totalSemCiencia = estudante.ocorrencias.resumo.reduce((s, r) => s + r.semCiencia, 0);
+  return (
+    <Card className="shadow-sm border-indigo-100">
+      {/* Cabeçalho do estudante */}
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-3">
+          {estudante.fotoUrl ? (
+            <img src={estudante.fotoUrl} className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-200" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+              <UserCircle className="w-6 h-6 text-indigo-400" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-800 truncate">{estudante.nome}</p>
+            <p className="text-xs text-slate-500 truncate">{estudante.turmaSigla} · {estudante.cursoNome}</p>
+          </div>
+          {totalSemCiencia > 0 && (
+            <Badge style={{ background: "#fee2e2", color: "#b91c1c", border: "none" }} className="text-xs shrink-0">
+              {totalSemCiencia} ocorrência{totalSemCiencia !== 1 ? "s" : ""} pendente{totalSemCiencia !== 1 ? "s" : ""}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Quadro de Horários */}
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <TableProperties className="w-3.5 h-3.5 text-indigo-400" /> Quadro de Horários
+            {!estudante.agendaDisponivel && <Badge variant="outline" className="text-xs ml-1">Em breve</Badge>}
+          </p>
+          <QuadroHorariosWidget agenda={estudante.agenda} agendaDisponivel={estudante.agendaDisponivel} diaSemana={diaSemana} />
+        </div>
+
+        {/* Ocorrências */}
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-400" /> Ocorrências
+          </p>
+          <OcorrenciasWidget
+            resumo={estudante.ocorrencias.resumo}
+            podeDarCiencia
+            onDarCiencia={onDarCiencia}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user"] }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [cienciaIds, setCienciaIds] = useState<string[] | null>(null);
+
+  const { data, isLoading, isError } = useQuery<DashboardResponsavelData>({
+    queryKey: ["portal-responsavel-dashboard"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/portal-responsavel/dashboard`, { credentials: "include" });
+      if (!res.ok) throw new Error("Erro ao carregar dashboard");
+      return res.json();
+    },
+  });
+
+  const cienciaMut = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`${BASE}/api/portal/ocorrencias/${id}/ciencia`, {
+        method: "POST", credentials: "include",
+      });
+      if (!res.ok) throw new Error("Erro ao registrar ciência");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["portal-responsavel-dashboard"] }),
+    onError: () => toast({ title: "Erro ao registrar ciência", variant: "destructive" }),
+  });
+
+  const darCienciaEmTodos = async (ids: string[]) => {
+    for (const id of ids) await cienciaMut.mutateAsync(id);
+    setCienciaIds(null);
+    toast({ title: "Ciência registrada com sucesso!" });
+  };
+
+  if (isLoading)
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-20 rounded-2xl bg-muted" />
+        {[1, 2].map((i) => <div key={i} className="h-64 rounded-2xl bg-muted" />)}
+      </div>
+    );
+
+  if (isError || !data)
+    return (
+      <div className="p-8 flex flex-col gap-2 items-center">
+        <AlertTriangle className="w-8 h-8 text-destructive" />
+        <p className="text-sm text-destructive">Não foi possível carregar o dashboard.</p>
+      </div>
+    );
+
+  const { hoje, diaSemana, estudantes, cardapio, cardapioDisponivel } = data;
+
+  return (
+    <div className="space-y-6">
+      {/* Saudação */}
+      <div className="flex items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-100 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+            <UserCircle className="w-6 h-6 text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">
+              {new Date().getHours() < 12 ? "Bom dia" : new Date().getHours() < 18 ? "Boa tarde" : "Boa noite"},
+            </p>
+            <p className="font-semibold text-slate-800 capitalize">{user?.nome ?? "Responsável"}</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 hidden sm:block capitalize">
+          {new Date(hoje + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+        </p>
+      </div>
+
+      {/* Sem dependentes vinculados */}
+      {estudantes.length === 0 && (
+        <Card className="shadow-sm">
+          <CardContent className="py-12 flex flex-col items-center gap-2 text-center">
+            <GraduationCap className="w-10 h-10 text-indigo-200" />
+            <p className="text-sm text-muted-foreground">Nenhum estudante vinculado à sua conta.</p>
+            <p className="text-xs text-muted-foreground">Entre em contato com a coordenação para registrar o vínculo.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card por estudante: quadro + ocorrências */}
+      {estudantes.map((est) => (
+        <EstudanteCard key={est.id} estudante={est} diaSemana={diaSemana} onDarCiencia={setCienciaIds} />
+      ))}
+
+      {/* Cardápio da semana — compartilhado */}
+      {estudantes.length > 0 && (
+        <Card className="shadow-sm border-amber-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <UtensilsCrossed className="w-4 h-4 text-amber-500" />
+              Cardápio da Semana
+              {!cardapioDisponivel && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardapioWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Calendário do mês */}
+      {estudantes.length > 0 && <CalendarioMesWidget hoje={hoje} />}
+
+      {/* Dialog de ciência */}
+      <Dialog open={cienciaIds !== null} onOpenChange={() => setCienciaIds(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dar ciência nas ocorrências</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Você está prestes a confirmar ciência em {cienciaIds?.length ?? 0} ocorrência{(cienciaIds?.length ?? 0) !== 1 ? "s" : ""}.
+          </p>
+          <div className="flex gap-2 justify-end mt-2">
+            <Button variant="outline" onClick={() => setCienciaIds(null)}>Cancelar</Button>
+            <Button onClick={() => cienciaIds && darCienciaEmTodos(cienciaIds)} disabled={cienciaMut.isPending}>
+              {cienciaMut.isPending ? "Registrando..." : "Confirmar ciência"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─────────────────────────── DashboardAdmin ──────────────────────────────────
 
 function DashboardAdmin() {
@@ -657,6 +853,7 @@ export default function Dashboard() {
   const isEstudante = roles.includes("estudante");
   const isPaiResponsavel = roles.includes("pai_responsavel");
 
-  if (isEstudante || isPaiResponsavel) return <DashboardEstudante user={user} />;
+  if (isEstudante) return <DashboardEstudante user={user} />;
+  if (isPaiResponsavel) return <DashboardResponsavel user={user} />;
   return <DashboardAdmin />;
 }
