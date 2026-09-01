@@ -132,6 +132,8 @@ ok "pai_responsavel → $ROLE_PAI_ID"
 step "3" "Criar usuário Filho (estudante)"
 
 TS=$(date +%s)
+# Registro único por execução (8 dígitos numéricos a partir do timestamp)
+REGISTRO="${TS: -8}"
 FILHO_EMAIL="filho.teste.${TS}@escola.dev"
 FILHO_NOME="Filho Teste $TS"
 
@@ -298,7 +300,7 @@ if [[ "$PULAR_ENTURMACAO" == "false" && -n "$TURMA_ID" ]]; then
 fi
 
 # ── 8. Enturmar Filho ──────────────────────────────────────────────────────────
-step "8" "Enturmando Filho (registro 55555 | 2026 | 2° semestre)"
+step "8" "Enturmando Filho (registro $REGISTRO | 2026 | 2° semestre)"
 
 MATRICULA_ID=""
 if [[ "$PULAR_ENTURMACAO" == "false" && -n "$TURMA_ID" ]]; then
@@ -308,12 +310,14 @@ if [[ "$PULAR_ENTURMACAO" == "false" && -n "$TURMA_ID" ]]; then
       --arg uid "$FILHO_USUARIO_ID" \
       --arg tid "$TURMA_ID" \
       --arg tnid "$TURNO_ID" \
-      '{usuarioId:$uid, turmaId:$tid, turnoId:$tnid, registro:"55555", ano:2026, semestre:2}')
+      --arg reg "$REGISTRO" \
+    '{usuarioId:$uid, turmaId:$tid, turnoId:$tnid, registro:$reg, ano:2026, semestre:2}')
   else
     ENT_PAYLOAD=$(jq -n \
       --arg uid "$FILHO_USUARIO_ID" \
       --arg tid "$TURMA_ID" \
-      '{usuarioId:$uid, turmaId:$tid, registro:"55555", ano:2026, semestre:2}')
+      --arg reg "$REGISTRO" \
+    '{usuarioId:$uid, turmaId:$tid, registro:$reg, ano:2026, semestre:2}')
   fi
 
   ENTURMACAO=$(api POST /api/matriculas -d "$ENT_PAYLOAD")
@@ -392,7 +396,7 @@ echo -e "  Código de acesso         : $PAI_CODIGO"
 echo -e "  Senha temporária         : $PAI_SENHA"
 echo
 echo -e "  Turma                    : ${TURMA_SIGLA:-${TURMA_ID:-não informada}}"
-echo -e "  Registro / Ano / Semestre: 55555 / 2026 / 2°"
+echo -e "  Registro / Ano / Semestre: $REGISTRO / 2026 / 2°"
 echo -e "${BOLD}========================================${RESET}"
 
 if [[ "$ERROS" -eq 0 ]]; then
