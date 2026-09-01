@@ -12,7 +12,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -588,55 +588,105 @@ type DashboardResponsavelData = {
   cardapio: DiaCardapio[];
 };
 
+// Paleta de cores por índice de estudante (para diferenciar cartões)
+const STUDENT_GRADIENTS = [
+  "from-indigo-500 to-violet-600",
+  "from-teal-500 to-cyan-600",
+  "from-rose-500 to-pink-600",
+  "from-amber-500 to-orange-600",
+  "from-emerald-500 to-green-600",
+];
+
 function EstudanteCard({
-  estudante, diaSemana, onDarCiencia,
-}: { estudante: EstudanteResumo; diaSemana: number; onDarCiencia: (ids: string[]) => void }) {
+  estudante, diaSemana, onDarCiencia, gradientClass,
+}: {
+  estudante: EstudanteResumo;
+  diaSemana: number;
+  onDarCiencia: (ids: string[]) => void;
+  gradientClass: string;
+}) {
+  const [aba, setAba] = useState<"horarios" | "ocorrencias">("horarios");
   const totalSemCiencia = estudante.ocorrencias.resumo.reduce((s, r) => s + r.semCiencia, 0);
+
   return (
-    <Card className="shadow-sm border-indigo-100">
-      {/* Cabeçalho do estudante */}
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-3">
-          {estudante.fotoUrl ? (
-            <img src={estudante.fotoUrl} className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-200" />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-              <UserCircle className="w-6 h-6 text-indigo-400" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-slate-800 truncate">{estudante.nome}</p>
-            <p className="text-xs text-slate-500 truncate">{estudante.turmaSigla} · {estudante.cursoNome}</p>
+    <Card className="shadow-md border-0 overflow-hidden">
+      {/* Cabeçalho com gradiente */}
+      <div className={cn("bg-gradient-to-r px-4 py-4 flex items-center gap-3", gradientClass)}>
+        {estudante.fotoUrl ? (
+          <img
+            src={estudante.fotoUrl}
+            className="w-12 h-12 rounded-full object-cover ring-2 ring-white/40 shrink-0"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <UserCircle className="w-7 h-7 text-white/80" />
           </div>
-          {totalSemCiencia > 0 && (
-            <Badge style={{ background: "#fee2e2", color: "#b91c1c", border: "none" }} className="text-xs shrink-0">
-              {totalSemCiencia} ocorrência{totalSemCiencia !== 1 ? "s" : ""} pendente{totalSemCiencia !== 1 ? "s" : ""}
-            </Badge>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-white text-base leading-tight truncate">{estudante.nome}</p>
+          <p className="text-xs text-white/70 truncate mt-0.5">
+            {estudante.turmaSigla && estudante.cursoNome
+              ? `${estudante.turmaSigla} · ${estudante.cursoNome}`
+              : estudante.turmaSigla || estudante.cursoNome || "Não enturmado"}
+          </p>
+        </div>
+        {totalSemCiencia > 0 && (
+          <div className="shrink-0 bg-white/20 text-white rounded-full px-2.5 py-1 text-xs font-semibold flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            {totalSemCiencia}
+          </div>
+        )}
+      </div>
+
+      {/* Abas internas */}
+      <div className="flex border-b bg-muted/30">
+        <button
+          onClick={() => setAba("horarios")}
+          className={cn(
+            "flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border-b-2",
+            aba === "horarios"
+              ? "border-indigo-500 text-indigo-700 bg-white"
+              : "border-transparent text-muted-foreground hover:text-slate-700",
           )}
-        </div>
-      </CardHeader>
+        >
+          <TableProperties className="w-3.5 h-3.5" /> Horários
+          {!estudante.agendaDisponivel && (
+            <span className="text-[10px] bg-muted rounded-full px-1.5 py-0.5 text-muted-foreground ml-0.5">Em breve</span>
+          )}
+        </button>
+        <button
+          onClick={() => setAba("ocorrencias")}
+          className={cn(
+            "flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border-b-2",
+            aba === "ocorrencias"
+              ? "border-red-400 text-red-700 bg-white"
+              : "border-transparent text-muted-foreground hover:text-slate-700",
+          )}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" /> Ocorrências
+          {totalSemCiencia > 0 && (
+            <span className="bg-red-100 text-red-700 rounded-full px-1.5 py-0.5 text-[10px] font-bold ml-0.5">
+              {totalSemCiencia}
+            </span>
+          )}
+        </button>
+      </div>
 
-      <CardContent className="space-y-4">
-        {/* Quadro de Horários */}
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <TableProperties className="w-3.5 h-3.5 text-indigo-400" /> Quadro de Horários
-            {!estudante.agendaDisponivel && <Badge variant="outline" className="text-xs ml-1">Em breve</Badge>}
-          </p>
-          <QuadroHorariosWidget agenda={estudante.agenda} agendaDisponivel={estudante.agendaDisponivel} diaSemana={diaSemana} />
-        </div>
-
-        {/* Ocorrências */}
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-400" /> Ocorrências
-          </p>
+      <CardContent className="pt-4 pb-4">
+        {aba === "horarios" && (
+          <QuadroHorariosWidget
+            agenda={estudante.agenda}
+            agendaDisponivel={estudante.agendaDisponivel}
+            diaSemana={diaSemana}
+          />
+        )}
+        {aba === "ocorrencias" && (
           <OcorrenciasWidget
             resumo={estudante.ocorrencias.resumo}
             podeDarCiencia
             onDarCiencia={onDarCiencia}
           />
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -646,6 +696,7 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
   const { toast } = useToast();
   const qc = useQueryClient();
   const [cienciaIds, setCienciaIds] = useState<string[] | null>(null);
+  const [estudanteSelecionadoId, setEstudanteSelecionadoId] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery<DashboardResponsavelData>({
     queryKey: ["portal-responsavel-dashboard"],
@@ -655,6 +706,12 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (data?.estudantes?.[0]?.id && !estudanteSelecionadoId) {
+      setEstudanteSelecionadoId(data.estudantes[0].id);
+    }
+  }, [data]);
 
   const cienciaMut = useMutation({
     mutationFn: async (id: string) => {
@@ -677,7 +734,10 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
     return (
       <div className="space-y-4 animate-pulse">
         <div className="h-20 rounded-2xl bg-muted" />
-        {[1, 2].map((i) => <div key={i} className="h-64 rounded-2xl bg-muted" />)}
+        <div className="flex gap-2">
+          {[1, 2, 3].map((i) => <div key={i} className="h-9 flex-1 rounded-full bg-muted" />)}
+        </div>
+        <div className="h-72 rounded-2xl bg-muted" />
       </div>
     );
 
@@ -691,8 +751,11 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
 
   const { hoje, diaSemana, estudantes, cardapio, cardapioDisponivel } = data;
 
+  const estAtual = estudantes.find((e) => e.id === estudanteSelecionadoId) ?? estudantes[0] ?? null;
+  const estIndex = estudantes.findIndex((e) => e.id === estAtual?.id);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Saudação */}
       <div className="flex items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-100 p-4">
         <div className="flex items-center gap-3">
@@ -700,32 +763,83 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
             <UserCircle className="w-6 h-6 text-indigo-400" />
           </div>
           <div>
-            <p className="text-xs text-slate-500">
-              {new Date().getHours() < 12 ? "Bom dia" : new Date().getHours() < 18 ? "Boa tarde" : "Boa noite"},
-            </p>
+            <p className="text-xs text-slate-500">{saudacao()},</p>
             <p className="font-semibold text-slate-800 capitalize">{user?.nome ?? "Responsável"}</p>
           </div>
         </div>
-        <p className="text-xs text-slate-500 hidden sm:block capitalize">
-          {new Date(hoje + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
-        </p>
+        <div className="hidden sm:block text-right">
+          <p className="text-xs text-slate-500 capitalize">{formatarHoje(hoje)}</p>
+          {estudantes.length > 0 && (
+            <p className="text-xs text-indigo-500 font-medium mt-0.5">
+              {estudantes.length} filho{estudantes.length !== 1 ? "s" : ""} vinculado{estudantes.length !== 1 ? "s" : ""}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Sem dependentes vinculados */}
       {estudantes.length === 0 && (
         <Card className="shadow-sm">
-          <CardContent className="py-12 flex flex-col items-center gap-2 text-center">
-            <GraduationCap className="w-10 h-10 text-indigo-200" />
-            <p className="text-sm text-muted-foreground">Nenhum estudante vinculado à sua conta.</p>
-            <p className="text-xs text-muted-foreground">Entre em contato com a coordenação para registrar o vínculo.</p>
+          <CardContent className="py-14 flex flex-col items-center gap-3 text-center">
+            <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center">
+              <GraduationCap className="w-8 h-8 text-indigo-300" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-700">Nenhum estudante vinculado</p>
+              <p className="text-xs text-muted-foreground mt-1">Entre em contato com a coordenação para registrar o vínculo.</p>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Card por estudante: quadro + ocorrências */}
-      {estudantes.map((est) => (
-        <EstudanteCard key={est.id} estudante={est} diaSemana={diaSemana} onDarCiencia={setCienciaIds} />
-      ))}
+      {/* Seletor de estudante (pill nav) — visível só se houver mais de um */}
+      {estudantes.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {estudantes.map((e, idx) => {
+            const pendentes = e.ocorrencias.resumo.reduce((s, r) => s + r.semCiencia, 0);
+            const isAtivo = e.id === estAtual?.id;
+            const grad = STUDENT_GRADIENTS[idx % STUDENT_GRADIENTS.length];
+            return (
+              <button
+                key={e.id}
+                onClick={() => setEstudanteSelecionadoId(e.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all shadow-sm border",
+                  isAtivo
+                    ? `bg-gradient-to-r ${grad} text-white border-transparent shadow-md`
+                    : "bg-white text-slate-600 border-border hover:bg-muted",
+                )}
+              >
+                {e.fotoUrl ? (
+                  <img src={e.fotoUrl} className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <UserCircle className={cn("w-4 h-4", isAtivo ? "text-white/70" : "text-slate-400")} />
+                )}
+                <span className="truncate max-w-[120px]">{e.nome.split(" ")[0]}</span>
+                {pendentes > 0 && (
+                  <span className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
+                    isAtivo ? "bg-white/25 text-white" : "bg-red-100 text-red-600",
+                  )}>
+                    {pendentes}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cartão do estudante selecionado */}
+      {estAtual && (
+        <EstudanteCard
+          key={estAtual.id}
+          estudante={estAtual}
+          diaSemana={diaSemana}
+          onDarCiencia={setCienciaIds}
+          gradientClass={STUDENT_GRADIENTS[estIndex % STUDENT_GRADIENTS.length]}
+        />
+      )}
 
       {/* Cardápio da semana — compartilhado */}
       {estudantes.length > 0 && (
