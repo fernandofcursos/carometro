@@ -134,6 +134,55 @@ atualizado_em    timestamptz
 - Hash de integridade SHA-256 armazenado para verificação
 - Apenas o responsável e coordenadores podem acessar os atestados do estudante vinculado
 
+## Estrutura da Página — `PortalResponsavelPage`
+
+A página `/portal-responsavel` (menu "Meus Filhos") exibe **todos os estudantes vinculados simultaneamente** em um Accordion, sem dropdown de seleção.
+
+```
+Cabeçalho: foto + nome do responsável + contagem de filhos
+
+[▼ Frodo — TRC-I-2026 · Técnico em Redes de Computadores]
+  Tabs: Dados | Ocorrências | Cartão de Saída | Atestados
+
+[▶ Sam — TDS-I-2026 · Técnico em Desenvolvimento de Sistemas]
+  Tabs: ...
+
+[▶ Merry — (não enturmado)]
+  Tabs: ...
+```
+
+- Accordion `type="multiple"` — vários itens abertos ao mesmo tempo
+- Primeiro filho aberto por padrão ao carregar
+- Estudantes não enturmados (`turmaId = null`) aparecem normalmente (API usa LEFT JOIN)
+
+## Armadilhas — API `GET /me` e `GET /dashboard`
+
+### LEFT JOIN obrigatório em turmasTable e cursosTable
+
+Estudantes vinculados mas ainda não enturmados têm `estudantesTable.turmaId = null`. Usar `INNER JOIN` os exclui silenciosamente da resposta.
+
+```typescript
+// CORRETO
+.leftJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+.leftJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+
+// ERRADO — exclui estudantes sem turma
+.innerJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+.innerJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+```
+
+### Endpoint de ciência no DashboardResponsavel
+
+O `DashboardResponsavel` (em `dashboard.tsx`) deve chamar a rota do **portal do responsável**, não a do portal estudante:
+
+```typescript
+// CORRETO
+fetch(`${BASE}/api/portal-responsavel/ocorrencias/${id}/ciencia`, ...)
+
+// ERRADO — rota do portal estudante, não aceita token de pai_responsavel
+fetch(`${BASE}/api/portal/ocorrencias/${id}/ciencia`, ...)
+```
+
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |

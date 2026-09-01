@@ -107,9 +107,9 @@ router.get("/me", async (req: Request, res: Response) => {
         moduloMenor:    cursosTable.moduloMenor,
       })
       .from(estudantesTable)
-      .innerJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
-      .innerJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
-      .where(inArray(estudantesTable.id, estIds));
+      .leftJoin(turmasTable, eq(estudantesTable.turmaId, turmasTable.id))
+      .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
+      .where(and(inArray(estudantesTable.id, estIds), isNull(estudantesTable.deletadoEm)));
 
     // Turnos para cada turma
     const turmaIds = [...new Set(estudantes.map((e) => e.turmaId))];
@@ -453,8 +453,8 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       })
       .from(responsaveisEstudantesTable)
       .innerJoin(estudantesTable, eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId))
-      .innerJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
-      .innerJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+      .leftJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+      .leftJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
       .where(and(
         eq(responsaveisEstudantesTable.usuarioId, usuarioId),
         isNull(estudantesTable.deletadoEm),

@@ -73,13 +73,46 @@ reader.readAsDataURL(arquivo);
 ## Estrutura da Página
 
 ```
-PortalResponsavelPage
-├── Seletor de estudante (se múltiplos vínculos) — Select com foto+nome
-└── Tabs por estudante:
-    ├── DadosEstudanteTab — matrícula + carteira de estudante com QR
-    ├── OcorrenciasTab — lista + dar ciência (sem restrição de idade)
-    ├── CartaoSaidaTab — form de solicitação + lista com QR se aprovado
-    └── AtestadosTab — upload + lista + download
+PortalResponsavelPage  (/portal-responsavel — "Meus Filhos")
+├── Cabeçalho: foto + nome do responsável + contagem de filhos
+└── Accordion (type="multiple") — todos os filhos visíveis simultaneamente:
+    └── [AccordionItem por estudante]
+        ├── Header: foto + nome + turma + curso
+        └── Tabs:
+            ├── DadosEstudanteTab — matrícula + carteira de estudante com QR
+            ├── OcorrenciasTab — lista + dar ciência (sem restrição de idade)
+            ├── CartaoSaidaTab — form de solicitação + lista com QR se aprovado
+            └── AtestadosTab — upload + lista + download
+```
+
+- **Não há Select de seleção** — todos os filhos aparecem ao mesmo tempo
+- Primeiro filho aberto por padrão (`openItems = [estudantes[0].id]`)
+- Estudantes não enturmados (`turmaId = null`) aparecem com "Não enturmado"
+
+## Armadilhas
+
+### LEFT JOIN obrigatório em GET /me e GET /dashboard
+
+Estudantes vinculados sem enturmação têm `estudantesTable.turmaId = null`. INNER JOIN os exclui:
+
+```typescript
+// CORRETO
+.leftJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+.leftJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+// + isNull(estudantesTable.deletadoEm) no where
+
+// ERRADO — estudantes sem turma somem da lista
+.innerJoin(turmasTable, ...).innerJoin(cursosTable, ...)
+```
+
+### Endpoint de ciência no DashboardResponsavel (dashboard.tsx)
+
+```typescript
+// CORRETO — rota do portal responsável
+fetch(`${BASE}/api/portal-responsavel/ocorrencias/${id}/ciencia`, ...)
+
+// ERRADO — rota do portal estudante
+fetch(`${BASE}/api/portal/ocorrencias/${id}/ciencia`, ...)
 ```
 
 ## Queries Principais

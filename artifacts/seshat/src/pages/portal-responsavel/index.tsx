@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 import QRCode from "qrcode";
+import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,13 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   AlertDialog, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   UserCircle, GraduationCap, AlertTriangle, CheckCircle2, CreditCard,
-  LogOut, FileText, Upload, Download, Plus, X,
+  LogOut, FileText, Upload, Download, Plus, X, Users,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -25,9 +27,9 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type EstudanteInfo = {
-  id: string; nome: string; registro: string; fotoUrl: string | null;
-  turmaId: string; turmaSigla: string; turmaDescricao: string;
-  cursoNome: string; moduloMenor: boolean;
+  id: string; nome: string | null; registro: string | null; fotoUrl: string | null;
+  turmaId: string | null; turmaSigla: string | null; turmaDescricao: string | null;
+  cursoNome: string | null; moduloMenor: boolean | null;
   turnos: { id: string; nome: string }[];
 };
 
@@ -88,10 +90,10 @@ function fmtBytes(b: number) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pendente: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    aprovado: "bg-green-100 text-green-800 border-green-200",
-    recusado: "bg-red-100 text-red-700 border-red-200",
-    ativa:    "bg-green-100 text-green-800 border-green-200",
+    pendente:  "bg-yellow-100 text-yellow-800 border-yellow-200",
+    aprovado:  "bg-green-100 text-green-800 border-green-200",
+    recusado:  "bg-red-100 text-red-700 border-red-200",
+    ativa:     "bg-green-100 text-green-800 border-green-200",
     cancelada: "bg-gray-200 text-gray-700",
     revogada:  "bg-red-100 text-red-700",
   };
@@ -109,7 +111,7 @@ function QrCodeCanvas({ value, size = 130 }: { value: string; size?: number }) {
   return <canvas ref={canvasRef} className="rounded" />;
 }
 
-// ── Aba: Estudante (dados + carteira) ────────────────────────────────────────
+// ── Aba: Dados + Carteira ─────────────────────────────────────────────────────
 
 function DadosEstudanteTab({ est }: { est: EstudanteInfo }) {
   const { data: carteiras = [] } = useQuery<CarteiraDB[]>({
@@ -121,17 +123,15 @@ function DadosEstudanteTab({ est }: { est: EstudanteInfo }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Dados da enturmação */}
       <Card>
         <CardContent className="p-4 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-          <div><span className="text-muted-foreground text-xs">Registro:</span> {est.registro}</div>
-          <div><span className="text-muted-foreground text-xs">Turma:</span> {est.turmaSigla}</div>
-          <div><span className="text-muted-foreground text-xs">Curso:</span> {est.cursoNome}</div>
+          <div><span className="text-muted-foreground text-xs">Registro:</span> {est.registro ?? "—"}</div>
+          <div><span className="text-muted-foreground text-xs">Turma:</span> {est.turmaSigla ?? "Não enturmado"}</div>
+          <div><span className="text-muted-foreground text-xs">Curso:</span> {est.cursoNome ?? "—"}</div>
           <div><span className="text-muted-foreground text-xs">Turno(s):</span> {est.turnos.map((t) => t.nome).join(", ") || "—"}</div>
         </CardContent>
       </Card>
 
-      {/* Carteira de estudante do filho */}
       <div>
         <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
           <CreditCard className="w-4 h-4" /> Carteira de Estudante
@@ -281,7 +281,7 @@ function CartaoSaidaTab({ estudanteId }: { estudanteId: string }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Solicite autorização para saída antecipada do seu filho. O coordenador irá aprovar ou recusar a solicitação.
+          Solicite autorização para saída antecipada. O coordenador irá aprovar ou recusar.
         </p>
         <Button size="sm" onClick={() => setShowForm((v) => !v)} className="gap-1 flex-shrink-0">
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -328,7 +328,6 @@ function CartaoSaidaTab({ estudanteId }: { estudanteId: string }) {
                 </div>
                 <StatusBadge status={c.status} />
               </div>
-              {/* QR code só para cartões aprovados */}
               {c.status === "aprovado" && c.token && (
                 <div className="flex flex-col items-center gap-1 border-t pt-2 mt-1">
                   <p className="text-xs text-muted-foreground">Apresente o QR code na portaria</p>
@@ -395,8 +394,7 @@ function AtestadosTab({ estudanteId }: { estudanteId: string }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Envie atestados médicos para justificar ausências. Arquivos aceitos: PDF, JPG, PNG (máx. 10 MB).
-          Dados armazenados de forma criptografada (LGPD art. 11).
+          Envie atestados para justificar ausências. PDF, JPG ou PNG (máx. 10 MB). Armazenamento criptografado.
         </p>
         <Button size="sm" onClick={() => setShowForm((v) => !v)} className="gap-1 flex-shrink-0">
           {showForm ? <X className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
@@ -445,7 +443,7 @@ function AtestadosTab({ estudanteId }: { estudanteId: string }) {
                 <p className="text-xs text-muted-foreground">Enviado em {fmt(a.criadoEm)}</p>
               </div>
               <a
-                href={`${BASE}/api/portal-responsavel/atestados/${a.estudanteId ?? estudanteId}/${a.id}/download`}
+                href={`${BASE}/api/portal-responsavel/atestados/${estudanteId}/${a.id}/download`}
                 download={a.nomeArquivo}
                 className="flex-shrink-0"
               >
@@ -461,20 +459,46 @@ function AtestadosTab({ estudanteId }: { estudanteId: string }) {
   );
 }
 
+// ── Card do estudante no accordion ───────────────────────────────────────────
+
+function EstudanteAccordionHeader({ est }: { est: EstudanteInfo }) {
+  return (
+    <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+      {est.fotoUrl ? (
+        <img
+          src={est.fotoUrl}
+          alt="Foto"
+          className="w-9 h-9 rounded-full object-cover border-2 border-primary/20 flex-shrink-0"
+        />
+      ) : (
+        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+          <GraduationCap className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+      <div className="min-w-0 text-left">
+        <p className="font-semibold text-sm truncate">{est.nome ?? "Estudante"}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {est.turmaSigla ? `${est.turmaSigla} · ` : ""}{est.cursoNome ?? "Não enturmado"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
 
 export default function PortalResponsavelPage() {
-  const [estudanteSelecionado, setEstudanteSelecionado] = useState<string | null>(null);
+  const [openItems, setOpenItems] = useState<string[]>([]);
 
   const { data: me, isLoading, isError } = useQuery<PortalMe>({
     queryKey: ["portal-responsavel-me"],
     queryFn:  () => fetchJson(`${BASE}/api/portal-responsavel/me`),
   });
 
-  // Inicializar seleção ao primeiro carregamento (compatível com React Query v5)
+  // Abrir o primeiro filho automaticamente ao carregar
   useEffect(() => {
-    if (me && me.estudantes.length > 0 && !estudanteSelecionado) {
-      setEstudanteSelecionado(me.estudantes[0].id);
+    if (me && me.estudantes.length > 0 && openItems.length === 0) {
+      setOpenItems([me.estudantes[0].id]);
     }
   }, [me]);
 
@@ -487,7 +511,6 @@ export default function PortalResponsavelPage() {
   );
 
   const { usuario, estudantes } = me;
-  const estAtual = estudantes.find((e) => e.id === estudanteSelecionado) ?? estudantes[0] ?? null;
 
   return (
     <div className="p-6 max-w-3xl mx-auto flex flex-col gap-6">
@@ -502,7 +525,12 @@ export default function PortalResponsavelPage() {
         )}
         <div>
           <h1 className="text-xl font-bold">{usuario.nome ?? "Responsável"}</h1>
-          <p className="text-sm text-muted-foreground">Portal do Responsável</p>
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" />
+            {estudantes.length === 0
+              ? "Nenhum estudante vinculado"
+              : `${estudantes.length} estudante${estudantes.length !== 1 ? "s" : ""} vinculado${estudantes.length !== 1 ? "s" : ""}`}
+          </p>
         </div>
       </div>
 
@@ -519,70 +547,58 @@ export default function PortalResponsavelPage() {
         </Card>
       )}
 
-      {/* Seletor de filho (se houver mais de um) */}
-      {estudantes.length > 1 && (
-        <div>
-          <Label className="text-xs text-muted-foreground mb-1 block">Selecionar estudante</Label>
-          <Select value={estudanteSelecionado ?? ""} onValueChange={setEstudanteSelecionado}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o estudante" />
-            </SelectTrigger>
-            <SelectContent>
-              {estudantes.map((e) => (
-                <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Accordion com todos os filhos */}
+      {estudantes.length > 0 && (
+        <Accordion
+          type="multiple"
+          value={openItems}
+          onValueChange={setOpenItems}
+          className="flex flex-col gap-3"
+        >
+          {estudantes.map((est) => (
+            <AccordionItem
+              key={est.id}
+              value={est.id}
+              className="border rounded-lg overflow-hidden bg-card shadow-sm"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/40 transition-colors">
+                <EstudanteAccordionHeader est={est} />
+              </AccordionTrigger>
 
-      {/* Conteúdo do estudante selecionado */}
-      {estAtual && (
-        <>
-          <div className="flex items-center gap-3">
-            {estAtual.fotoUrl ? (
-              <img src={estAtual.fotoUrl} alt="Foto" className="w-10 h-10 rounded-full object-cover border" />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-muted-foreground" />
-              </div>
-            )}
-            <div>
-              <p className="font-semibold text-sm">{estAtual.nome}</p>
-              <p className="text-xs text-muted-foreground">{estAtual.cursoNome} · Turma {estAtual.turmaSigla}</p>
-            </div>
-          </div>
+              <AccordionContent className="px-4 pb-4 pt-2">
+                <Tabs defaultValue="dados">
+                  <TabsList className="w-full mb-4">
+                    <TabsTrigger value="dados" className="flex-1 gap-1 text-xs">
+                      <GraduationCap className="w-3.5 h-3.5" /> Dados
+                    </TabsTrigger>
+                    <TabsTrigger value="ocorrencias" className="flex-1 gap-1 text-xs">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Ocorrências
+                    </TabsTrigger>
+                    <TabsTrigger value="cartao-saida" className="flex-1 gap-1 text-xs">
+                      <LogOut className="w-3.5 h-3.5" /> Cartão de Saída
+                    </TabsTrigger>
+                    <TabsTrigger value="atestados" className="flex-1 gap-1 text-xs">
+                      <FileText className="w-3.5 h-3.5" /> Atestados
+                    </TabsTrigger>
+                  </TabsList>
 
-          <Tabs defaultValue="dados">
-            <TabsList className="w-full">
-              <TabsTrigger value="dados" className="flex-1 gap-1 text-xs">
-                <GraduationCap className="w-3.5 h-3.5" /> Dados
-              </TabsTrigger>
-              <TabsTrigger value="ocorrencias" className="flex-1 gap-1 text-xs">
-                <AlertTriangle className="w-3.5 h-3.5" /> Ocorrências
-              </TabsTrigger>
-              <TabsTrigger value="cartao-saida" className="flex-1 gap-1 text-xs">
-                <LogOut className="w-3.5 h-3.5" /> Cartão de Saída
-              </TabsTrigger>
-              <TabsTrigger value="atestados" className="flex-1 gap-1 text-xs">
-                <FileText className="w-3.5 h-3.5" /> Atestados
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="dados" className="mt-4">
-              <DadosEstudanteTab est={estAtual} />
-            </TabsContent>
-            <TabsContent value="ocorrencias" className="mt-4">
-              <OcorrenciasTab estudanteId={estAtual.id} />
-            </TabsContent>
-            <TabsContent value="cartao-saida" className="mt-4">
-              <CartaoSaidaTab estudanteId={estAtual.id} />
-            </TabsContent>
-            <TabsContent value="atestados" className="mt-4">
-              <AtestadosTab estudanteId={estAtual.id} />
-            </TabsContent>
-          </Tabs>
-        </>
+                  <TabsContent value="dados">
+                    <DadosEstudanteTab est={est} />
+                  </TabsContent>
+                  <TabsContent value="ocorrencias">
+                    <OcorrenciasTab estudanteId={est.id} />
+                  </TabsContent>
+                  <TabsContent value="cartao-saida">
+                    <CartaoSaidaTab estudanteId={est.id} />
+                  </TabsContent>
+                  <TabsContent value="atestados">
+                    <AtestadosTab estudanteId={est.id} />
+                  </TabsContent>
+                </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
       )}
     </div>
   );

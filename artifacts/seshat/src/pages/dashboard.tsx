@@ -658,7 +658,7 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
 
   const cienciaMut = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`${BASE}/api/portal/ocorrencias/${id}/ciencia`, {
+      const res = await fetch(`${BASE}/api/portal-responsavel/ocorrencias/${id}/ciencia`, {
         method: "POST", credentials: "include",
       });
       if (!res.ok) throw new Error("Erro ao registrar ciência");
