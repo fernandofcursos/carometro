@@ -344,7 +344,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
 
     // Agenda — tabela horarios_aulas (pode não existir ainda)
     const DIA_NOME = ["", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"];
-    let agenda: { dia: number; diaNome: string; aulas: { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null }[] }[] = [];
+    let agenda: { dia: number; diaNome: string; aulas: { horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null }[] }[] = [];
     let agendaDisponivel = false;
     try {
       const { horariosAulasTable } = await import("@workspace/db/schema") as any;
@@ -353,11 +353,12 @@ router.get("/dashboard", async (req: Request, res: Response) => {
         const semestreAtual: 1 | 2 = hoje.getMonth() < 6 ? 1 : 2;
         const aulas = await db
           .select({
-            dia:            horariosAulasTable.diaSemana,
-            horaInicio:     horariosAulasTable.horaInicio,
-            horaFim:        horariosAulasTable.horaFim,
-            disciplinaNome: disciplinasTable.nome,
-            sala:           horariosAulasTable.sala,
+            dia:             horariosAulasTable.diaSemana,
+            horaInicio:      horariosAulasTable.horaInicio,
+            horaFim:         horariosAulasTable.horaFim,
+            disciplinaNome:  disciplinasTable.nome,
+            disciplinaSigla: disciplinasTable.sigla,
+            sala:            horariosAulasTable.sala,
           })
           .from(matriculasTable)
           .innerJoin(
@@ -380,7 +381,13 @@ router.get("/dashboard", async (req: Request, res: Response) => {
         }
         agenda = [1, 2, 3, 4, 5].map((d) => ({
           dia: d, diaNome: DIA_NOME[d],
-          aulas: (byDia.get(d) ?? []).sort((a, b) => String(a.horaInicio).localeCompare(String(b.horaInicio))),
+          aulas: (byDia.get(d) ?? []).sort((a, b) => String(a.horaInicio).localeCompare(String(b.horaInicio))).map((a) => ({
+            ...a,
+            horaInicio:      String(a.horaInicio).slice(0, 5),
+            horaFim:         String(a.horaFim).slice(0, 5),
+            disciplinaNome:  a.disciplinaNome  ?? "—",
+            disciplinaSigla: a.disciplinaSigla ?? a.disciplinaNome?.slice(0, 6) ?? "—",
+          })),
         }));
       }
     } catch { /* tabela ainda não existe — retorna vazio */ }

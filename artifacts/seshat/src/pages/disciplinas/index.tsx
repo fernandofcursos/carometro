@@ -7,10 +7,11 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, Plus, Trash2, Edit2, Check, X, Grid3X3 } from "lucide-react";
+import { BookOpen, Plus, Trash2, Edit2, Grid3X3 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -21,9 +22,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type DisciplinaOferta = { id: string; disciplinaId: string; cursoId: string; cursoNome: string; turnoId: string; turnoNome: string };
-type Disc = { id: string; nome: string; criadoEm: string; ofertas: DisciplinaOferta[] };
+type Disc = { id: string; nome: string; sigla: string; codigoModulacao: string; criadoEm: string; ofertas: DisciplinaOferta[] };
 type Curso = { id: string; nome: string; criadoEm: string };
 type Turno = { id: string; nome: string; criadoEm: string };
+
+// ─── OfertasModal ─────────────────────────────────────────────────────────────
 
 function OfertasModal({ disc, cursos, turnos, onClose }: {
   disc: Disc; cursos: Curso[]; turnos: Turno[]; onClose: () => void;
@@ -77,6 +80,7 @@ function OfertasModal({ disc, cursos, turnos, onClose }: {
         <DialogTitle className="flex items-center gap-2">
           <Grid3X3 className="w-4 h-4 text-violet-500" />
           Cursos e Turnos — {disc.nome}
+          <Badge variant="outline" className="text-xs font-mono">{disc.sigla}</Badge>
         </DialogTitle>
       </DialogHeader>
       <div className="max-h-[60vh] overflow-y-auto py-2">
@@ -132,50 +136,101 @@ function OfertasModal({ disc, cursos, turnos, onClose }: {
   );
 }
 
-function DiscRow({ disc, cursos, turnos, onDelete }: {
-  disc: Disc; cursos: Curso[]; turnos: Turno[]; onDelete: (id: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
+// ─── EditarDiscDialog ─────────────────────────────────────────────────────────
+
+function EditarDiscDialog({ disc, onClose }: { disc: Disc; onClose: () => void }) {
   const [nome, setNome] = useState(disc.nome);
-  const [showOfertas, setShowOfertas] = useState(false);
+  const [sigla, setSigla] = useState(disc.sigla);
+  const [codigoModulacao, setCodigoModulacao] = useState(disc.codigoModulacao);
   const update = useUpdateDisciplina();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const save = () => {
-    if (!nome.trim()) return;
-    update.mutate({ id: disc.id, data: { nome: nome.trim() } }, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListDisciplinasQueryKey() });
-        setEditing(false);
-        toast({ title: "Disciplina atualizada" });
-      },
-      onError: () => toast({ title: "Erro ao atualizar disciplina", variant: "destructive" }),
-    });
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nome.trim() || !sigla.trim() || !codigoModulacao.trim()) return;
+    update.mutate(
+      { id: disc.id, data: { nome: nome.trim(), sigla: sigla.trim().toUpperCase(), codigoModulacao: codigoModulacao.trim() } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListDisciplinasQueryKey() });
+          toast({ title: "Unidade curricular atualizada" });
+          onClose();
+        },
+        onError: (err: unknown) => {
+          const msg = (err as { data?: { error?: string } })?.data?.error ?? "Erro ao atualizar";
+          toast({ title: msg, variant: "destructive" });
+        },
+      }
+    );
   };
 
-  if (editing) {
-    return (
-      <div className="p-4 border rounded-lg bg-muted/20 flex items-center gap-3">
-        <Input
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          className="flex-1 bg-background h-8 text-sm"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            if (e.key === "Escape") { setNome(disc.nome); setEditing(false); }
-          }}
-        />
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:bg-green-50" onClick={save} disabled={update.isPending}>
-          <Check className="w-4 h-4" />
-        </Button>
-        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setNome(disc.nome); setEditing(false); }}>
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Edit2 className="w-4 h-4 text-violet-500" />
+          Editar Unidade Curricular
+        </DialogTitle>
+      </DialogHeader>
+      <form onSubmit={save} className="space-y-4 pt-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="uc-nome">Nome completo <span className="text-destructive">*</span></Label>
+          <Input
+            id="uc-nome"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex: Matemática Aplicada"
+            autoFocus
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="uc-sigla">Sigla <span className="text-destructive">*</span></Label>
+            <Input
+              id="uc-sigla"
+              value={sigla}
+              onChange={(e) => setSigla(e.target.value.toUpperCase())}
+              placeholder="Ex: MAT"
+              maxLength={20}
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">Exibida no quadro de horários</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="uc-codigo">Código de Modulação <span className="text-destructive">*</span></Label>
+            <Input
+              id="uc-codigo"
+              value={codigoModulacao}
+              onChange={(e) => setCodigoModulacao(e.target.value)}
+              placeholder="Ex: MAT-01"
+              maxLength={50}
+              className="font-mono"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2 pt-2">
+          <Button
+            type="submit"
+            className="flex-1"
+            disabled={!nome.trim() || !sigla.trim() || !codigoModulacao.trim() || update.isPending}
+          >
+            {update.isPending ? "Salvando..." : "Salvar alterações"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+        </div>
+      </form>
+    </DialogContent>
+  );
+}
+
+// ─── DiscRow ──────────────────────────────────────────────────────────────────
+
+function DiscRow({ disc, cursos, turnos, onDelete }: {
+  disc: Disc; cursos: Curso[]; turnos: Turno[]; onDelete: (id: string) => void;
+}) {
+  const [showOfertas, setShowOfertas] = useState(false);
+  const [showEditar, setShowEditar] = useState(false);
 
   return (
     <>
@@ -184,7 +239,11 @@ function DiscRow({ disc, cursos, turnos, onDelete }: {
           <BookOpen className="w-4 h-4" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className="font-medium">{disc.nome}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium">{disc.nome}</span>
+            <Badge variant="outline" className="text-xs font-mono shrink-0">{disc.sigla}</Badge>
+            <span className="text-xs text-muted-foreground font-mono shrink-0">#{disc.codigoModulacao}</span>
+          </div>
           {disc.ofertas.length > 0 ? (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {disc.ofertas.map((o) => (
@@ -205,7 +264,11 @@ function DiscRow({ disc, cursos, turnos, onDelete }: {
           >
             <Grid3X3 className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(true)}>
+          <Button
+            variant="ghost" size="icon" className="h-8 w-8"
+            title="Editar"
+            onClick={() => setShowEditar(true)}
+          >
             <Edit2 className="w-4 h-4 text-muted-foreground" />
           </Button>
           <AlertDialog>
@@ -216,9 +279,9 @@ function DiscRow({ disc, cursos, turnos, onDelete }: {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Excluir disciplina?</AlertDialogTitle>
+                <AlertDialogTitle>Excluir unidade curricular?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  A disciplina "{disc.nome}" e todos os seus vínculos de cursos/turnos serão excluídos permanentemente.
+                  A unidade curricular "{disc.nome}" ({disc.sigla}) e todos os seus vínculos de cursos/turnos serão excluídos permanentemente.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -234,20 +297,25 @@ function DiscRow({ disc, cursos, turnos, onDelete }: {
 
       <Dialog open={showOfertas} onOpenChange={setShowOfertas}>
         {showOfertas && (
-          <OfertasModal
-            disc={disc}
-            cursos={cursos}
-            turnos={turnos}
-            onClose={() => setShowOfertas(false)}
-          />
+          <OfertasModal disc={disc} cursos={cursos} turnos={turnos} onClose={() => setShowOfertas(false)} />
+        )}
+      </Dialog>
+
+      <Dialog open={showEditar} onOpenChange={setShowEditar}>
+        {showEditar && (
+          <EditarDiscDialog disc={disc} onClose={() => setShowEditar(false)} />
         )}
       </Dialog>
     </>
   );
 }
 
+// ─── DisciplinasPage ──────────────────────────────────────────────────────────
+
 export default function DisciplinasPage() {
   const [nome, setNome] = useState("");
+  const [sigla, setSigla] = useState("");
+  const [codigoModulacao, setCodigoModulacao] = useState("");
   const { data: disciplinas, isLoading } = useListDisciplinas();
   const { data: cursos } = useListCursos();
   const { data: turnos } = useListTurnos();
@@ -261,56 +329,95 @@ export default function DisciplinasPage() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nome.trim()) return;
-    create.mutate({ data: { nome: nome.trim() } }, {
-      onSuccess: () => {
-        setNome("");
-        queryClient.invalidateQueries({ queryKey: getListDisciplinasQueryKey() });
-        toast({ title: "Disciplina criada" });
-      },
-      onError: () => toast({ title: "Erro ao criar disciplina", variant: "destructive" }),
-    });
+    if (!nome.trim() || !sigla.trim() || !codigoModulacao.trim()) return;
+    create.mutate(
+      { data: { nome: nome.trim(), sigla: sigla.trim().toUpperCase(), codigoModulacao: codigoModulacao.trim() } },
+      {
+        onSuccess: () => {
+          setNome(""); setSigla(""); setCodigoModulacao("");
+          queryClient.invalidateQueries({ queryKey: getListDisciplinasQueryKey() });
+          toast({ title: "Unidade curricular criada" });
+        },
+        onError: (err: unknown) => {
+          const msg = (err as { data?: { error?: string } })?.data?.error ?? "Erro ao criar unidade curricular";
+          toast({ title: msg, variant: "destructive" });
+        },
+      }
+    );
   };
 
   const handleDelete = (id: string) => {
     del.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListDisciplinasQueryKey() });
-        toast({ title: "Disciplina excluída" });
+        toast({ title: "Unidade curricular excluída" });
       },
-      onError: () => toast({ title: "Erro ao excluir disciplina", variant: "destructive" }),
+      onError: () => toast({ title: "Erro ao excluir unidade curricular", variant: "destructive" }),
     });
   };
+
+  const canAdd = nome.trim() && sigla.trim() && codigoModulacao.trim();
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Disciplinas</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">Unidades Curriculares</h1>
         <p className="text-muted-foreground mt-2">
-          Gerencie as disciplinas e configure em quais cursos e turnos são ministradas.
+          Gerencie as unidades curriculares e configure em quais cursos e turnos são ministradas.
         </p>
       </div>
 
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="bg-muted/30 border-b">
-          <CardTitle className="text-base font-semibold">Adicionar Disciplina</CardTitle>
+          <CardTitle className="text-base font-semibold">Adicionar Unidade Curricular</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <form onSubmit={handleAdd} className="flex gap-3">
-            <Input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex: Matemática, Português, Ciências..."
-              className="flex-1 bg-background"
-            />
-            <Button type="submit" disabled={!nome.trim() || create.isPending}>
-              <Plus className="w-4 h-4 mr-2" />Adicionar
-            </Button>
+          <form onSubmit={handleAdd} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-nome">Nome completo <span className="text-destructive">*</span></Label>
+              <Input
+                id="add-nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Ex: Matemática Aplicada, Língua Portuguesa..."
+                className="bg-background"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="add-sigla">Sigla <span className="text-destructive">*</span></Label>
+                <Input
+                  id="add-sigla"
+                  value={sigla}
+                  onChange={(e) => setSigla(e.target.value.toUpperCase())}
+                  placeholder="Ex: MAT"
+                  maxLength={20}
+                  className="bg-background font-mono"
+                />
+                <p className="text-xs text-muted-foreground">Exibida no quadro de horários (máx. 20 caracteres)</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="add-codigo">Código de Modulação <span className="text-destructive">*</span></Label>
+                <Input
+                  id="add-codigo"
+                  value={codigoModulacao}
+                  onChange={(e) => setCodigoModulacao(e.target.value)}
+                  placeholder="Ex: MAT-01"
+                  maxLength={50}
+                  className="bg-background font-mono"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <Button type="submit" disabled={!canAdd || create.isPending}>
+                <Plus className="w-4 h-4 mr-2" />Adicionar
+              </Button>
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Grid3X3 className="w-3 h-3" />
+                Após criar, configure os cursos e turnos pelo ícone de grade.
+              </p>
+            </div>
           </form>
-          <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
-            <Grid3X3 className="w-3 h-3" />
-            Após criar, clique no ícone de grade para configurar cursos e turnos.
-          </p>
         </CardContent>
       </Card>
 
@@ -322,7 +429,7 @@ export default function DisciplinasPage() {
         ) : disciplinas?.length === 0 ? (
           <div className="text-center py-12 border border-dashed rounded-lg bg-card">
             <BookOpen className="w-12 h-12 text-muted-foreground opacity-30 mx-auto mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhuma disciplina cadastrada.</p>
+            <p className="text-muted-foreground font-medium">Nenhuma unidade curricular cadastrada.</p>
           </div>
         ) : (
           (disciplinas as unknown as Disc[])?.map((d) => (

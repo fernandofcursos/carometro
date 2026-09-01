@@ -506,19 +506,20 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     // Agenda em lote — usa turmaId diretamente para cobrir estudantes sem usuarioId
     let agendaDisponivel = false;
     // chave: estudanteId → dia → aulas
-    const agendaMap = new Map<string, Map<number, { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null }[]>>();
+    const agendaMap = new Map<string, Map<number, { horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null }[]>>();
     try {
       const { horariosAulasTable } = await import("@workspace/db/schema") as any;
       const turmaIds = vinculados.map((e) => e.turmaId);
       if (horariosAulasTable && turmaIds.length > 0) {
         const aulas = await db
           .select({
-            turmaId:        horariosAulasTable.turmaId,
-            dia:            horariosAulasTable.diaSemana,
-            horaInicio:     horariosAulasTable.horaInicio,
-            horaFim:        horariosAulasTable.horaFim,
-            disciplinaNome: disciplinasTable.nome,
-            sala:           horariosAulasTable.sala,
+            turmaId:         horariosAulasTable.turmaId,
+            dia:             horariosAulasTable.diaSemana,
+            horaInicio:      horariosAulasTable.horaInicio,
+            horaFim:         horariosAulasTable.horaFim,
+            disciplinaNome:  disciplinasTable.nome,
+            disciplinaSigla: disciplinasTable.sigla,
+            sala:            horariosAulasTable.sala,
           })
           .from(horariosAulasTable)
           .leftJoin(disciplinaOfertasTable, eq(disciplinaOfertasTable.id, horariosAulasTable.disciplinaOfertaId))
@@ -541,10 +542,11 @@ router.get("/dashboard", async (req: Request, res: Response) => {
           const byDia = agendaMap.get(estId)!;
           if (!byDia.has(a.dia)) byDia.set(a.dia, []);
           byDia.get(a.dia)!.push({
-            horaInicio:     String(a.horaInicio).slice(0, 5),
-            horaFim:        String(a.horaFim).slice(0, 5),
-            disciplinaNome: a.disciplinaNome ?? "—",
-            sala:           a.sala,
+            horaInicio:      String(a.horaInicio).slice(0, 5),
+            horaFim:         String(a.horaFim).slice(0, 5),
+            disciplinaNome:  a.disciplinaNome  ?? "—",
+            disciplinaSigla: a.disciplinaSigla ?? a.disciplinaNome?.slice(0, 6) ?? "—",
+            sala:            a.sala,
           });
         }
       }

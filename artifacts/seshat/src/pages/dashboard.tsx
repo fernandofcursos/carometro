@@ -22,7 +22,7 @@ type OcorrenciaResumo = {
   tipoId: string; tipoDescricao: string;
   total: number; semCiencia: number; ids: string[];
 };
-type AulaItem = { horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null };
+type AulaItem = { horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null };
 type DiaAgenda = { dia: number; diaNome: string; aulas: AulaItem[] };
 type DiaCardapio = { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] };
 
@@ -251,20 +251,29 @@ function QuadroHorariosWidget({
                     )}
                   >
                     {aula ? (
-                      <div
-                        className={cn(
-                          "rounded px-1.5 py-1 leading-tight border text-[11px] font-medium",
-                          COR_DIA_BG[dia],
-                        )}
-                        title={`${aula.disciplinaNome}${aula.sala ? ` · ${aula.sala}` : ""}`}
-                      >
-                        <div className="truncate max-w-[80px] mx-auto">{aula.disciplinaNome}</div>
-                        {aula.sala && (
-                          <div className="opacity-60 truncate max-w-[80px] mx-auto text-[10px]">
-                            {aula.sala}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              "rounded px-1.5 py-1 leading-tight border text-[11px] font-medium cursor-default",
+                              COR_DIA_BG[dia],
+                            )}
+                          >
+                            <div className="truncate max-w-[80px] mx-auto font-bold">
+                              {aula.disciplinaSigla ?? aula.disciplinaNome}
+                            </div>
+                            {aula.sala && (
+                              <div className="opacity-60 truncate max-w-[80px] mx-auto text-[10px]">
+                                {aula.sala}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px] text-xs">
+                          <p className="font-semibold">{aula.disciplinaNome}</p>
+                          {aula.sala && <p className="opacity-70">Sala: {aula.sala}</p>}
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <span className="text-gray-300 text-[10px]">—</span>
                     )}

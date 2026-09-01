@@ -133,7 +133,7 @@ export function AppSidebar() {
         ...(canManageCursos ? [nav("Cursos", "/cursos", BookOpen)] : []),
         ...(canManageTurnos ? [nav("Turnos", "/turnos", Clock)] : []),
         ...(canManageTurmas ? [nav("Turmas", "/turmas", Building)] : []),
-        ...(canManageDisciplinas ? [nav("Disciplinas", "/disciplinas", GraduationCap)] : []),
+        ...(canManageDisciplinas ? [nav("Unid. Curriculares", "/disciplinas", GraduationCap)] : []),
         ...(canManageHorarios ? [nav("Quadro de Horários", "/horarios", CalendarDays)] : []),
         ...(canManageCalendario ? [nav("Calendário Escolar", "/calendario", CalendarRange)] : []),
       ],
@@ -171,7 +171,7 @@ export function AppSidebar() {
         items: [
           nav("Cursos", "/importar", BookOpen),
           nav("Turmas", "/importar", Building),
-          nav("Disciplinas", "/importar", GraduationCap),
+          nav("Unid. Curriculares", "/importar", GraduationCap),
           nav("Estudantes", "/importar", Users),
           nav("Professores", "/importar", UserCog),
         ],
