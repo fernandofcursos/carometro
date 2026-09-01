@@ -7,7 +7,7 @@
 #     bash scripts/teste-perfil-estudante.sh
 # =============================================================================
 
-BASE="${BASE:-http://localhost:3000}"
+BASE="${BASE:-http://localhost:8080}"
 ADMIN_ID="${ADMIN_ID:-}"
 ADMIN_SENHA="${ADMIN_SENHA:-}"
 COOKIES=$(mktemp)
