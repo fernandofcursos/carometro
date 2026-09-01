@@ -137,7 +137,7 @@ router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: R
 // GET /api/estudantes/:id
 router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res: Response) => {
   try {
-    const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
     const [e] = await db
       .select({
         id: estudantesTable.id, nome: estudantesTable.nome, registro: estudantesTable.registro,
@@ -355,7 +355,7 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
 // PUT /api/estudantes/:id — atualizar dados
 router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
-    const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
     const bodySchema = insertEstudanteSchema.partial().extend({
       responsavelIds: z.array(z.string().uuid()).optional(),
     });
