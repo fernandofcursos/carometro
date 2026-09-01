@@ -111,27 +111,39 @@ router.get("/me", async (req: Request, res: Response) => {
       .leftJoin(cursosTable, eq(turmasTable.cursoId, cursosTable.id))
       .where(and(inArray(estudantesTable.id, estIds), isNull(estudantesTable.deletadoEm)));
 
-    // Turnos para cada turma
-    const turmaIds = [...new Set(estudantes.map((e) => e.turmaId))];
-    const turnoRows = turmaIds.length > 0
-      ? await db
-          .select({ turmaId: turmaTurnosTable.turmaId, id: turnosTable.id, nome: turnosTable.nome })
-          .from(turmaTurnosTable)
-          .innerJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
-          .where(inArray(turmaTurnosTable.turmaId, turmaIds))
-      : [];
+    // Turnos efetivos da matrícula (somente o turno real de cada estudante)
+    // Fonte: matriculasTable.turnoId — NÃO usar turmaTurnosTable (lista todos os turnos da turma)
+    const usuarioIds = estudantes.map((e) => e.usuarioId).filter(Boolean) as string[];
+    const turnosByEstudante = new Map<string, { id: string; nome: string }[]>();
 
-    const turnosByTurma = new Map<string, { id: string; nome: string }[]>();
-    for (const tr of turnoRows) {
-      const arr = turnosByTurma.get(tr.turmaId) ?? [];
-      arr.push({ id: tr.id, nome: tr.nome });
-      turnosByTurma.set(tr.turmaId, arr);
+    if (usuarioIds.length > 0) {
+      const matriculaRows = await db
+        .select({
+          usuarioId: matriculasTable.usuarioId,
+          turmaId:   matriculasTable.turmaId,
+          turnoId:   turnosTable.id,
+          turnoNome: turnosTable.nome,
+        })
+        .from(matriculasTable)
+        .innerJoin(turnosTable, eq(turnosTable.id, matriculasTable.turnoId))
+        .where(and(
+          inArray(matriculasTable.usuarioId, usuarioIds),
+          isNull(matriculasTable.deletadoEm),
+        ));
+
+      for (const m of matriculaRows) {
+        const est = estudantes.find((e) => e.usuarioId === m.usuarioId && e.turmaId === m.turmaId);
+        if (!est) continue;
+        const arr = turnosByEstudante.get(est.id) ?? [];
+        if (!arr.find((t) => t.id === m.turnoId)) arr.push({ id: m.turnoId, nome: m.turnoNome });
+        turnosByEstudante.set(est.id, arr);
+      }
     }
 
     const resultado = estudantes.map((e) => ({
       ...e,
       fotoUrl: e.fotoId ? `/api/fotos/${e.fotoId}` : null,
-      turnos:  turnosByTurma.get(e.turmaId) ?? [],
+      turnos:  turnosByEstudante.get(e.id) ?? [],
     }));
 
     res.json({

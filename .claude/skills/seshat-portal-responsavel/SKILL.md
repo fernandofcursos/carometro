@@ -91,6 +91,22 @@ PortalResponsavelPage  (/portal-responsavel — "Meus Filhos")
 
 ## Armadilhas
 
+### Turno efetivo: matriculasTable, NÃO turmaTurnosTable
+
+O campo `turnos[]` de cada estudante em `GET /me` deve vir de `matriculasTable.turnoId`, não de `turmaTurnosTable`. A tabela `turmaTurnosTable` lista **todos** os turnos associados à turma; a matrícula registra o turno **específico** em que o estudante está enturmado.
+
+```typescript
+// CORRETO — turno real do estudante
+.from(matriculasTable)
+.innerJoin(turnosTable, eq(turnosTable.id, matriculasTable.turnoId))
+.where(and(inArray(matriculasTable.usuarioId, usuarioIds), isNull(matriculasTable.deletadoEm)))
+// Map keyed by estudanteId
+
+// ERRADO — todos os turnos da turma aparecem para todos os estudantes
+.from(turmaTurnosTable).innerJoin(turnosTable, ...)
+.where(inArray(turmaTurnosTable.turmaId, turmaIds))
+```
+
 ### LEFT JOIN obrigatório em GET /me e GET /dashboard
 
 Estudantes vinculados sem enturmação têm `estudantesTable.turmaId = null`. INNER JOIN os exclui:

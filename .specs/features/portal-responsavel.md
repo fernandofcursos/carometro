@@ -157,6 +157,28 @@ Cabeçalho: foto + nome do responsável + contagem de filhos
 
 ## Armadilhas — API `GET /me` e `GET /dashboard`
 
+### Turno efetivo da matrícula — NÃO usar turmaTurnosTable
+
+O campo `turnos` em `GET /me` deve refletir **apenas o turno da matrícula real** do estudante, não todos os turnos cadastrados para a turma. Usar `turmaTurnosTable` retorna todos os turnos associados à turma (ex.: Matutino, Vespertino, Noturno), mesmo que o estudante só esteja matriculado em um deles.
+
+```typescript
+// CORRETO — turno real da matrícula
+const matriculaRows = await db
+  .select({ usuarioId, turmaId, turnoId: turnosTable.id, turnoNome: turnosTable.nome })
+  .from(matriculasTable)
+  .innerJoin(turnosTable, eq(turnosTable.id, matriculasTable.turnoId))
+  .where(and(inArray(matriculasTable.usuarioId, usuarioIds), isNull(matriculasTable.deletadoEm)));
+
+// ERRADO — retorna TODOS os turnos da turma (não os do estudante)
+const turnoRows = await db
+  .select({ turmaId, id, nome })
+  .from(turmaTurnosTable)
+  .innerJoin(turnosTable, ...)
+  .where(inArray(turmaTurnosTable.turmaId, turmaIds));
+```
+
+Chave do Map: `estudanteId` (não `turmaId`), pois o mesmo turmaId pode ter turnos diferentes para estudantes diferentes.
+
 ### LEFT JOIN obrigatório em turmasTable e cursosTable
 
 Estudantes vinculados mas ainda não enturmados têm `estudantesTable.turmaId = null`. Usar `INNER JOIN` os exclui silenciosamente da resposta.
