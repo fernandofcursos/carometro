@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import {
   useGetEstudante, useUpdateEstudante, useUploadFotoEstudante,
@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CameraCapture } from "@/components/camera-capture";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Camera, Edit2, AlertTriangle, Plus, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Save, Camera, Edit2, AlertTriangle, Plus, Trash2, Download, Search, X, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -27,6 +27,88 @@ import {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type EmailEntry = { _id: number; email: string; tipo: "proprio" | "responsavel" };
+type ResponsavelSummary = { id: string; nome: string | null; codigoAcesso: string; email: string };
+
+function ResponsaveisSelector({
+  selecionados,
+  onChange,
+}: {
+  selecionados: ResponsavelSummary[];
+  onChange: (v: ResponsavelSummary[]) => void;
+}) {
+  const [busca, setBusca] = useState("");
+  const [resultados, setResultados] = useState<ResponsavelSummary[]>([]);
+  const [carregando, setCarregando] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pesquisar = useCallback((q: string) => {
+    setCarregando(true);
+    fetch(`${BASE}/api/usuarios/responsaveis?q=${encodeURIComponent(q)}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => { setResultados(Array.isArray(data) ? data : []); })
+      .catch(() => setResultados([]))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => pesquisar(busca), 300);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [busca, pesquisar]);
+
+  useEffect(() => { pesquisar(""); }, [pesquisar]);
+
+  const toggle = (r: ResponsavelSummary) => {
+    const ja = selecionados.find((s) => s.id === r.id);
+    onChange(ja ? selecionados.filter((s) => s.id !== r.id) : [...selecionados, r]);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome, código ou e-mail..."
+          className="pl-8 h-9"
+        />
+      </div>
+      {resultados.length > 0 && (
+        <div className="border rounded-md divide-y max-h-48 overflow-y-auto bg-background">
+          {resultados.map((r) => {
+            const sel = !!selecionados.find((s) => s.id === r.id);
+            return (
+              <label key={r.id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/40">
+                <input type="checkbox" checked={sel} onChange={() => toggle(r)} className="rounded" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium">{r.nome ?? "—"}</span>
+                  <span className="text-xs text-muted-foreground ml-2">({r.codigoAcesso})</span>
+                  <span className="text-xs text-muted-foreground block truncate">{r.email}</span>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      )}
+      {!carregando && resultados.length === 0 && (
+        <p className="text-xs text-muted-foreground">Nenhum pai/responsável encontrado.</p>
+      )}
+      {selecionados.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selecionados.map((r) => (
+            <span key={r.id} className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-800 border border-orange-200 rounded-full px-2.5 py-1">
+              {r.nome ?? r.codigoAcesso}
+              <button type="button" onClick={() => onChange(selecionados.filter((s) => s.id !== r.id))} className="hover:text-destructive">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function EstudantesDetail() {
   const [, params] = useRoute("/estudantes/:id");
@@ -43,6 +125,7 @@ export default function EstudantesDetail() {
   const [emails, setEmails] = useState<EmailEntry[]>([]);
   const [observacao, setObservacao] = useState("");
   const [turmaId, setTurmaId] = useState("");
+  const [responsaveisSelecionados, setResponsaveisSelecionados] = useState<ResponsavelSummary[]>([]);
   const emailCounter = useRef(0);
   const nextEmailId = () => { emailCounter.current += 1; return emailCounter.current; };
 
@@ -71,6 +154,7 @@ export default function EstudantesDetail() {
     setEmails(e.emails.map((em) => ({ _id: nextEmailId(), email: em.email, tipo: em.tipo as "proprio" | "responsavel" })));
     setObservacao(e.observacao ?? "");
     setTurmaId(e.turmaId);
+    setResponsaveisSelecionados((e as { responsaveis?: ResponsavelSummary[] }).responsaveis ?? []);
   };
 
   useEffect(() => {
@@ -86,7 +170,8 @@ export default function EstudantesDetail() {
     if (!nome.trim() || !registro.trim() || !turmaId) return;
     const validEmails = emails.filter((e) => e.email.trim()).map(({ _id: _, ...e }) => e);
     updateEstudante.mutate(
-      { id, data: { nome, registro, dataNascimento: dataNascimento || null, observacao: observacao.trim() || null, emails: validEmails, turmaId } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id, data: { nome, registro, dataNascimento: dataNascimento || null, observacao: observacao.trim() || null, emails: validEmails, turmaId, responsavelIds: responsaveisSelecionados.map((r) => r.id) } as any },
       {
         onSuccess: (updated) => {
           queryClient.setQueryData(getGetEstudanteQueryKey(id), updated);
@@ -327,6 +412,16 @@ export default function EstudantesDetail() {
                         <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value.slice(0, 300))}
                           placeholder="Informações adicionais relevantes sobre o estudante..." className="resize-none" rows={3} />
                       </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-orange-500" />
+                          Pai / Responsável (opcional)
+                        </Label>
+                        <ResponsaveisSelector
+                          selecionados={responsaveisSelecionados}
+                          onChange={setResponsaveisSelecionados}
+                        />
+                      </div>
                       <div className="flex gap-2 pt-4">
                         <Button onClick={handleSaveData} disabled={updateEstudante.isPending}>
                           <Save className="w-4 h-4 mr-2" />Salvar Alterações
@@ -404,6 +499,25 @@ export default function EstudantesDetail() {
                         <p className="text-sm font-medium text-muted-foreground mb-1">Data de Cadastro</p>
                         <p className="text-sm">{new Date(estudante.criadoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
                       </div>
+                      {(() => {
+                        const responsaveis = (estudante as { responsaveis?: ResponsavelSummary[] }).responsaveis ?? [];
+                        return responsaveis.length > 0 ? (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <Users className="w-4 h-4 text-orange-500" />Pai / Responsável
+                            </p>
+                            <div className="space-y-1.5">
+                              {responsaveis.map((r) => (
+                                <div key={r.id} className="flex items-center gap-2 text-sm">
+                                  <span className="font-medium">{r.nome ?? "—"}</span>
+                                  <span className="text-xs text-muted-foreground font-mono">({r.codigoAcesso})</span>
+                                  <span className="text-xs text-muted-foreground">{r.email}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   )}
                 </CardContent>

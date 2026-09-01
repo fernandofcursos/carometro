@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
-import { db, estudantesTable, estudanteEmailsTable, usuariosTable, turmasTable, cursosTable, turnosTable, matriculasTable, eq, isNull, and, inArray, ilike, or, ne } from "@workspace/db";
+import { db, estudantesTable, estudanteEmailsTable, usuariosTable, turmasTable, cursosTable, turnosTable, matriculasTable, responsaveisEstudantesTable, eq, isNull, and, inArray, ilike, or, ne } from "@workspace/db";
 import { fotosTable } from "@workspace/db/schema";
 import {
   criptografarFoto,
@@ -181,6 +181,18 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
       emails = emailsDB;
     }
 
+    // Buscar pais/responsáveis vinculados
+    const responsaveisRows = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, codigoAcesso: usuariosTable.codigoAcesso, emailEncrypted: usuariosTable.emailEncrypted })
+      .from(responsaveisEstudantesTable)
+      .innerJoin(usuariosTable, eq(usuariosTable.id, responsaveisEstudantesTable.usuarioId))
+      .where(and(eq(responsaveisEstudantesTable.estudanteId, e.id), isNull(usuariosTable.deletadoEm)));
+
+    const responsaveis = responsaveisRows.map((r) => ({
+      id: r.id, nome: r.nome, codigoAcesso: r.codigoAcesso,
+      email: decryptEmail(r.emailEncrypted, secret),
+    }));
+
     res.json({
       id: e.id, nome: e.nome, registro: e.registro, observacao: e.observacao ?? null,
       dataNascimento: e.dataNascimento ?? null,
@@ -192,6 +204,7 @@ router.get("/:id", requirePermissao("estudantes:view"), async (req: Request, res
         ? `/api/fotos/${e.fotoId}`
         : (e.fotoStorageKey ? `/api/estudantes/${e.id}/foto` : null),
       emails,
+      responsaveis,
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar estudante" });
@@ -341,7 +354,10 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
 router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
     const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
-    const { emails, ...data } = insertEstudanteSchema.partial().parse(req.body);
+    const bodySchema = insertEstudanteSchema.partial().extend({
+      responsavelIds: z.array(z.string().uuid()).optional(),
+    });
+    const { emails, responsavelIds, ...data } = bodySchema.parse(req.body);
     const [estudante] = await db
       .update(estudantesTable)
       .set({ ...data, atualizadoEm: new Date() })
@@ -397,6 +413,17 @@ router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, r
       }
     }
 
+    // Sincronizar pais/responsáveis se fornecido
+    if (responsavelIds !== undefined) {
+      await db.delete(responsaveisEstudantesTable)
+        .where(eq(responsaveisEstudantesTable.estudanteId, estudante.id));
+      if (responsavelIds.length > 0) {
+        await db.insert(responsaveisEstudantesTable).values(
+          responsavelIds.map((uid) => ({ usuarioId: uid, estudanteId: estudante.id, criadoPorId: req.usuarioId }))
+        ).onConflictDoNothing();
+      }
+    }
+
     await registrarAuditoria({
       tabela: "estudantes", operacao: "UPDATE", registroId: estudante.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
@@ -407,11 +434,22 @@ router.put("/:id", requirePermissao("estudantes:manage"), async (req: Request, r
     const emailsSalvos = await db.select({ email: estudanteEmailsTable.email, tipo: estudanteEmailsTable.tipo })
       .from(estudanteEmailsTable).where(eq(estudanteEmailsTable.estudanteId, estudante.id));
 
+    const responsaveisSalvos = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, codigoAcesso: usuariosTable.codigoAcesso, emailEncrypted: usuariosTable.emailEncrypted })
+      .from(responsaveisEstudantesTable)
+      .innerJoin(usuariosTable, eq(usuariosTable.id, responsaveisEstudantesTable.usuarioId))
+      .where(and(eq(responsaveisEstudantesTable.estudanteId, estudante.id), isNull(usuariosTable.deletadoEm)));
+
     res.json({ id: estudante.id, nome: estudante.nome, registro: estudante.registro,
       fotoUrl: estudante.fotoId
         ? `/api/fotos/${estudante.fotoId}`
         : (estudante.fotoStorageKey ? `/api/estudantes/${estudante.id}/foto` : null),
-      emails: emailsSalvos });
+      emails: emailsSalvos,
+      responsaveis: responsaveisSalvos.map((r) => ({
+        id: r.id, nome: r.nome, codigoAcesso: r.codigoAcesso,
+        email: decryptEmail(r.emailEncrypted, secret),
+      })),
+    });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
   }
