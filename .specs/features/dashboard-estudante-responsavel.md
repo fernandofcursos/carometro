@@ -1,6 +1,6 @@
 # Spec: Dashboard — Estudante e Pai/Responsável
 
-**Status:** Spec aprovada — implementação pendente (horário e cardápio são features novas)
+**Status:** Implementado
 
 ---
 
@@ -88,7 +88,28 @@ Resposta consolidada para o estudante logado:
 
 ### `GET /api/portal-responsavel/dashboard`
 
-Mesmo shape, mas com `estudantes[]` — um por estudante vinculado, cada um contendo `ocorrencias`, `agenda` e opcionalmente `fotoUrl` e `nome`.
+Retorna um objeto com `estudantes[]` (um por dependente vinculado) + cardápio compartilhado:
+
+```typescript
+{
+  hoje: string; diaSemana: number;
+  estudantes: Array<{
+    id: string; nome: string; fotoUrl: string | null;
+    turmaSigla: string; cursoNome: string;
+    agendaDisponivel: boolean;
+    agenda: Array<{ dia: number; diaNome: string; aulas: AulaItem[] }>;
+    ocorrencias: { resumo: OcorrenciaResumo[]; totalGeral: number };
+  }>;
+  cardapioDisponivel: boolean;
+  cardapio: Array<{ dia: number; diaNome: string; data: string; itens: ItemCardapio[] }>;
+}
+```
+
+**Fonte dos dados:**
+- Estudantes: `responsaveis_estudantes` → `estudantes` → `turmas` → `cursos`
+- Ocorrências: batch com `inArray(ocorrenciasTable.estudanteId, estudanteIds)`
+- Agenda: `matriculas (usuarioId) → horarios_aulas (ano, semestre) → disciplina_ofertas → disciplinas`
+- Cardápio: único para todos (cardápio da escola)
 
 ### `GET /api/cardapio/semana` (público)
 
@@ -219,11 +240,17 @@ CREATE INDEX ON cardapios (data, publicado);
 
 ## Regras de Acesso
 
-| Perfil | URL | Dashboard exibido |
-|---|---|---|
-| `estudante` | `/portal` | Dashboard pessoal |
-| `pai_responsavel` | `/portal-responsavel` | Dashboard com accordion por estudante vinculado |
-| `usuarios:manage` (admin) | `/portal` | Dashboard admin (sem dados reais, para teste visual) |
+| Perfil | URL | Componente | Endpoint |
+|---|---|---|---|
+| `estudante` | `/` | `DashboardEstudante` | `GET /api/portal/dashboard` |
+| `pai_responsavel` | `/` | `DashboardResponsavel` | `GET /api/portal-responsavel/dashboard` |
+| Admin / outros | `/` | `DashboardAdmin` | `GET /api/stats` |
+
+**Regras do dashboard do responsável:**
+- Exibir relação de todos os estudantes vinculados com foto, nome e turma
+- Para cada estudante: quadro de horários semanal + ocorrências com opção de ciência
+- Cardápio da semana compartilhado ao final (único para todos os dependentes)
+- Se nenhum dependente vinculado: mensagem orientando a contatar a coordenação
 
 ---
 
@@ -247,8 +274,6 @@ CREATE INDEX ON cardapios (data, publicado);
 | `artifacts/api-server/src/routes/portal-responsavel.ts` | `GET /api/portal-responsavel/dashboard` |
 | `artifacts/api-server/src/routes/cardapio.ts` | `GET /api/cardapio/semana` (público) |
 | `artifacts/api-server/src/routes/horarios-aulas.ts` | CRUD admin de horários |
-| `artifacts/seshat/src/pages/portal/index.tsx` | `DashboardEstudante` + widgets |
-| `artifacts/seshat/src/pages/portal-responsavel/index.tsx` | `DashboardResponsavel` |
-| `artifacts/seshat/src/components/dashboard/` | Widgets reutilizáveis |
+| `artifacts/seshat/src/pages/dashboard.tsx` | `DashboardEstudante`, `DashboardResponsavel`, `DashboardAdmin`, `QuadroHorariosWidget`, `OcorrenciasWidget`, `CardapioWidget`, `CalendarioMesWidget` |
 | `scripts/migrate-dashboard.sql` | DDL horarios_aulas + cardapios |
 | `.specs/features/dashboard-estudante-responsavel.md` | Esta spec |
