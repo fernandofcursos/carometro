@@ -56,12 +56,29 @@ BEGIN
   WHERE sigla IS NULL OR codigo_modulacao IS NULL;
   RAISE NOTICE 'disciplinas: valores temporários preenchidos.';
 
-  -- 4. Tornar obrigatórias (NOT NULL)
+  -- 4. Deduplicar siglas repetidas antes de criar o índice UNIQUE
+  --    Acrescenta sufixo numérico (ex: FUNDAM → FUNDAM2, FUNDAM3...)
+  WITH duplicadas AS (
+    SELECT id,
+           sigla,
+           row_number() OVER (PARTITION BY sigla ORDER BY nome) AS rn
+    FROM disciplinas
+  )
+  UPDATE disciplinas d
+  SET sigla = CASE
+    WHEN dup.rn = 1 THEN dup.sigla
+    ELSE left(dup.sigla, 17) || dup.rn::text   -- máx 20 chars: 17 + até 3 dígitos
+  END
+  FROM duplicadas dup
+  WHERE d.id = dup.id AND dup.rn > 1;
+  RAISE NOTICE 'disciplinas: siglas duplicadas corrigidas com sufixo numérico.';
+
+  -- 5. Tornar obrigatórias (NOT NULL)
   ALTER TABLE disciplinas ALTER COLUMN sigla           SET NOT NULL;
   ALTER TABLE disciplinas ALTER COLUMN codigo_modulacao SET NOT NULL;
   RAISE NOTICE 'disciplinas: colunas sigla e codigo_modulacao definidas como NOT NULL.';
 
 END $$;
 
--- 5. Adicionar constraint UNIQUE na sigla (via função genérica)
+-- 6. Adicionar constraint UNIQUE na sigla (via função genérica)
 SELECT add_constraint_if_not_exists('disciplinas', 'disciplinas_sigla_unique', 'UNIQUE (sigla)');
