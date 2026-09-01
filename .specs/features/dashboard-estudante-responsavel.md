@@ -21,7 +21,7 @@ Oferecer uma visão consolidada e personalizada para estudantes e responsáveis 
 | Pai/Responsável (`pai_responsavel`) | Igual ao estudante maior — sempre pode dar ciência |
 
 - Agrupamento: `{ tipoDescricao: string; total: number; semCiencia: number }[]`
-- Ciência: `POST /api/portal/ocorrencias/:id/ciencia` (estudante) ou `POST /api/portal-responsavel/estudantes/:estudanteId/ocorrencias/:id/ciencia`
+- Ciência: `POST /api/portal/ocorrencias/:id/ciencia` (estudante) ou `POST /api/portal-responsavel/ocorrencias/:id/ciencia` (pai/responsável)
 - Pendente = `cienteEm IS NULL`
 
 ### Agenda de Aulas
@@ -287,14 +287,8 @@ CREATE INDEX ON cardapios (data, publicado);
 - ❌ Mostrar cardápio não publicado para estudantes/responsáveis
 - ❌ Calcular "semana corrente" no frontend — o backend retorna `hoje` e os itens da semana
 - ❌ Buscar agenda do responsável via `matriculasTable.usuarioId` — estudantes importados têm `usuarioId = null`; usar `turmaId` direto de `estudantes`
-- ❌ Usar `onSuccess` do `useQuery` para inicializar estado derivado (removido no React Query v5) — usar `useEffect` observando o dado:
-  ```typescript
-  useEffect(() => {
-    if (me && me.estudantes.length > 0 && !estudanteSelecionado) {
-      setEstudanteSelecionado(me.estudantes[0].id);
-    }
-  }, [me]);
-  ```
+- ❌ Usar `onSuccess` do `useQuery` para inicializar estado derivado — removido no React Query v5; usar `useEffect` observando o dado retornado
+- ❌ Usar `turmaTurnosTable` para exibir turnos do estudante no portal do responsável — retorna todos os turnos da turma; usar `matriculasTable.turnoId` (turno efetivo da matrícula)
 
 ---
 

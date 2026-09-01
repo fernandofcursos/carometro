@@ -55,9 +55,9 @@ O dia/data atual vem **sempre do servidor** (`hoje: string`), nunca de `new Date
 ```
 
 **Regras do endpoint do responsável:**
-- Estudantes via `responsaveis_estudantes → estudantes → turmas → cursos`
+- Estudantes via `responsaveis_estudantes → estudantes` com **LEFT JOIN** turmas/cursos (estudantes sem turmaId ainda aparecem)
 - Ocorrências em lote: `inArray(ocorrenciasTable.estudanteId, estudanteIds)`
-- Agenda em lote: `inArray(matriculasTable.usuarioId, estudanteUsuarioIds)` filtrado por `ano` e `semestre` atual
+- Agenda em lote: query direta em `horariosAulasTable` por `turmaId` (ver armadilha abaixo)
 - Cardápio compartilhado (único — cardápio da escola)
 - Se nenhum dependente vinculado: retorna `estudantes: []`
 
@@ -182,12 +182,34 @@ function CalendarioMesWidget({ hoje }: { hoje: string }) {
 
 ---
 
+## Armadilha — Agenda do Responsável
+
+Estudantes importados via CSV podem ter `estudantes.usuario_id = NULL`. Usar `matriculasTable.usuarioId` os exclui silenciosamente. A agenda do responsável deve ser buscada diretamente por `turmaId`:
+
+```typescript
+// CORRETO — não depende de usuarioId
+const turmaIds = vinculados.map((e) => e.turmaId);
+const aulas = await db.select({ turmaId: horariosAulasTable.turmaId, ... })
+  .from(horariosAulasTable)
+  .where(and(inArray(horariosAulasTable.turmaId, turmaIds), eq(...ano), eq(...semestre)));
+// agendaMap keyed by estudanteId (não usuarioId)
+
+// ERRADO — estudantes sem usuarioId somem da agenda
+const ids = vinculados.map((e) => e.usuarioId).filter(Boolean);
+await db.from(matriculasTable).where(inArray(matriculasTable.usuarioId, ids));
+```
+
+---
+
 ## Anti-padrões
 
 - ❌ Usar `new Date()` no frontend para determinar o dia da semana — usar `dashboard.diaSemana`
-- ❌ `eq(matriculasTable.usuarioId, usuarioId)` para pai_responsavel — usar `estudanteUsuarioId` resolvido via `responsaveis_estudantes`
+- ❌ Buscar agenda do responsável via `matriculasTable.usuarioId` — estudantes importados têm `usuarioId = null`; usar `turmaId` de `estudantes` diretamente
 - ❌ `horariosAulasTable.disciplinaId` — coluna inexistente; path correto: `disciplinaOfertaId → disciplinaOfertasTable → disciplinasTable`
 - ❌ `horariosAulasTable.laboratorio` / `horariosAulasTable.deletadoEm` — colunas inexistentes
+- ❌ Endpoint de ciência do responsável em `/api/portal/ocorrencias/:id/ciencia` (rota do estudante) — correto: `/api/portal-responsavel/ocorrencias/:id/ciencia`
+- ❌ INNER JOIN em turmasTable/cursosTable no endpoint do responsável — usar LEFT JOIN (estudantes sem turma somem)
+- ❌ `turmaTurnosTable` para exibir turno do estudante — retorna todos os turnos da turma; usar `matriculasTable.turnoId`
 - ❌ Misturar ocorrências de estudantes distintos no portal do responsável
 - ❌ Mostrar cardápio não publicado (`publicado = false`)
 - ❌ Exibir botão de ciência para estudante com `isMaior = false`
