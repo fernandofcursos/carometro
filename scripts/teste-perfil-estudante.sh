@@ -192,7 +192,10 @@ step "5" "Localizando registro de estudante do Filho"
 ESTUDANTES=$(api GET /api/estudantes)
 FILHO_ESTUDANTE_ID=$(echo "$ESTUDANTES" | jq -r \
   --arg uid "$FILHO_USUARIO_ID" \
-  '[.[] | select(.usuarioId == $uid)] | first | .id // empty' 2>/dev/null || echo "")
+  --arg nome "$FILHO_NOME" \
+  '[ .[] | select(
+      (.usuarioId != null and .usuarioId == $uid) or (.nome == $nome)
+    ) ] | first | .id // empty' 2>/dev/null || echo "")
 
 if [[ -n "$FILHO_ESTUDANTE_ID" ]]; then
   ok "Estudante ID: $FILHO_ESTUDANTE_ID"
@@ -325,15 +328,21 @@ if [[ "$PULAR_ENTURMACAO" == "false" && -n "$TURMA_ID" ]]; then
 
     # Vincular após enturmação se ainda não vinculou
     if [[ "$VINCULOU_ANTES" == "false" ]]; then
+      sleep 1  # garante que o estudante foi persistido
       ESTUDANTES2=$(api GET /api/estudantes)
+      # Busca por usuarioId (campo adicionado ao listing) ou por nome como fallback
       FILHO_ESTUDANTE_ID=$(echo "$ESTUDANTES2" | jq -r \
         --arg uid "$FILHO_USUARIO_ID" \
-        '[.[] | select(.usuarioId == $uid)] | first | .id // empty' 2>/dev/null || echo "")
+        --arg nome "$FILHO_NOME" \
+        '[ .[] | select(
+            (.usuarioId != null and .usuarioId == $uid) or
+            (.nome == $nome)
+          ) ] | first | .id // empty' 2>/dev/null || echo "")
       if [[ -n "$FILHO_ESTUDANTE_ID" ]]; then
-        ok "Estudante criado: $FILHO_ESTUDANTE_ID"
+        ok "Estudante localizado: $FILHO_ESTUDANTE_ID"
         VINCULAR "$FILHO_ESTUDANTE_ID" "$PAI_USUARIO_ID"
       else
-        warn "Estudante ainda não localizado após enturmação."
+        erro "Estudante não localizado após enturmação — vínculo de responsável não aplicado."
       fi
     fi
   fi
