@@ -54,6 +54,7 @@ export function AppSidebar() {
 
   const isEstudante = (user?.roles ?? []).includes("estudante");
   const isPaiResponsavel = (user?.roles ?? []).includes("pai_responsavel");
+  const isProfessor = (user?.roles ?? []).includes("professor");
   // Admin vê todos os portais para teste e ajuste
   const isAdmin = hasAny("usuarios:manage", "roles:manage");
 
@@ -87,6 +88,16 @@ export function AppSidebar() {
       bgColor: "#f0f9ff",
       items: [
         nav("Meu Perfil", "/portal", GraduationCap),
+      ],
+    }] : []),
+    // Portal do Professor — role 'professor' ou admin (para ajuste/teste)
+    ...(isProfessor || isAdmin ? [{
+      label: "Portal do Professor",
+      icon: BookOpen,
+      color: "#16a34a",
+      bgColor: "#f0fdf4",
+      items: [
+        nav("Meu Portal", "/portal-professor", Home),
       ],
     }] : []),
     // Portal do Responsável — role 'pai_responsavel' ou admin (para ajuste/teste)
