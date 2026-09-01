@@ -266,15 +266,54 @@ else
 fi
 PULAR_ENTURMACAO="${PULAR_ENTURMACAO:-false}"
 
+# ── Resolver turnoId ───────────────────────────────────────────────────────────
+TURNO_ID=""
+if [[ "$PULAR_ENTURMACAO" == "false" && -n "$TURMA_ID" ]]; then
+  TURNO_COUNT=$(echo "$TURMAS" | jq --arg id "$TURMA_ID" \
+    '[.[] | select(.id==$id) | .turnos[]] | length' 2>/dev/null || echo 0)
+
+  if [[ "$TURNO_COUNT" -eq 1 ]]; then
+    TURNO_ID=$(echo "$TURMAS" | jq -r --arg id "$TURMA_ID" \
+      '.[] | select(.id==$id) | .turnos[0].id' 2>/dev/null)
+    TURNO_NOME=$(echo "$TURMAS" | jq -r --arg id "$TURMA_ID" \
+      '.[] | select(.id==$id) | .turnos[0].nome' 2>/dev/null)
+    ok "Turno único detectado: $TURNO_NOME ($TURNO_ID)"
+
+  elif [[ "$TURNO_COUNT" -gt 1 ]]; then
+    warn "A turma possui $TURNO_COUNT turnos — selecione:"
+    echo
+    echo "$TURMAS" | jq -r --arg id "$TURMA_ID" \
+      '.[] | select(.id==$id) | .turnos[] | "    \(.nome) [\(.id)]"' 2>/dev/null
+    echo
+    read -rp "  Cole o UUID do turno desejado: " TURNO_ID
+    if [[ -z "$TURNO_ID" ]]; then
+      warn "Turno não informado — enturmação pode falhar."
+    fi
+  else
+    warn "Nenhum turno encontrado para a turma (turnoId omitido)."
+  fi
+fi
+
 # ── 8. Enturmar Filho ──────────────────────────────────────────────────────────
 step "8" "Enturmando Filho (registro 55555 | 2026 | 2° semestre)"
 
 MATRICULA_ID=""
 if [[ "$PULAR_ENTURMACAO" == "false" && -n "$TURMA_ID" ]]; then
-  ENTURMACAO=$(api POST /api/matriculas -d "$(jq -n \
-    --arg uid "$FILHO_USUARIO_ID" \
-    --arg tid "$TURMA_ID" \
-    '{usuarioId:$uid, turmaId:$tid, registro:"55555", ano:2026, semestre:2}')")
+  # Montar payload — incluir turnoId apenas se disponível
+  if [[ -n "$TURNO_ID" ]]; then
+    ENT_PAYLOAD=$(jq -n \
+      --arg uid "$FILHO_USUARIO_ID" \
+      --arg tid "$TURMA_ID" \
+      --arg tnid "$TURNO_ID" \
+      '{usuarioId:$uid, turmaId:$tid, turnoId:$tnid, registro:"55555", ano:2026, semestre:2}')
+  else
+    ENT_PAYLOAD=$(jq -n \
+      --arg uid "$FILHO_USUARIO_ID" \
+      --arg tid "$TURMA_ID" \
+      '{usuarioId:$uid, turmaId:$tid, registro:"55555", ano:2026, semestre:2}')
+  fi
+
+  ENTURMACAO=$(api POST /api/matriculas -d "$ENT_PAYLOAD")
 
   ENT_ERR=$(jqr "$ENTURMACAO" '.error // empty')
   if [[ -n "$ENT_ERR" ]]; then
