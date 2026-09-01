@@ -266,6 +266,14 @@ if (responsavelIds.length > 0 && roleIds.length > 0) {
 
 > **Atenção:** `responsaveis_estudantes` NÃO tem coluna `atualizado_em` — apenas `id, usuario_id, estudante_id, criado_em, criado_por_id`.
 
+### Chave de criptografia de email
+
+Todos os endpoints que criptografam ou descriptografam `email_encrypted` de `usuarios` usam:
+```typescript
+const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+```
+**Nunca usar** `ENCRYPTION_KEY` para emails de usuários. Usar `ENCRYPTION_KEY` causa descriptografia com chave errada → email retorna como string vazia.
+
 ### Componente ResponsaveisSelector (UI)
 
 Exibido no `NovoUsuarioModal` quando `temEstudante` (alguma role selecionada é `estudante`):

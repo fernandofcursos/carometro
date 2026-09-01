@@ -29,6 +29,45 @@ Clicar na foto (ou nome) do estudante **abre o modal** de ocorrências diretamen
 
 O link `/estudantes/:id` (perfil completo) está disponível **dentro do modal** como "Ver perfil completo". A página de detalhes é preservada para uso em outras funcionalidades.
 
+## Perfil Completo — `/estudantes/:id` (`detail.tsx`)
+
+### Aba "Dados Cadastrais" — modo visualização
+
+Exibe, nesta ordem:
+1. Nome completo
+2. Registro
+3. Data de nascimento (com idade calculada)
+4. E-mails (com tipo: próprio / responsável)
+5. Turma + Turno
+6. Curso
+7. Observação
+8. Data de cadastro
+9. **Pai / Responsável** — seção exibida apenas quando `responsaveis.length > 0`; mostra nome, código de acesso e email de cada responsável vinculado
+
+### Aba "Dados Cadastrais" — modo edição
+
+Campos editáveis, na mesma ordem, acrescidos de:
+- **Pai / Responsável (opcional)** — componente `ResponsaveisSelector`:
+  - Busca debounced 300ms → `GET /api/usuarios/responsaveis?q=`
+  - Lista com checkboxes; selecionados exibidos como pills com botão X
+  - Pré-carregado com os responsáveis já vinculados ao abrir o modo edição
+  - Salvo via `PUT /api/estudantes/:id` com `responsavelIds: string[]`
+  - Array vazio limpa todos os vínculos
+
+### API usada pela página
+
+| Ação | Endpoint |
+|---|---|
+| Carregar perfil | `GET /api/estudantes/:id` |
+| Salvar edição | `PUT /api/estudantes/:id` (inclui `responsavelIds`) |
+| Buscar responsáveis | `GET /api/usuarios/responsaveis?q=` |
+| Upload de foto | `POST /api/estudantes/:id/foto` |
+
+### Criptografia de email — armadilha
+
+`GET /api/estudantes/:id` descriptografa o email dos responsáveis usando `SESSION_SECRET`.  
+**Nunca usar** `ENCRYPTION_KEY` para emails — causa email vazio no retorno da API.
+
 ## Padrão Visual — Cards Fotográficos (3×4)
 
 Todos os carômetros usam proporção **3:4** (retrato) para maximizar fotos por linha.

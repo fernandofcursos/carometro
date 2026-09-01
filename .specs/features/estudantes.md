@@ -10,20 +10,27 @@
 **Requer:** `estudantes:view`  
 **Filtros opcionais:** `?turmaId=uuid`, `?busca=texto` (nome ou registro)
 
-**Saída:**
+**Saída:** `Array<Estudante>` (não objeto wrapper — array direto)
+
 ```typescript
-{
-  estudantes: Array<{
-    id: string; nome: string; registro: string;
-    observacao: string | null; turmaId: string; temFoto: boolean;
-    turmaSigla: string | null; turmaDesc: string | null;
-    cursoNome: string | null; turnoNome: string | null;
-    criadoEm: string; atualizadoEm: string;
-  }>
-}
+Array<{
+  id: string;
+  nome: string;
+  registro: string;
+  observacao: string | null;
+  turmaId: string;
+  usuarioId: string | null;   // ID do usuario vinculado (útil para lookup pós-enturmação)
+  turmaSigla: string;
+  turmaDescricao: string;
+  turnoNome: string;
+  cursoNome: string;
+  criadoEm: string;
+  fotoUrl: string | null;
+  emails: Array<{ email: string; tipo: string }>;
+}>
 ```
 
-> `temFoto: boolean` — `fotoDados` nunca é retornado no listing. Usar `GET /:id/foto` para imagem.
+> `fotoDados` nunca é retornado no listing. Usar `GET /:id/foto` para imagem.
 
 ### Join de turno (ATENÇÃO)
 
@@ -85,9 +92,23 @@ Atualiza dados textuais (nome, registro, turmaId, observacao, dataNascimento). N
 **Requer:** `estudantes:manage`  
 `dataNascimento` aceita `"YYYY-MM-DD"` ou `null` para limpar.
 
-### GET /api/estudantes/:id — resposta
+### GET /api/estudantes/:id — resposta completa
 
-Inclui `dataNascimento: string | null`.
+```typescript
+{
+  id, nome, registro, observacao, dataNascimento,
+  turmaId, turmaSigla, turmaDescricao, turnoNome, cursoNome,
+  usuarioId: string | null,
+  criadoEm, fotoUrl,
+  emails: Array<{ email, tipo }>,
+  responsaveis: Array<{ id, nome, codigoAcesso, email }>,
+}
+```
+
+### Criptografia de email dos responsáveis
+
+A descriptografia de `emailEncrypted` em `estudantes.ts` usa `SESSION_SECRET` (igual a `usuarios.ts`).  
+**Nunca usar** `ENCRYPTION_KEY` para emails de usuários — a chave canônica é `SESSION_SECRET`.
 
 ### GET /api/estudantes/:id — responsaveis
 
@@ -154,6 +175,24 @@ Soft delete: seta `deletadoEm`. Foto permanece no banco (auditoria LGPD).
 | `foto_hash_integridade` | char(64) |
 
 Após `scripts/migrate-fotos.sql` ser executado e todos os `foto_id` preenchidos, rodar o bloco `DROP COLUMN` comentado no script para liberar espaço.
+
+## Script de Teste
+
+`scripts/teste-perfil-estudante.sh` — valida o fluxo completo:
+
+1. Login como admin
+2. Busca IDs dos roles `estudante` e `pai_responsavel`
+3. Cria usuário Filho (estudante)
+4. Cria usuário Pai (pai_responsavel)
+5. Localiza registro de estudante (por `usuarioId` ou `nome`)
+6. Vincula Pai → Filho via `PUT /api/estudantes/:id`
+7. Localiza turma por sigla/descrição (interativo se múltiplos turnos)
+8. Enturma Filho com registro único por execução (últimos 8 dígitos do timestamp)
+9. Verifica perfil final com `responsaveis`
+
+```bash
+BASE=http://localhost:8080 bash scripts/teste-perfil-estudante.sh
+```
 
 ## Casos de Teste
 
