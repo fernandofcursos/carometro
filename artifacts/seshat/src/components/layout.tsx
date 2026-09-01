@@ -100,6 +100,26 @@ export function AppSidebar() {
         nav("Meu Portal", "/portal-professor", Home),
       ],
     }] : []),
+    // Portal da Equipe Gestora — role 'equipe_gestora' ou admin
+    ...((user?.roles ?? []).includes("equipe_gestora") || isAdmin ? [{
+      label: "Equipe Gestora",
+      icon: Crown,
+      color: "#7c3aed",
+      bgColor: "#f5f3ff",
+      items: [
+        nav("Meu Portal", "/portal-gestora", Home),
+      ],
+    }] : []),
+    // Portal do Coordenador — role 'coordenador' ou admin (para ajuste/teste)
+    ...((user?.roles ?? []).includes("coordenador") || isAdmin ? [{
+      label: "Portal do Coordenador",
+      icon: ClipboardList,
+      color: "#2563eb",
+      bgColor: "#eff6ff",
+      items: [
+        nav("Meu Portal", "/portal-coordenador", Home),
+      ],
+    }] : []),
     // Portal do Responsável — role 'pai_responsavel' ou admin (para ajuste/teste)
     ...(isPaiResponsavel || isAdmin ? [{
       label: "Portal do Responsável",
