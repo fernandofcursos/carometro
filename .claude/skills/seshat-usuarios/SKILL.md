@@ -294,3 +294,40 @@ const [responsaveisSelecionados, setResponsaveisSelecionados] = useState<Respons
 // Tipo:
 type ResponsavelSummary = { id: string; nome: string | null; codigoAcesso: string; email: string };
 ```
+
+---
+
+## Perfil do Estudante — Ver Perfil Completo / Editar Perfil
+
+Página: `artifacts/seshat/src/pages/estudantes/detail.tsx` (rota `/estudantes/:id`)
+
+### Modo Visualização
+
+Após a seção "Data de Cadastro", exibe seção "Pai / Responsável" quando `estudante.responsaveis.length > 0`:
+
+```tsx
+{responsaveis.map((r) => (
+  <div key={r.id} className="flex items-center gap-2 text-sm">
+    <span className="font-medium">{r.nome ?? "—"}</span>
+    <span className="text-xs text-muted-foreground font-mono">({r.codigoAcesso})</span>
+    <span className="text-xs text-muted-foreground">{r.email}</span>
+  </div>
+))}
+```
+
+### Modo Edição
+
+Após o campo Observação, exibe o mesmo `ResponsaveisSelector` da criação de usuário. Ao salvar, envia `responsavelIds: string[]` via `PUT /api/estudantes/:id`.
+
+- `resetForm()` preenche `responsaveisSelecionados` a partir de `estudante.responsaveis`
+- Array vazio = remover todos os vínculos
+
+### API
+
+`GET /api/estudantes/:id` retorna `responsaveis: Array<{ id, nome, codigoAcesso, email }>`.
+
+`PUT /api/estudantes/:id` aceita `responsavelIds?: string[]`:
+- Presente → delete todos + insert novos em `responsaveis_estudantes` (`ON CONFLICT DO NOTHING`)
+- Ausente → não toca nos vínculos existentes
+
+> **Atenção:** `responsaveis_estudantes` NÃO tem coluna `atualizado_em`.

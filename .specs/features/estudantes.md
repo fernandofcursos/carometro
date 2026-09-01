@@ -89,9 +89,30 @@ Atualiza dados textuais (nome, registro, turmaId, observacao, dataNascimento). N
 
 Inclui `dataNascimento: string | null`.
 
-### Perfil completo — editar perfil (detail.tsx)
+### GET /api/estudantes/:id — responsaveis
 
-A página de detalhe do estudante (`/estudantes/:id`) exibe e permite editar `dataNascimento`:
+A resposta inclui `responsaveis: Array<{ id, nome, codigoAcesso, email }>` com os usuários de role `pai_responsavel` vinculados via `responsaveis_estudantes`.
+
+### PUT /api/estudantes/:id — responsavelIds
+
+Aceita campo opcional `responsavelIds: string[]` (UUIDs). Quando presente:
+- Remove todos os vínculos existentes em `responsaveis_estudantes` para o estudante
+- Insere os novos vínculos (`ON CONFLICT DO NOTHING`)
+- Um array vazio `[]` limpa todos os vínculos
+
+### Perfil completo — Ver Perfil / Editar Perfil (`detail.tsx`)
+
+Acessado via Carômetro → Estudante → Ver Perfil Completo → Editar Perfil.
+
+**Modo visualização:** exibe seção "Pai / Responsável" com nome, código e email de cada responsável vinculado (quando `responsaveis.length > 0`).
+
+**Modo edição:** exibe componente `ResponsaveisSelector` com:
+- Busca debounced (300ms) → `GET /api/usuarios/responsaveis?q=`
+- Checkboxes por responsável encontrado
+- Pills dos selecionados com botão X para remover
+- Mesmas regras do campo homônimo na criação de usuário
+
+Campo `dataNascimento`:
 - Campo `type="date"` no formulário de edição com texto auxiliar de idade calculada
 - Exibição com idade no modo somente-leitura: "DD de mês de AAAA (X anos)"
 
