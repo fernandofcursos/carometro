@@ -166,9 +166,30 @@ Campos:
 1. Nome
 2. E-mail *(obrigatório)*
 3. **Data de nascimento** — input `type="date"`; exibe idade calculada em texto auxiliar
-4. Código de acesso *(read-only)*
-5. Toggle "Primeiro acesso"
-6. Resetar senha
+4. **Pai / Responsável (opcional)** — exibido **apenas quando o usuário tem role `estudante`**; mesmo `ResponsaveisSelector` da criação
+5. Código de acesso *(read-only)*
+6. Toggle "Primeiro acesso"
+7. Resetar senha
+
+#### Fluxo ao salvar (EditarUsuarioModal)
+
+```
+1. PUT /api/usuarios/:id  { nome, email, dataNascimento, primeiroAcesso }
+2. Se role estudante && estudanteId encontrado:
+   PUT /api/estudantes/:id  { responsavelIds: string[] }
+```
+
+- O `estudanteId` é obtido via `GET /api/estudantes?usuarioId={usuario.id}` no `useEffect` ao abrir o modal
+- `responsavelIds: []` limpa todos os vínculos
+- Os responsáveis atuais são pré-carregados via `GET /api/estudantes/:estudanteId` (campo `responsaveis[]`)
+
+#### Filtro usuarioId no GET /api/estudantes
+
+```
+GET /api/estudantes?usuarioId=<uuid>
+```
+
+Retorna estudantes com `estudantesTable.usuarioId = uuid` (filtro adicionado junto com `turmaId` e `busca`).
 
 ### Card de listagem (UsuarioRow)
 

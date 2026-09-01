@@ -64,11 +64,12 @@ async function carregarEmails(ids: string[]) {
 // Filtros: ?turmaId=uuid&busca=texto&search=texto
 router.get("/", requirePermissao("estudantes:view"), async (req: Request, res: Response) => {
   try {
-    const { turmaId, busca, search } = req.query;
+    const { turmaId, busca, search, usuarioId: usuarioIdFilter } = req.query;
     const termoBusca = (busca || search) as string | undefined;
 
     const condicoes = [isNull(estudantesTable.deletadoEm)];
     if (turmaId) condicoes.push(eq(estudantesTable.turmaId, turmaId as string));
+    if (usuarioIdFilter) condicoes.push(eq(estudantesTable.usuarioId, usuarioIdFilter as string));
     if (termoBusca) {
       condicoes.push(
         or(

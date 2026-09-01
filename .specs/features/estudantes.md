@@ -8,7 +8,9 @@
 ### GET /api/estudantes
 
 **Requer:** `estudantes:view`  
-**Filtros opcionais:** `?turmaId=uuid`, `?busca=texto` (nome ou registro)
+**Filtros opcionais:** `?turmaId=uuid`, `?busca=texto` (nome ou registro), `?usuarioId=uuid`
+
+O filtro `?usuarioId=` retorna o(s) estudante(s) vinculados ao usuário com aquele ID (via `estudantes.usuario_id`). Usado pelo modal de edição de usuário (`EditarUsuarioModal`) para encontrar o `estudanteId` antes de atualizar os responsáveis.
 
 **Saída:** `Array<Estudante>` (não objeto wrapper — array direto)
 

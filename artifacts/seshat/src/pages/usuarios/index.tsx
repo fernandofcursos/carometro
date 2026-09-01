@@ -378,38 +378,85 @@ function EditarUsuarioModal({
   const [dataNascimento, setDataNascimento] = useState(usuario.dataNascimento ?? "");
   const [primeiroAcesso, setPrimeiroAcesso] = useState(usuario.primeiroAcesso);
   const [senhaReset, setSenhaReset] = useState<string | null>(null);
+  const [responsaveisSelecionados, setResponsaveisSelecionados] = useState<ResponsavelSummary[]>([]);
+  const [estudanteId, setEstudanteId] = useState<string | null>(null);
   const update = useUpdateUsuario();
   const resetarSenha = useResetarSenhaUsuario();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const BASE_URL = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+  const isEstudante = usuario.roles.some((r) => r.nome === "estudante");
   const idadeAtual = calcIdadeStr(dataNascimento || null);
 
-  const save = (e: React.FormEvent) => {
+  // Carregar estudante vinculado e seus responsáveis quando for role estudante
+  useEffect(() => {
+    if (!isEstudante) return;
+    fetch(`${BASE_URL}/api/estudantes?usuarioId=${usuario.id}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        const list = Array.isArray(data) ? data : [];
+        if (list.length === 0) return;
+        const est = list[0] as { id: string };
+        setEstudanteId(est.id);
+        // Buscar responsáveis do estudante
+        return fetch(`${BASE_URL}/api/estudantes/${est.id}`, { credentials: "include" })
+          .then((r) => r.json())
+          .then((d: unknown) => {
+            const detail = d as { responsaveis?: ResponsavelSummary[] };
+            setResponsaveisSelecionados(detail.responsaveis ?? []);
+          });
+      })
+      .catch(() => {});
+  }, [isEstudante, usuario.id, BASE_URL]);
+
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    update.mutate(
-      {
-        id: usuario.id,
-        data: {
-          nome: nome.trim() || undefined,
-          email: email.trim(),
-          dataNascimento: dataNascimento || null,
-          primeiroAcesso,
+
+    // 1. Salvar dados básicos do usuário
+    await new Promise<void>((resolve, reject) => {
+      update.mutate(
+        {
+          id: usuario.id,
+          data: {
+            nome: nome.trim() || undefined,
+            email: email.trim(),
+            dataNascimento: dataNascimento || null,
+            primeiroAcesso,
+          },
         },
-      },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListUsuariosQueryKey() });
-          toast({ title: "Usuário atualizado" });
-          onClose();
-        },
-        onError: (err) => {
-          const msg = (err as { data?: { error?: string } }).data?.error ?? "Erro ao atualizar usuário";
-          toast({ title: msg, variant: "destructive" });
-        },
+        { onSuccess: () => resolve(), onError: reject }
+      );
+    }).catch((err) => {
+      const msg = (err as { data?: { error?: string } }).data?.error ?? "Erro ao atualizar usuário";
+      toast({ title: msg, variant: "destructive" });
+      return Promise.reject(err);
+    });
+
+    // 2. Se for estudante e tiver estudanteId, salvar responsáveis
+    if (isEstudante && estudanteId !== null) {
+      try {
+        const res = await fetch(`${BASE_URL}/api/estudantes/${estudanteId}`, {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ responsavelIds: responsaveisSelecionados.map((r) => r.id) }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast({ title: (err as { error?: string }).error ?? "Erro ao salvar responsáveis", variant: "destructive" });
+          return;
+        }
+      } catch {
+        toast({ title: "Erro ao salvar responsáveis", variant: "destructive" });
+        return;
       }
-    );
+    }
+
+    queryClient.invalidateQueries({ queryKey: getListUsuariosQueryKey() });
+    toast({ title: "Usuário atualizado" });
+    onClose();
   };
 
   const handleResetSenha = () => {
@@ -427,7 +474,7 @@ function EditarUsuarioModal({
   };
 
   return (
-    <DialogContent className="max-w-md">
+    <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Editar Usuário</DialogTitle>
       </DialogHeader>
@@ -469,6 +516,25 @@ function EditarUsuarioModal({
             <p className="text-xs text-muted-foreground">{idadeAtual} anos</p>
           )}
         </div>
+
+        {isEstudante && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-500" />
+              Pai / Responsável
+              <span className="text-xs font-normal text-muted-foreground ml-1">(opcional)</span>
+            </Label>
+            {!estudanteId && (
+              <p className="text-xs text-muted-foreground italic">
+                Carregando vínculo do estudante...
+              </p>
+            )}
+            <ResponsaveisSelector
+              selected={responsaveisSelecionados}
+              onChange={setResponsaveisSelecionados}
+            />
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label className="text-sm">Código de Acesso</Label>
