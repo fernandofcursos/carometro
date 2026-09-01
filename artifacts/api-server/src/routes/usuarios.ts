@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, estudantesTable, estudanteEmailsTable, eq, isNull, and, ne } from "@workspace/db";
+import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, estudantesTable, estudanteEmailsTable, responsaveisEstudantesTable, eq, isNull, and, ne, inArray, ilike, or } from "@workspace/db";
 import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable, coordenadorCursosTable, fotosTable } from "@workspace/db/schema";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
@@ -75,6 +75,46 @@ const createUsuarioSchema = z.object({
   roleIds: z.array(z.string().uuid()).optional().default([]),
   disciplinaOfertaIds: z.array(z.string().uuid()).optional().default([]),
   cursoIds: z.array(z.string().uuid()).optional().default([]),
+  responsavelIds: z.array(z.string().uuid()).optional().default([]),
+});
+
+// GET /api/usuarios/responsaveis?q= — lista usuários com role pai_responsavel (para vincular ao estudante)
+router.get("/responsaveis", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+
+    // Busca IDs dos usuários que têm role pai_responsavel
+    const [rolePai] = await db
+      .select({ id: rolesTable.id })
+      .from(rolesTable)
+      .where(eq(rolesTable.nome, "pai_responsavel"));
+
+    if (!rolePai) return res.json([]);
+
+    const paiIds = await db
+      .select({ usuarioId: usuariosRolesTable.usuarioId })
+      .from(usuariosRolesTable)
+      .where(eq(usuariosRolesTable.roleId, rolePai.id));
+
+    if (paiIds.length === 0) return res.json([]);
+
+    const ids = paiIds.map((r) => r.usuarioId);
+
+    const rows = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, codigoAcesso: usuariosTable.codigoAcesso, emailEncrypted: usuariosTable.emailEncrypted })
+      .from(usuariosTable)
+      .where(and(inArray(usuariosTable.id, ids), isNull(usuariosTable.deletadoEm)));
+
+    const resultado = rows
+      .map((u) => ({ id: u.id, nome: u.nome, codigoAcesso: u.codigoAcesso, email: decryptEmail(String(u.emailEncrypted), secret) }))
+      .filter((u) => !q || u.nome?.toLowerCase().includes(q.toLowerCase()) || u.codigoAcesso.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()))
+      .sort((a, b) => (a.nome ?? "").localeCompare(b.nome ?? ""));
+
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar responsáveis" });
+  }
 });
 
 // GET /api/usuarios — listar usuários ativos com seus roles
@@ -211,7 +251,7 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 // POST /api/usuarios — criar usuário com senha temporária
 router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds, cursoIds } = createUsuarioSchema.parse(req.body);
+    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds, cursoIds, responsavelIds } = createUsuarioSchema.parse(req.body);
     const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
 
     const erroRegra = await validarRegrasRoles(roleIds, dataNascimento);
@@ -252,6 +292,26 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       await db.insert(coordenadorCursosTable).values(
         cursoIds.map((cursoId) => ({ usuarioId: u.id, cursoId }))
       ).onConflictDoNothing();
+    }
+
+    // Vincular responsáveis ao estudante (somente quando role estudante está presente)
+    if (responsavelIds.length > 0 && roleIds.length > 0) {
+      const [roleEstudante] = await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.nome, "estudante"));
+      const temEstudanteRole = roleEstudante && roleIds.includes(roleEstudante.id);
+      if (temEstudanteRole) {
+        // Localizar o registro em estudantes criado pelo sistema (via usuarioId)
+        const [estudante] = await db.select({ id: estudantesTable.id }).from(estudantesTable)
+          .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+        if (estudante) {
+          await db.insert(responsaveisEstudantesTable).values(
+            responsavelIds.map((responsavelId) => ({
+              usuarioId: responsavelId,
+              estudanteId: estudante.id,
+              criadoPorId: req.usuarioId,
+            }))
+          ).onConflictDoNothing();
+        }
+      }
     }
 
     await registrarAuditoria({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useListUsuarios, useCreateUsuario, useUpdateUsuario, useDeleteUsuario,
   useUploadFotoUsuario, useListDisciplinas, useListRoles, useSetUsuarioRoles,
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { UserCog, Plus, Trash2, Edit2, Lock, Copy, BookOpen, Camera, ShieldCheck, RefreshCw, AlertCircle, GraduationCap } from "lucide-react";
+import { UserCog, Plus, Trash2, Edit2, Lock, Copy, BookOpen, Camera, ShieldCheck, RefreshCw, AlertCircle, GraduationCap, Search, X, Users } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -31,6 +31,86 @@ type DisciplinaOferta = { id: string; disciplinaId: string; cursoId: string; cur
 type EnrichedDisc = { id: string; nome: string; criadoEm: string; ofertas: DisciplinaOferta[] };
 type UsuarioDisciplina = { ofertaId: string; disciplinaId: string; disciplinaNome: string; cursoId: string; cursoNome: string; turnoId: string; turnoNome: string };
 type CursoSummary = { id: string; nome: string };
+type ResponsavelSummary = { id: string; nome: string | null; codigoAcesso: string; email: string };
+
+function ResponsaveisSelector({
+  selected, onChange,
+}: { selected: ResponsavelSummary[]; onChange: (v: ResponsavelSummary[]) => void }) {
+  const [q, setQ] = useState("");
+  const [resultados, setResultados] = useState<ResponsavelSummary[]>([]);
+  const [carregando, setCarregando] = useState(false);
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    if (!q.trim()) { setResultados([]); return; }
+    timerRef.current = setTimeout(async () => {
+      setCarregando(true);
+      try {
+        const res = await fetch(`${BASE}/api/usuarios/responsaveis?q=${encodeURIComponent(q)}`, { credentials: "include" });
+        const data = await res.json();
+        setResultados(Array.isArray(data) ? data : []);
+      } catch { setResultados([]); }
+      finally { setCarregando(false); }
+    }, 300);
+    return () => clearTimeout(timerRef.current);
+  }, [q, BASE]);
+
+  const toggle = (r: ResponsavelSummary) => {
+    if (selected.find((s) => s.id === r.id)) {
+      onChange(selected.filter((s) => s.id !== r.id));
+    } else {
+      onChange([...selected, r]);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar por nome, código ou e-mail..."
+          className="pl-8 text-sm"
+        />
+      </div>
+      {carregando && <p className="text-xs text-muted-foreground px-1">Buscando...</p>}
+      {resultados.length > 0 && (
+        <div className="border rounded-lg divide-y max-h-40 overflow-y-auto">
+          {resultados.map((r) => {
+            const isSel = !!selected.find((s) => s.id === r.id);
+            return (
+              <label key={r.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none">
+                <Checkbox checked={isSel} onCheckedChange={() => toggle(r)} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{r.nome ?? "Sem nome"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{r.codigoAcesso} · {r.email}</p>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      )}
+      {q.trim() && !carregando && resultados.length === 0 && (
+        <p className="text-xs text-muted-foreground px-1">Nenhum responsável encontrado.</p>
+      )}
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {selected.map((r) => (
+            <span key={r.id} className="flex items-center gap-1 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-full px-2 py-0.5 text-xs">
+              {r.nome ?? r.codigoAcesso}
+              <button type="button" onClick={() => toggle(r)} className="ml-0.5 hover:text-red-600">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 type Usuario = {
   id: string; nome: string | null; email: string; codigoAcesso: string;
   dataNascimento: string | null;
@@ -567,6 +647,7 @@ function NovoUsuarioModal({
   const [roleIds, setRoleIds] = useState<Set<string>>(new Set());
   const [disciplinaOfertaIds, setDisciplinaOfertaIds] = useState<Set<string>>(new Set());
   const [cursoIds, setCursoIds] = useState<Set<string>>(new Set());
+  const [responsaveisSelecionados, setResponsaveisSelecionados] = useState<ResponsavelSummary[]>([]);
   const [allCursos, setAllCursos] = useState<CursoSummary[]>([]);
   const create = useCreateUsuario();
   const queryClient = useQueryClient();
@@ -642,6 +723,7 @@ function NovoUsuarioModal({
           roleIds: [...roleIds],
           disciplinaOfertaIds: [...disciplinaOfertaIds],
           cursoIds: temCoordenador ? [...cursoIds] : [],
+          responsavelIds: temEstudante ? responsaveisSelecionados.map((r) => r.id) : [],
         },
       },
       {
@@ -770,6 +852,20 @@ function NovoUsuarioModal({
               </div>
           }
         </div>
+
+        {temEstudante && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-500" />
+              Pai / Responsável
+              <span className="text-xs font-normal text-muted-foreground ml-1">(opcional)</span>
+            </Label>
+            <ResponsaveisSelector
+              selected={responsaveisSelecionados}
+              onChange={setResponsaveisSelecionados}
+            />
+          </div>
+        )}
 
         {allDisciplinas.some((d) => d.ofertas.length > 0) && (
           <div className="space-y-2">
