@@ -189,3 +189,108 @@ function calcIdadeStr(d: string | null): number | null {
 ```
 
 Função declarada fora dos componentes (reutilizada em `EditarUsuarioModal` e `UsuarioRow`).
+
+---
+
+## Vínculo Pai/Responsável ao Criar Estudante
+
+### Endpoint de busca
+
+`GET /api/usuarios/responsaveis?q=`
+
+- Retorna usuários com role `pai_responsavel`, ativos (não excluídos)
+- Parâmetro `?q=` opcional — filtra por nome, `codigoAcesso` ou email (case-insensitive, `ilike`)
+- Resposta: `[{ id, nome, codigoAcesso, email }]`
+- Permissão: `usuarios:manage`
+- **Deve ser registrado ANTES de `GET /api/usuarios/:id`** para não ser capturado como `:id = "responsaveis"`
+
+```typescript
+router.get("/responsaveis", requirePermissao("usuarios:manage"), async (req, res) => {
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const [rolePai] = await db.select({ id: rolesTable.id }).from(rolesTable)
+    .where(and(eq(rolesTable.nome, "pai_responsavel"), isNull(rolesTable.deletadoEm)));
+  if (!rolePai) return res.json([]);
+
+  const usersWithRole = await db.select({ usuarioId: usuariosRolesTable.usuarioId })
+    .from(usuariosRolesTable)
+    .where(eq(usuariosRolesTable.roleId, rolePai.id));
+  const ids = usersWithRole.map((r) => r.usuarioId);
+  if (ids.length === 0) return res.json([]);
+
+  const rows = await db.select({ id: usuariosTable.id, nome: usuariosTable.nome,
+      codigoAcesso: usuariosTable.codigoAcesso, emailEncrypted: usuariosTable.emailEncrypted })
+    .from(usuariosTable)
+    .where(and(inArray(usuariosTable.id, ids), isNull(usuariosTable.deletadoEm)));
+
+  const result = rows
+    .map((u) => ({ id: u.id, nome: u.nome, codigoAcesso: u.codigoAcesso,
+        email: decryptEmail(u.emailEncrypted) }))
+    .filter((u) => !q || [u.nome, u.codigoAcesso, u.email]
+        .some((v) => v?.toLowerCase().includes(q.toLowerCase())));
+  res.json(result);
+});
+```
+
+### POST /api/usuarios — campo responsavelIds
+
+Schema atualizado:
+
+```typescript
+const createUsuarioSchema = z.object({
+  // ... campos existentes ...
+  responsavelIds: z.array(z.string().uuid()).optional().default([]),
+});
+```
+
+Fluxo após criar o usuário:
+
+```typescript
+if (responsavelIds.length > 0 && roleIds.length > 0) {
+  const [roleEstudante] = await db.select({ id: rolesTable.id }).from(rolesTable)
+    .where(eq(rolesTable.nome, "estudante"));
+  const temEstudanteRole = roleEstudante && roleIds.includes(roleEstudante.id);
+  if (temEstudanteRole) {
+    const [estudante] = await db.select({ id: estudantesTable.id })
+      .from(estudantesTable)
+      .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+    if (estudante) {
+      await db.insert(responsaveisEstudantesTable).values(
+        responsavelIds.map((responsavelId) => ({
+          usuarioId: responsavelId, estudanteId: estudante.id, criadoPorId: req.usuarioId,
+        }))
+      ).onConflictDoNothing();
+    }
+  }
+}
+```
+
+> **Atenção:** `responsaveis_estudantes` NÃO tem coluna `atualizado_em` — apenas `id, usuario_id, estudante_id, criado_em, criado_por_id`.
+
+### Componente ResponsaveisSelector (UI)
+
+Exibido no `NovoUsuarioModal` quando `temEstudante` (alguma role selecionada é `estudante`):
+
+```
+[ Pai / Responsável (opcional) ]
+🔍 [Buscar por nome, código ou e-mail...]
+  ☐ João da Silva   (JD1234)   joao@email.com
+  ☐ Maria Oliveira  (MO5678)   maria@email.com
+
+Selecionados:
+  [João da Silva ×]  [Maria Oliveira ×]
+```
+
+**Comportamento:**
+- Debounce 300ms → `GET /api/usuarios/responsaveis?q=`
+- Checkbox para cada resultado; permite múltipla seleção
+- Pills de selecionados com botão X para remover
+- Campo `responsavelIds` enviado apenas quando `temEstudante = true`
+- Vínculo criado automaticamente em `responsaveis_estudantes` no POST
+
+**Estado no modal:**
+
+```typescript
+const [responsaveisSelecionados, setResponsaveisSelecionados] = useState<ResponsavelSummary[]>([]);
+// Tipo:
+type ResponsavelSummary = { id: string; nome: string | null; codigoAcesso: string; email: string };
+```
