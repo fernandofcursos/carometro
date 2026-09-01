@@ -108,8 +108,33 @@ Retorna um objeto com `estudantes[]` (um por dependente vinculado) + cardápio c
 **Fonte dos dados:**
 - Estudantes: `responsaveis_estudantes` → `estudantes` → `turmas` → `cursos`
 - Ocorrências: batch com `inArray(ocorrenciasTable.estudanteId, estudanteIds)`
-- Agenda: `matriculas (usuarioId) → horarios_aulas (ano, semestre) → disciplina_ofertas → disciplinas`
+- Agenda: `horariosAulasTable` filtrado por `turmaId` dos estudantes vinculados (ver armadilha abaixo)
 - Cardápio: único para todos (cardápio da escola)
+
+**Armadilha — Agenda do Responsável:**
+
+Estudantes importados via CSV podem ter `estudantes.usuario_id = NULL` — nunca usar `matriculasTable.usuarioId` para buscar a agenda do responsável. A rota correta é consultar `horarios_aulas` diretamente pelo `turma_id` disponível em `estudantes`:
+
+```typescript
+// CORRETO — usa turmaId do próprio registro estudante
+const turmaIds = vinculados.map((e) => e.turmaId);
+const aulas = await db
+  .select({ turmaId: horariosAulasTable.turmaId, ... })
+  .from(horariosAulasTable)
+  .where(and(
+    inArray(horariosAulasTable.turmaId, turmaIds),
+    eq(horariosAulasTable.ano, anoAtual),
+    eq(horariosAulasTable.semestre, semestreAtual),
+  ));
+// agendaMap keyed by estudanteId (não usuarioId)
+const turmaToEstudante = new Map<string, string>();
+for (const v of vinculados) turmaToEstudante.set(v.turmaId, v.id);
+
+// ERRADO — falha para estudantes sem usuarioId
+const ids = vinculados.map((e) => e.usuarioId).filter(Boolean);
+await db.select(...).from(matriculasTable)
+  .where(inArray(matriculasTable.usuarioId, ids));  // ← NÃO FAZER
+```
 
 ### `GET /api/cardapio/semana` (público)
 
@@ -261,6 +286,15 @@ CREATE INDEX ON cardapios (data, publicado);
 - ❌ Exibir agenda de outro estudante que não seja o vinculado (responsável)
 - ❌ Mostrar cardápio não publicado para estudantes/responsáveis
 - ❌ Calcular "semana corrente" no frontend — o backend retorna `hoje` e os itens da semana
+- ❌ Buscar agenda do responsável via `matriculasTable.usuarioId` — estudantes importados têm `usuarioId = null`; usar `turmaId` direto de `estudantes`
+- ❌ Usar `onSuccess` do `useQuery` para inicializar estado derivado (removido no React Query v5) — usar `useEffect` observando o dado:
+  ```typescript
+  useEffect(() => {
+    if (me && me.estudantes.length > 0 && !estudanteSelecionado) {
+      setEstudanteSelecionado(me.estudantes[0].id);
+    }
+  }, [me]);
+  ```
 
 ---
 
