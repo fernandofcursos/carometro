@@ -125,6 +125,49 @@ services:
       retries: 5
 
   # ---------------------------------------------------------------------------
+  # prometheus — monitoramento local (perfil "monitoring")
+  # Uso: docker compose --profile monitoring up -d
+  # Porta 9090 exposta SOMENTE em dev (nunca em produção)
+  # ---------------------------------------------------------------------------
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v2.53.4
+    container_name: seshat-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_dev_data:/prometheus
+    ports:
+      - "9090:9090"    # apenas em dev — acesso direto para inspeção
+
+  # ---------------------------------------------------------------------------
+  # grafana — visualização local (perfil "monitoring")
+  # Uso: docker compose --profile monitoring up -d
+  # ---------------------------------------------------------------------------
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.4.0
+    container_name: seshat-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER:         admin
+      GF_SECURITY_ADMIN_PASSWORD:     seshat-dev   # apenas para dev local
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP:         "false"
+      GF_AUTH_ANONYMOUS_ENABLED:      "false"
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"    # 3001 para não colidir com Vite dev server
+
+  # ---------------------------------------------------------------------------
   # pgAdmin — interface visual para o banco (opcional)
   # Uso: docker compose --profile tools up
   # ---------------------------------------------------------------------------
@@ -168,3 +211,11 @@ volumes:
   pgadmin_data:
     driver: local
     name: seshat-pgadmin
+
+  prometheus_dev_data:
+    driver: local
+    name: seshat-prometheus-dev
+
+  grafana_dev_data:
+    driver: local
+    name: seshat-grafana-dev

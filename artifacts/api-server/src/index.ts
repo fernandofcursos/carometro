@@ -4,6 +4,9 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 import { createApp } from "./app.js";
 import { Request, Response, NextFunction } from "express";
+import {
+  registry, httpRequestsTotal, httpRequestDuration, httpRequestsInFlight, normalizeRoute
+} from "./lib/metrics.js";
 import authRouter from "./routes/auth.js";
 // Fase 3: Importar rotas de LGPD e auditoria
 import lgpdRouter from "./routes/lgpd.js";
@@ -43,6 +46,36 @@ import avisosInformesRouter from "./routes/avisos-informes.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
+
+// ── Métricas Prometheus ───────────────────────────────────────────────────────
+// Middleware de instrumentação HTTP — deve vir antes de qualquer rota.
+// LGPD: labels não contêm dados pessoais (ver normalizeRoute).
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === "/api/metrics") return next(); // evita auto-instrumentar /metrics
+  const start = process.hrtime.bigint();
+  httpRequestsInFlight.inc();
+  res.on("finish", () => {
+    httpRequestsInFlight.dec();
+    const durationSec = Number(process.hrtime.bigint() - start) / 1e9;
+    const route = normalizeRoute(req.path);
+    const labels = { method: req.method, route, status_code: String(res.statusCode) };
+    httpRequestsTotal.inc(labels);
+    httpRequestDuration.observe(labels, durationSec);
+  });
+  next();
+});
+
+// Endpoint /api/metrics — acessível SOMENTE a partir da rede interna Docker.
+// ISO 27001 A.8.20: porta não exposta externamente; nginx bloqueia /api/metrics.
+// LGPD: métricas agregadas sem PII.
+const ALLOWED_METRICS_NETS = ["172.", "10.", "::1", "127."];
+app.get("/api/metrics", async (req: Request, res: Response) => {
+  const ip = req.ip ?? "";
+  const allowed = ALLOWED_METRICS_NETS.some((prefix) => ip.startsWith(prefix));
+  if (!allowed) return res.status(403).json({ error: "Forbidden" });
+  res.set("Content-Type", registry.contentType);
+  res.end(await registry.metrics());
+});
 
 // Rota de health check — verificar se servidor está rodando
 // Usado por docker compose healthcheck e load balancers
