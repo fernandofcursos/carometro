@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, UtensilsCrossed, ChevronRight, TableProperties } from "lucide-react";
+import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, ChevronRight, TableProperties } from "lucide-react";
 import { LgpdBanner } from "@/components/lgpd-banner";
 import { AvisosWidget } from "@/components/avisos-widget";
 import { CardapioWidget } from "@/components/cardapio-widget";
@@ -26,13 +26,10 @@ type OcorrenciaResumo = {
 };
 type AulaItem = { horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null };
 type DiaAgenda = { dia: number; diaNome: string; aulas: AulaItem[] };
-type DiaCardapio = { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] };
-
 type DashboardData = {
   hoje: string; diaSemana: number;
   ocorrencias: { resumo: OcorrenciaResumo[]; totalGeral: number };
   agendaDisponivel: boolean; agenda: DiaAgenda[];
-  cardapioDisponivel: boolean; cardapio: DiaCardapio[];
 };
 
 // ─────────────────────────── utilitários ─────────────────────────────────────
@@ -133,39 +130,6 @@ function OcorrenciasWidget({
 }
 
 // ─────────────────────────── CardapioWidget ──────────────────────────────────
-
-function CardapioLegadoWidget({ cardapio, cardapioDisponivel, diaSemana }: { cardapio: DiaCardapio[]; cardapioDisponivel: boolean; diaSemana: number }) {
-  const byDia = new Map(cardapio.map((d) => [d.dia, d]));
-
-  if (!cardapioDisponivel)
-    return (
-      <div className="flex flex-col items-center gap-2 py-8 text-center">
-        <UtensilsCrossed className="w-8 h-8 text-amber-200" />
-        <p className="text-sm text-muted-foreground">Cardápio não disponível ainda.</p>
-        <p className="text-xs text-muted-foreground">Em breve o cardápio semanal será publicado.</p>
-      </div>
-    );
-
-  return (
-    <DiaTabs diaSemana={diaSemana} accentColor="#d97706">
-      {(aba) => {
-        const dia = byDia.get(aba);
-        if (!dia || dia.itens.length === 0)
-          return <p className="text-sm text-muted-foreground text-center py-6">Cardápio não publicado para este dia.</p>;
-        return (
-          <div className="space-y-2">
-            {dia.itens.map((item, i) => (
-              <div key={i} className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5">
-                <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">{item.refeicao}</p>
-                <p className="text-sm text-slate-700 mt-0.5">{item.descricao}</p>
-              </div>
-            ))}
-          </div>
-        );
-      }}
-    </DiaTabs>
-  );
-}
 
 // ─────────────────────────── QuadroHorariosWidget ────────────────────────────
 
@@ -343,7 +307,7 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
       </div>
     );
 
-  const { hoje, diaSemana, ocorrencias, agenda, agendaDisponivel, cardapio, cardapioDisponivel } = data;
+  const { hoje, diaSemana, ocorrencias, agenda, agendaDisponivel } = data;
   const podeDarCiencia = isPaiResponsavel || isEstudante; // isMaior é verificado no endpoint de ciência
   const totalSemCiencia = ocorrencias.resumo.reduce((s, r) => s + r.semCiencia, 0);
 
@@ -404,19 +368,7 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
           </CardContent>
         </Card>
 
-        {/* Cardápio */}
-        <Card className="shadow-sm border-amber-100">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <UtensilsCrossed className="w-4 h-4 text-amber-500" />
-              Cardápio da Semana
-              {!cardapioDisponivel && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardapioLegadoWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
-          </CardContent>
-        </Card>
+        <CardapioWidget />
       </div>
 
       {/* Calendário do mês */}
@@ -595,8 +547,6 @@ type EstudanteResumo = {
 type DashboardResponsavelData = {
   hoje: string; diaSemana: number;
   estudantes: EstudanteResumo[];
-  cardapioDisponivel: boolean;
-  cardapio: DiaCardapio[];
 };
 
 // Paleta de cores por índice de estudante (para diferenciar cartões)
@@ -760,7 +710,7 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
       </div>
     );
 
-  const { hoje, diaSemana, estudantes, cardapio, cardapioDisponivel } = data;
+  const { hoje, diaSemana, estudantes } = data;
 
   const estAtual = estudantes.find((e) => e.id === estudanteSelecionadoId) ?? estudantes[0] ?? null;
   const estIndex = estudantes.findIndex((e) => e.id === estAtual?.id);
@@ -852,21 +802,8 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
         />
       )}
 
-      {/* Cardápio da semana — compartilhado */}
-      {estudantes.length > 0 && (
-        <Card className="shadow-sm border-amber-100">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <UtensilsCrossed className="w-4 h-4 text-amber-500" />
-              Cardápio da Semana
-              {!cardapioDisponivel && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardapioLegadoWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
-          </CardContent>
-        </Card>
-      )}
+      {/* Cardápio da semana */}
+      {estudantes.length > 0 && <CardapioWidget />}
 
       {/* Calendário do mês */}
       {estudantes.length > 0 && <CalendarioMesWidget hoje={hoje} />}
