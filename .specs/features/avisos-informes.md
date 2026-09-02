@@ -87,6 +87,7 @@ Aceita também `?mes=YYYY-MM` como fallback. O CardapioWidget **sempre usa range
 ### GET /feed?perfil=ROLE&limite=10
 Feed para dashboards — retorna itens publicados filtrados pelo perfil.
 **Exclui automaticamente avisos com `ehCardapio=true`** — cardápio é exibido exclusivamente pelo CardapioWidget.
+Cada item inclui `anexos[]` com os metadados dos anexos do aviso.
 
 **Response:**
 ```typescript
@@ -104,6 +105,7 @@ Array<{
   perfisDestino: string[];
   turmaSigla: string | null;
   criadoEm: string;
+  anexos: Array<{ id: string; nomeOriginal: string; mimeType: string }>;
 }>
 ```
 
@@ -143,17 +145,21 @@ Campo `perfis_destino` é `text[]` no PostgreSQL — retorna como array JS no JS
 - Tipos: doc, docx, xlsx, pdf, jpg, jpeg, png — max 2 MB por arquivo.
 - Armazenamento: filesystem em `uploads/avisos/`, nunca exposto publicamente (LGPD/ISO27001).
 - Nome no disco: `{uuid}.{ext}` — nome original preservado apenas no banco.
-- Upload após salvar o aviso (`avisoId` obrigatório).
-- Visualização: modal com `<img>` (imagens), `<iframe>` (PDF), download (Office).
+- **Upload antes de salvar**: o modal exibe `PendingFilesZone` (drag-and-drop) antes mesmo de o aviso existir.
+  Ao salvar: cria o aviso (POST/PUT) → faz upload sequencial dos arquivos pendentes.
+  Em modo edição: `AnexoUploader` exibe os anexos já salvos; `PendingFilesZone` fica abaixo para novos.
+- **Visualização no feed**: `AvisosWidget` exibe chips de anexo por item.
+  Imagem/PDF → `AnexoViewer` modal inline. Doc/xlsx → `window.open(url, '_blank')` (nova aba).
 - Exclusão: física (DB + arquivo em disco).
 - Rotas: `POST/GET /avisos/:id/anexos`, `GET/DELETE /anexos/:id/arquivo`.
 
-### Público-alvo (multi-seleção)
-- Campo `publico_alvo` é `text[]` — aceita um ou mais perfis por aviso/informe.
+### Público-alvo (multi-seleção — 2FN)
+- Múltiplos perfis são armazenados na tabela de junção `avisos_publicos_alvo(aviso_id, perfil)` com PK composta.
+- A coluna `publico_alvo varchar(30)` em `avisos` é mantida para compatibilidade retroativa; o valor canônico vem da tabela de junção.
 - Valores: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`.
 - `todos` é mutuamente exclusivo com os demais na UI (`PublicoAlvoSelector`).
-- Zod: `z.array(z.string()).min(1)` — ao menos um perfil obrigatório.
-- Migration: `scripts/migrate-avisos-publico-alvo-array.sql`
+- API: `syncPublicosAlvo(avisoId, perfis[])` sincroniza a junção a cada POST/PUT; `getPublicosAlvo(ids[])` enriquece as listagens.
+- Migration: `psql "$DATABASE_URL" -f scripts/migrate-avisos-publico-alvo-array.sql`
 
 ### Geral
 - Feed filtra por `perfisDestino` e `publicado=true`.
