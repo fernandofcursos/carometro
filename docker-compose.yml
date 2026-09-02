@@ -168,6 +168,26 @@ services:
       - "3001:3000"    # 3001 para não colidir com Vite dev server
 
   # ---------------------------------------------------------------------------
+  # n8n — automação de fluxos e integração (Slack, webhooks, e-mail…)
+  # Uso: docker compose --profile tools up
+  # UI: http://localhost:5678
+  # ---------------------------------------------------------------------------
+  n8n:
+    profiles: ["tools"]
+    image: n8nio/n8n:1.68.0
+    container_name: seshat-n8n
+    restart: unless-stopped
+    environment:
+      N8N_ENCRYPTION_KEY:         seshat-dev-key-nao-usar-em-producao
+      GENERIC_TIMEZONE:           America/Sao_Paulo
+      TZ:                         America/Sao_Paulo
+      N8N_DIAGNOSTICS_ENABLED:    "false"
+    volumes:
+      - n8n_dev_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+
+  # ---------------------------------------------------------------------------
   # pgAdmin — interface visual para o banco (opcional)
   # Uso: docker compose --profile tools up
   # ---------------------------------------------------------------------------
@@ -219,3 +239,7 @@ volumes:
   grafana_dev_data:
     driver: local
     name: seshat-grafana-dev
+
+  n8n_dev_data:
+    driver: local
+    name: seshat-n8n-dev
