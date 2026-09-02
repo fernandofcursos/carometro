@@ -371,7 +371,7 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados &amp; Cardápio</span>
           <div className="flex-1 h-px bg-border" />
         </div>
-        <AvisosWidget perfil="estudante" limite={5} />
+        <AvisosWidget perfil="estudantes" limite={5} />
         <CardapioWidget />
       </div>
 
@@ -813,7 +813,7 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados &amp; Cardápio</span>
             <div className="flex-1 h-px bg-border" />
           </div>
-          <AvisosWidget perfil="pai_responsavel" limite={5} />
+          <AvisosWidget perfil="responsaveis" limite={5} />
           <CardapioWidget />
         </div>
       )}

@@ -816,7 +816,7 @@ export default function PortalEstudantePage() {
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados & Cardápio</span>
           <div className="flex-1 h-px bg-border" />
         </div>
-        <AvisosWidget perfil="estudante" limite={5} />
+        <AvisosWidget perfil="estudantes" limite={5} />
         <CardapioWidget />
       </div>
     </div>

@@ -191,7 +191,7 @@ function DashboardTab({ dash }: { dash: Dashboard }) {
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados & Cardápio</span>
           <div className="flex-1 h-px bg-border" />
         </div>
-        <AvisosWidget perfil="professor" limite={5} />
+        <AvisosWidget perfil="professores" limite={5} />
         <CardapioWidget />
       </div>
     </div>
