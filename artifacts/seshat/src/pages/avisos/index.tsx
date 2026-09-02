@@ -255,7 +255,7 @@ export default function AvisosPage() {
   // Cardápio: buscar todos os avisos do mês sem filtro (para mostrar em qualquer semana)
   const { data: avisos = [], isLoading } = useQuery<Aviso[]>({
     queryKey: ["avisos", mes],
-    queryFn: () => api(`/api/avisos-informes/avisos?mes=${mes}`).then((r) => r.json()),
+    queryFn: () => api(`/api/avisos-informes/avisos?mes=${mes}&excluirCardapio=true`).then((r) => r.json()),
     enabled: !!mes,
     staleTime: 30_000,
   });

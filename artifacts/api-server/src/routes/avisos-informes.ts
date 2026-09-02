@@ -4,7 +4,7 @@ import {
   db,
   avisosTable,
   tiposAvisosInformesTable,
-  eq, and, isNull, desc, or, sql,
+  eq, and, isNull, desc, or, sql, ne,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
@@ -113,27 +113,51 @@ router.delete("/tipos/:id", requireAuth, requirePermissao("avisos:manage"), asyn
 
 // ─── Avisos ───────────────────────────────────────────────────────────────────
 
-// GET /avisos — listar avisos, query ?mes=YYYY-MM
+// GET /avisos — listar avisos, query ?mes=YYYY-MM&excluirCardapio=true
 router.get("/avisos", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
   try {
     const mes = req.query.mes as string | undefined;
-    let whereClause;
+    const excluirCardapio = req.query.excluirCardapio === "true";
+
+    const conditions: ReturnType<typeof and>[] = [
+      eq(avisosTable.tipo, "aviso"),
+      isNull(avisosTable.deletadoEm),
+    ];
 
     if (mes && /^\d{4}-\d{2}$/.test(mes)) {
       const [ano, m] = mes.split("-").map(Number);
-      whereClause = and(
-        eq(avisosTable.tipo, "aviso"),
-        isNull(avisosTable.deletadoEm),
+      conditions.push(
         sql`EXTRACT(year FROM ${avisosTable.dataInicio}) = ${ano} AND EXTRACT(month FROM ${avisosTable.dataInicio}) = ${m}`
       );
-    } else {
-      whereClause = and(eq(avisosTable.tipo, "aviso"), isNull(avisosTable.deletadoEm));
+    }
+
+    if (excluirCardapio) {
+      conditions.push(
+        or(isNull(avisosTable.tipoId), sql`${avisosTable.tipoId} NOT IN (SELECT id FROM tipos_avisos_informes WHERE eh_cardapio = true AND deletado_em IS NULL)`)!
+      );
     }
 
     const avisos = await db
-      .select()
+      .select({
+        id:           avisosTable.id,
+        titulo:       avisosTable.titulo,
+        conteudo:     avisosTable.conteudo,
+        tipo:         avisosTable.tipo,
+        publicoAlvo:  avisosTable.publicoAlvo,
+        turmaId:      avisosTable.turmaId,
+        autorId:      avisosTable.autorId,
+        publicado:    avisosTable.publicado,
+        dataInicio:   avisosTable.dataInicio,
+        dataFim:      avisosTable.dataFim,
+        tipoId:       avisosTable.tipoId,
+        criadoEm:     avisosTable.criadoEm,
+        atualizadoEm: avisosTable.atualizadoEm,
+        tipoNome:     tiposAvisosInformesTable.nome,
+        tipoEhCardapio: tiposAvisosInformesTable.ehCardapio,
+      })
       .from(avisosTable)
-      .where(whereClause)
+      .leftJoin(tiposAvisosInformesTable, eq(avisosTable.tipoId, tiposAvisosInformesTable.id))
+      .where(and(...conditions))
       .orderBy(desc(avisosTable.criadoEm));
 
     return res.json(avisos);
@@ -311,6 +335,10 @@ router.get("/feed", requireAuth, async (req: Request, res: Response) => {
         and(
           eq(avisosTable.publicado, true),
           isNull(avisosTable.deletadoEm),
+          or(
+            isNull(tiposAvisosInformesTable.ehCardapio),
+            eq(tiposAvisosInformesTable.ehCardapio, false)
+          ),
           or(
             isNull(avisosTable.dataInicio),
             sql`${avisosTable.dataInicio} <= ${hoje}::date`
