@@ -127,8 +127,9 @@ Campo `perfis_destino` é `text[]` no PostgreSQL — retorna como array JS no JS
 
 ### Feed (dashboards)
 - `/feed` exclui automaticamente avisos com `ehCardapio=true`.
-- Cada dashboard exibe AvisosWidget (feed) + CardapioWidget (grade) como seções complementares.
-- CardapioWidget é **obrigatório** em todos os dashboards, incluindo os perfis **estudante** e **pai_responsavel**.
+- `/feed?perfil=ROLE` filtra por público-alvo via `EXISTS` em `avisos_publicos_alvo`: retorna avisos cujo perfil seja `'todos'` ou `ROLE`. Sem perfil (ou `todos`), retorna todos que tenham ao menos uma entrada na junção.
+- Cada dashboard exibe `AvisosWidget` (feed) + `CardapioWidget` (grade) como seções complementares, agrupadas no bloco **"Comunicados & Cardápio"** com separador rotulado.
+- O bloco é **obrigatório** em todos os dashboards: Estudante (`perfil="estudante"`), Pai/Responsável (`perfil="pai_responsavel"`), Professor (`perfil="professor"`), Coordenador/Admin (`perfil="todos"`).
 - O CardapioWidget busca por `?de=seg&ate=sex` (range de datas) para cobrir semanas que cruzam meses.
 
 ### Página de Avisos (gestão)

@@ -16,7 +16,9 @@ Módulo de Avisos e Informes do Seshat.
 ## Regras de apresentação nos dashboards
 
 - **Feed (AvisosWidget)** — nunca exibe avisos do tipo Cardápio (`ehCardapio=true`). O `/feed` já os filtra na API.
-- **CardapioWidget** — exibe somente avisos do tipo Cardápio, em grade Seg–Sex. **Obrigatório** em todos os dashboards, inclusive para os perfis **Estudante** e **Pai ou Responsável**.
+- **Filtragem por perfil** — `GET /feed?perfil=ROLE` usa `EXISTS` em `avisos_publicos_alvo` para retornar apenas avisos cujo público seja `'todos'` ou `ROLE`. Avisos dirigidos a outros perfis não aparecem.
+- **CardapioWidget** — exibe somente avisos do tipo Cardápio, em grade Seg–Sex. **Obrigatório** em todos os dashboards.
+- **Bloco "Comunicados & Cardápio"** — AvisosWidget + CardapioWidget juntos sob separador rotulado. Padrão idêntico em todos os perfis: Estudante (`perfil="estudante"`), Pai/Responsável (`perfil="pai_responsavel"`), Professor (`perfil="professor"`), Coordenador/Admin (`perfil="todos"`).
 - Os dois widgets são complementares e nunca duplicam conteúdo.
 - O CardapioWidget busca por intervalo de datas (`?de=seg&ate=sex`) — semanas que cruzam meses são cobertas corretamente.
 
