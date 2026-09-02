@@ -21,6 +21,7 @@ import {
   UserCircle, GraduationCap, AlertTriangle, CheckCircle2, CreditCard,
   LogOut, FileText, Upload, Download, Plus, X, Users,
 } from "lucide-react";
+import { AvisosWidget } from "@/components/avisos-widget";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -600,6 +601,7 @@ export default function PortalResponsavelPage() {
           ))}
         </Accordion>
       )}
+      <AvisosWidget perfil="pai_responsavel" limite={5} />
     </div>
   );
 }

@@ -22,6 +22,7 @@ import {
   GraduationCap, Building, BookOpen, AlertTriangle, CalendarDays,
   Bell, User, Plus, Pencil, Trash2, Crown,
 } from "lucide-react";
+import { AvisosWidget } from "@/components/avisos-widget";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string, opts?: RequestInit) =>
@@ -189,6 +190,7 @@ function DashboardTab() {
           )}
         </CardContent>
       </Card>
+      <AvisosWidget perfil="equipe_gestora" limite={5} />
     </div>
   );
 }

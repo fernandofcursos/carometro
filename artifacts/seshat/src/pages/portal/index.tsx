@@ -808,6 +808,7 @@ export default function PortalEstudantePage() {
           <CartaoLiberacao me={me} cartaoSemestral={cartaoSemestral} />
         </TabsContent>
       </Tabs>
+      <AvisosWidget perfil="estudante" limite={5} />
     </div>
   );
 }

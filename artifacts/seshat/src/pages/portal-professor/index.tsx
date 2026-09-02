@@ -22,6 +22,7 @@ import {
   BookOpen, AlertTriangle, Bell, User, Plus, Pencil, Trash2,
   Clock, MapPin, CalendarDays, ChevronRight, Utensils,
 } from "lucide-react";
+import { AvisosWidget } from "@/components/avisos-widget";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -207,6 +208,8 @@ function DashboardTab({ dash }: { dash: Dashboard }) {
           </CardContent>
         </Card>
       )}
+
+      <AvisosWidget perfil="professor" limite={5} />
 
       {/* Cardápio */}
       {dash.cardapioDisponivel && dash.cardapio.length > 0 && (

@@ -22,6 +22,7 @@ import {
   LayoutDashboard, AlertTriangle, Bell, User, Plus, Pencil, Trash2, CheckCircle2,
   Users, BookOpen, ClipboardList,
 } from "lucide-react";
+import { AvisosWidget } from "@/components/avisos-widget";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -171,6 +172,8 @@ function DashboardTab({ dash, onCiente }: { dash: Dashboard; onCiente: (id: stri
           </CardContent>
         </Card>
       )}
+
+      <AvisosWidget perfil="coordenador" limite={5} />
 
       {dash.ocorrenciasRecentes.length === 0 && dash.avisos.length === 0 && (
         <Card>
