@@ -76,8 +76,13 @@ Soft-delete (marca inativo).
 }
 ```
 
+### GET /avisos?mes=YYYY-MM[&excluirCardapio=true]
+Retorna avisos do mês. Com `excluirCardapio=true` omite avisos cujo tipo tem `ehCardapio=true`.
+Response inclui `tipoNome` e `tipoEhCardapio` via LEFT JOIN com `tipos_avisos_informes`.
+
 ### GET /feed?perfil=ROLE&limite=10
 Feed para dashboards — retorna itens publicados filtrados pelo perfil.
+**Exclui automaticamente avisos com `ehCardapio=true`** — cardápio é exibido exclusivamente pelo CardapioWidget.
 
 **Response:**
 ```typescript
@@ -109,11 +114,23 @@ Campo `perfis_destino` é `text[]` no PostgreSQL — retorna como array JS no JS
 
 ## Regras de Negócio
 
-- Avisos com `tipoEhCardapio=true` são exibidos em grade semanal (Seg–Sex) na página de Avisos.
+### Cardápio
+- Avisos com `tipoEhCardapio=true` são exibidos **exclusivamente** pelo `CardapioWidget` (grade Seg–Sex).
 - O campo `dataInicio` determina o dia da semana do cardápio.
+- Nunca aparecem no feed de avisos nem na lista "Avisos do mês".
+
+### Feed (dashboards)
+- `/feed` exclui automaticamente avisos com `ehCardapio=true`.
+- Cada dashboard exibe AvisosWidget (feed) + CardapioWidget (grade) como seções complementares.
+
+### Página de Avisos (gestão)
+- A lista "Avisos do mês" usa `?excluirCardapio=true` — nunca lista cardápio.
+- O CardapioWidget com `editavel=true` é a única interface de gestão do cardápio.
+
+### Geral
 - Feed filtra por `perfisDestino` e `publicado=true`.
 - Público-alvo: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`.
-- Permissão necessária: `avisos:manage` para CRUD; leitura via feed é pública para usuários autenticados.
+- Permissão necessária: `avisos:manage` para CRUD; feed e cardápio-widget são públicos para usuários autenticados.
 
 ## Tipos Padrão (sugestão)
 
