@@ -417,10 +417,25 @@ router.get("/cardapio", requireAuth, async (req: Request, res: Response) => {
 });
 
 // GET /feed — feed para dashboards, query ?perfil=ROLE&limite=10
+// Filtra por público-alvo via tabela de junção avisos_publicos_alvo:
+// retorna avisos cujo perfil seja 'todos' ou corresponda ao perfil solicitado.
 router.get("/feed", requireAuth, async (req: Request, res: Response) => {
   try {
     const limite = Math.min(Number(req.query.limite ?? 10), 100);
+    const perfil = (req.query.perfil as string | undefined)?.trim() ?? "";
     const hoje = new Date().toISOString().slice(0, 10);
+
+    // Condição de público-alvo: aviso deve ter 'todos' ou o perfil específico na junção
+    const perfilCondition = perfil && perfil !== "todos"
+      ? sql`EXISTS (
+          SELECT 1 FROM avisos_publicos_alvo ap
+          WHERE ap.aviso_id = ${avisosTable.id}
+            AND ap.perfil IN ('todos', ${perfil})
+        )`
+      : sql`EXISTS (
+          SELECT 1 FROM avisos_publicos_alvo ap
+          WHERE ap.aviso_id = ${avisosTable.id}
+        )`;
 
     const rows = await db
       .select({
@@ -459,7 +474,8 @@ router.get("/feed", requireAuth, async (req: Request, res: Response) => {
           or(
             isNull(avisosTable.dataFim),
             sql`${avisosTable.dataFim} >= ${hoje}::date`
-          )
+          ),
+          perfilCondition
         )
       )
       .orderBy(desc(avisosTable.criadoEm))

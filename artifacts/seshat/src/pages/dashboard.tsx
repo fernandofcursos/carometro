@@ -341,33 +341,37 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
         </CardContent>
       </Card>
 
-      {/* Grid secundário: Ocorrências + Cardápio */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Ocorrências */}
+      <Card className="shadow-sm border-border/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400" />
+              Ocorrências
+            </span>
+            {totalSemCiencia > 0 && (
+              <Badge style={{ background: "#fee2e2", color: "#b91c1c", border: "none" }} className="text-xs">
+                {totalSemCiencia} pendente{totalSemCiencia !== 1 ? "s" : ""}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <OcorrenciasWidget
+            resumo={ocorrencias.resumo}
+            podeDarCiencia={podeDarCiencia}
+            onDarCiencia={setCienciaIds}
+          />
+        </CardContent>
+      </Card>
 
-        {/* Ocorrências */}
-        <Card className="shadow-sm border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-                Ocorrências
-              </span>
-              {totalSemCiencia > 0 && (
-                <Badge style={{ background: "#fee2e2", color: "#b91c1c", border: "none" }} className="text-xs">
-                  {totalSemCiencia} pendente{totalSemCiencia !== 1 ? "s" : ""}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <OcorrenciasWidget
-              resumo={ocorrencias.resumo}
-              podeDarCiencia={podeDarCiencia}
-              onDarCiencia={setCienciaIds}
-            />
-          </CardContent>
-        </Card>
-
+      {/* Comunicados & Cardápio */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados &amp; Cardápio</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+        <AvisosWidget perfil="estudante" limite={5} />
         <CardapioWidget />
       </div>
 
@@ -802,8 +806,17 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
         />
       )}
 
-      {/* Cardápio da semana */}
-      {estudantes.length > 0 && <CardapioWidget />}
+      {/* Comunicados & Cardápio */}
+      {estudantes.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados &amp; Cardápio</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+          <AvisosWidget perfil="pai_responsavel" limite={5} />
+          <CardapioWidget />
+        </div>
+      )}
 
       {/* Calendário do mês */}
       {estudantes.length > 0 && <CalendarioMesWidget hoje={hoje} />}
