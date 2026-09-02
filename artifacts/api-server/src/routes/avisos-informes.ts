@@ -465,7 +465,26 @@ router.get("/feed", requireAuth, async (req: Request, res: Response) => {
       .orderBy(desc(avisosTable.criadoEm))
       .limit(limite);
 
-    return res.json(rows);
+    // Enriquecer com anexos (id, nomeOriginal, mimeType)
+    const avisoIds = rows.map((r) => r.id);
+    let anexosPorAviso: Record<string, { id: string; nomeOriginal: string; mimeType: string }[]> = {};
+    if (avisoIds.length > 0) {
+      const anexos = await db
+        .select({
+          avisoId:      avisosAnexosTable.avisoId,
+          id:           avisosAnexosTable.id,
+          nomeOriginal: avisosAnexosTable.nomeOriginal,
+          mimeType:     avisosAnexosTable.mimeType,
+        })
+        .from(avisosAnexosTable)
+        .where(inArray(avisosAnexosTable.avisoId, avisoIds));
+      for (const a of anexos) {
+        if (!anexosPorAviso[a.avisoId]) anexosPorAviso[a.avisoId] = [];
+        anexosPorAviso[a.avisoId].push({ id: a.id, nomeOriginal: a.nomeOriginal, mimeType: a.mimeType });
+      }
+    }
+
+    return res.json(rows.map((r) => ({ ...r, anexos: anexosPorAviso[r.id] ?? [] })));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Erro ao buscar feed." });

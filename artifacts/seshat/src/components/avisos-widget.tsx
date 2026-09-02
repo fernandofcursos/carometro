@@ -1,14 +1,22 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Info, BellOff } from "lucide-react";
+import { Bell, Info, BellOff, Paperclip, FileText, Image, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { AnexoViewer } from "./anexo-viewer";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string, opts?: RequestInit) =>
   fetch(`${BASE}${path}`, { credentials: "include", ...opts });
+
+type AnexoInfo = {
+  id: string;
+  nomeOriginal: string;
+  mimeType: string;
+};
 
 type FeedItem = {
   id: string;
@@ -24,12 +32,61 @@ type FeedItem = {
   perfisDestino: string[];
   turmaSigla: string | null;
   criadoEm: string;
+  anexos: AnexoInfo[];
 };
 
 export type AvisosWidgetProps = {
   perfil: string;
   limite?: number;
 };
+
+function mimeIcon(mimeType: string) {
+  if (mimeType.startsWith("image/")) return <Image className="h-3 w-3" />;
+  if (mimeType === "application/pdf") return <FileText className="h-3 w-3" />;
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return <FileSpreadsheet className="h-3 w-3" />;
+  return <FileText className="h-3 w-3" />;
+}
+
+function AnexoChips({ anexos }: { anexos: AnexoInfo[] }) {
+  const [viewer, setViewer] = useState<AnexoInfo | null>(null);
+
+  if (anexos.length === 0) return null;
+
+  const abrirAnexo = (a: AnexoInfo) => {
+    const isInline = a.mimeType.startsWith("image/") || a.mimeType === "application/pdf";
+    if (isInline) {
+      // imagem/PDF → viewer modal inline
+      setViewer(a);
+    } else {
+      // doc/xlsx → nova aba (download)
+      window.open(`${BASE}/api/avisos-informes/anexos/${a.id}/arquivo`, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-1 mt-2">
+        {anexos.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => abrirAnexo(a)}
+            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors truncate max-w-[200px]"
+            title={a.nomeOriginal}
+          >
+            {mimeIcon(a.mimeType)}
+            <span className="truncate">{a.nomeOriginal}</span>
+          </button>
+        ))}
+      </div>
+      <AnexoViewer
+        open={!!viewer}
+        onOpenChange={(v) => !v && setViewer(null)}
+        anexo={viewer}
+      />
+    </>
+  );
+}
 
 export function AvisosWidget({ perfil, limite = 5 }: AvisosWidgetProps) {
   const { data: items, isLoading } = useQuery<FeedItem[]>({
@@ -92,7 +149,14 @@ export function AvisosWidget({ perfil, limite = 5 }: AvisosWidgetProps) {
                         {new Date(item.dataInicio + "T12:00:00").toLocaleDateString("pt-BR")}
                       </span>
                     )}
+                    {item.anexos?.length > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                        <Paperclip className="h-3 w-3" />
+                        {item.anexos.length}
+                      </span>
+                    )}
                   </div>
+                  <AnexoChips anexos={item.anexos ?? []} />
                 </div>
               </div>
             ))}

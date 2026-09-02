@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,10 +17,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Info, ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from "lucide-react";
+import { Info, ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Upload, X as XIcon, FileText } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { AnexoUploader } from "@/components/anexo-uploader";
 import { PublicoAlvoSelector } from "@/components/publico-alvo-selector";
+import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string, opts?: RequestInit) =>
@@ -62,6 +63,65 @@ function nextMes(mes: string) {
   return d.toISOString().slice(0, 7);
 }
 
+// ── PendingFilesZone (reuso idêntico ao de avisos) ────────────────────────────
+
+const ALLOWED_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png";
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
+
+function PendingFilesZone({ files, onChange }: { files: File[]; onChange: (f: File[]) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return;
+    const valid = Array.from(incoming).filter((f) => f.size <= MAX_FILE_BYTES);
+    onChange([...files, ...valid]);
+  };
+
+  const remove = (idx: number) => onChange(files.filter((_, i) => i !== idx));
+
+  return (
+    <div className="space-y-2">
+      {files.length > 0 && (
+        <div className="space-y-1">
+          {files.map((f, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{f.name}</span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {f.size < 1024 * 1024 ? `${(f.size / 1024).toFixed(1)} KB` : `${(f.size / (1024 * 1024)).toFixed(1)} MB`}
+              </span>
+              <button type="button" onClick={() => remove(i)} className="text-muted-foreground hover:text-destructive shrink-0">
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div
+        className={cn(
+          "rounded-md border-2 border-dashed px-4 py-4 text-center cursor-pointer transition-colors",
+          isDragging ? "border-primary bg-primary/5" : "border-border"
+        )}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files); }}
+      >
+        <div className="flex flex-col items-center gap-1">
+          <Upload className="h-5 w-5 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Clique ou arraste</span> para anexar
+          </p>
+          <p className="text-xs text-muted-foreground">PDF, DOC, DOCX, XLSX, JPG, PNG — máx. 2 MB</p>
+        </div>
+        <input ref={inputRef} type="file" className="hidden" accept={ALLOWED_ACCEPT} multiple
+          onChange={(e) => addFiles(e.target.files)} />
+      </div>
+    </div>
+  );
+}
+
 // ── InformeDialog ──────────────────────────────────────────────────────────────
 
 function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
@@ -79,6 +139,8 @@ function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
   const [publicado, setPublicado] = useState(false);
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -95,31 +157,44 @@ function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
         setTipoId(""); setPublicado(false);
         setDataInicio(""); setDataFim("");
       }
+      setPendingFiles([]);
     }
   }, [open, editTarget]);
 
   const handleSave = async () => {
-    const body = {
-      titulo, conteudo, tipo: "informe" as const,
-      publicoAlvo, turmaId: null,
-      tipoId: tipoId || null,
-      publicado,
-      dataInicio: dataInicio || null,
-      dataFim: dataFim || null,
-    };
-    const url = editTarget
-      ? `/api/avisos-informes/informes/${editTarget.id}`
-      : `/api/avisos-informes/informes`;
-    const method = editTarget ? "PUT" : "POST";
-    const r = await apiJson(url, { method, body: JSON.stringify(body) });
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      toast({ title: "Erro", description: d.error ?? "Falha ao salvar", variant: "destructive" });
-      return;
+    setSaving(true);
+    try {
+      const body = {
+        titulo, conteudo, tipo: "informe" as const,
+        publicoAlvo, turmaId: null,
+        tipoId: tipoId || null,
+        publicado,
+        dataInicio: dataInicio || null,
+        dataFim: dataFim || null,
+      };
+      const url = editTarget
+        ? `/api/avisos-informes/informes/${editTarget.id}`
+        : `/api/avisos-informes/informes`;
+      const method = editTarget ? "PUT" : "POST";
+      const r = await apiJson(url, { method, body: JSON.stringify(body) });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        toast({ title: "Erro", description: d.error ?? "Falha ao salvar", variant: "destructive" });
+        return;
+      }
+      const saved = await r.json();
+      // Upload pending files using the avisos endpoint (informes share the same table/endpoint)
+      for (const file of pendingFiles) {
+        const fd = new FormData();
+        fd.append("arquivo", file);
+        await api(`/api/avisos-informes/avisos/${saved.id}/anexos`, { method: "POST", body: fd });
+      }
+      toast({ title: editTarget ? "Atualizado!" : "Criado!" });
+      onSuccess();
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
     }
-    toast({ title: editTarget ? "Atualizado!" : "Criado!" });
-    onSuccess();
-    onOpenChange(false);
   };
 
   const tiposFiltrados = tipos.filter((t) => t.categoria === "informe");
@@ -172,11 +247,17 @@ function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
             <Checkbox id="publicado-informe" checked={publicado} onCheckedChange={(v) => setPublicado(!!v)} />
             <Label htmlFor="publicado-informe">Publicado</Label>
           </div>
-          <AnexoUploader avisoId={editTarget?.id ?? null} />
+          <div className="space-y-2">
+            <Label className="block">Anexos</Label>
+            {editTarget && <AnexoUploader avisoId={editTarget.id} />}
+            <PendingFilesZone files={pendingFiles} onChange={setPendingFiles} />
+          </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave}>Salvar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
