@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, UtensilsCrossed, ChevronRight, TableProperties } from "lucide-react";
 import { LgpdBanner } from "@/components/lgpd-banner";
+import { AvisosWidget } from "@/components/avisos-widget";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -964,6 +965,7 @@ function DashboardAdmin() {
         </Card>
         <CalendarioMesWidget hoje={hojeServer} />
       </div>
+      <AvisosWidget perfil="todos" limite={5} />
     </div>
   );
 }

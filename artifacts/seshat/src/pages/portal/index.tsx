@@ -11,6 +11,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UserCircle, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, CreditCard, Fingerprint, ArrowLeft } from "lucide-react";
+import { AvisosWidget } from "@/components/avisos-widget";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
 

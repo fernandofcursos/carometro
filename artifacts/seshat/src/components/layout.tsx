@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home,
+  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home, Bell,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -75,6 +75,7 @@ export function AppSidebar() {
   const canManageCarteiras  = hasAny("estudantes:manage");
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
+  const canManageAvisos = hasAny("avisos:manage");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);
@@ -142,6 +143,17 @@ export function AppSidebar() {
         nav("Equipe Pedagógica", "/carometro/equipe-pedagogica", GraduationCap),
         nav("Corpo Docente", "/carometro/corpo-docente", BookOpen),
         nav("Apoio / Operacional", "/carometro/apoio-operacional", Wrench),
+      ],
+    }] : []),
+    ...(canManageAvisos ? [{
+      label: "Avisos e Informes",
+      icon: Bell,
+      color: "#f59e0b",
+      bgColor: "#fffbeb",
+      items: [
+        nav("Avisos", "/avisos", Bell),
+        nav("Informes", "/informes", FileText),
+        nav("Tipos de Aviso/Informe", "/tipos-avisos", Tag),
       ],
     }] : []),
     ...((canManageUsuarios || canManageRoles) ? [{
