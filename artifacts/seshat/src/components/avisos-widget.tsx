@@ -79,7 +79,10 @@ export function AvisosWidget({ perfil, limite = 5 }: AvisosWidgetProps) {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{item.titulo}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{item.conteudo}</p>
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none line-clamp-3 text-xs text-muted-foreground [&_*]:m-0 [&_p]:leading-snug"
+                    dangerouslySetInnerHTML={{ __html: item.conteudo }}
+                  />
                   <div className="flex flex-wrap gap-1 mt-1">
                     <Badge variant="outline" className={cn("text-xs", item.tipo === "aviso" ? "border-amber-300 text-amber-700" : "border-blue-300 text-blue-700")}>
                       {item.tipoNome ?? (item.tipo === "aviso" ? "Aviso" : "Informe")}

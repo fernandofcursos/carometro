@@ -4,12 +4,41 @@ import {
   db,
   avisosTable,
   tiposAvisosInformesTable,
+  avisosAnexosTable,
   eq, and, isNull, desc, or, sql, ne,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
+import multer from "multer";
+import path from "node:path";
+import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 
 const router = Router();
+
+// ─── Multer / Uploads ─────────────────────────────────────────────────────────
+
+const UPLOADS_DIR = new URL("../../uploads/avisos/", import.meta.url).pathname;
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const ALLOWED_MIME: Record<string, string> = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME[file.mimetype]) cb(null, true);
+    else cb(new Error("Tipo de arquivo não permitido."));
+  },
+});
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -414,6 +443,79 @@ router.get("/feed", requireAuth, async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Erro ao buscar feed." });
+  }
+});
+
+// ─── Anexos ───────────────────────────────────────────────────────────────────
+
+// POST /avisos/:id/anexos — upload de anexo
+router.post("/avisos/:id/anexos", requireAuth, requirePermissao("avisos:manage"),
+  upload.single("arquivo"),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "Arquivo não enviado." });
+      const ext = ALLOWED_MIME[req.file.mimetype];
+      const nomeArquivo = `${randomUUID()}.${ext}`;
+      fs.writeFileSync(path.join(UPLOADS_DIR, nomeArquivo), req.file.buffer);
+      const [anexo] = await db.insert(avisosAnexosTable).values({
+        avisoId: String(req.params.id),
+        nomeOriginal: req.file.originalname,
+        nomeArquivo,
+        mimeType: req.file.mimetype,
+        tamanho: req.file.size,
+      }).returning();
+      return res.status(201).json(anexo);
+    } catch (err: any) {
+      if (err.message === "Tipo de arquivo não permitido.") return res.status(415).json({ error: err.message });
+      if (err.code === "LIMIT_FILE_SIZE") return res.status(413).json({ error: "Arquivo muito grande. Máximo 2 MB." });
+      console.error(err);
+      return res.status(500).json({ error: "Erro ao salvar anexo." });
+    }
+  }
+);
+
+// GET /avisos/:id/anexos — listar anexos
+router.get("/avisos/:id/anexos", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(avisosAnexosTable)
+      .where(eq(avisosAnexosTable.avisoId, String(req.params.id)))
+      .orderBy(avisosAnexosTable.criadoEm);
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Erro ao listar anexos." });
+  }
+});
+
+// GET /anexos/:id/arquivo — download/visualização (autenticado)
+router.get("/anexos/:id/arquivo", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const [anexo] = await db.select().from(avisosAnexosTable)
+      .where(eq(avisosAnexosTable.id, String(req.params.id))).limit(1);
+    if (!anexo) return res.status(404).json({ error: "Anexo não encontrado." });
+    const filePath = path.join(UPLOADS_DIR, anexo.nomeArquivo);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Arquivo não encontrado no servidor." });
+    res.setHeader("Content-Type", anexo.mimeType);
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(anexo.nomeOriginal)}"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Erro ao servir arquivo." });
+  }
+});
+
+// DELETE /anexos/:id — excluir anexo (físico)
+router.delete("/anexos/:id", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
+  try {
+    const [anexo] = await db.delete(avisosAnexosTable)
+      .where(eq(avisosAnexosTable.id, String(req.params.id))).returning();
+    if (!anexo) return res.status(404).json({ error: "Anexo não encontrado." });
+    const filePath = path.join(UPLOADS_DIR, anexo.nomeArquivo);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Erro ao excluir anexo." });
   }
 });
 

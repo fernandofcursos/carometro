@@ -1,3 +1,7 @@
+import fs from "node:fs";
+const UPLOADS_DIR = new URL("../uploads/avisos/", import.meta.url).pathname;
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
 import { createApp } from "./app.js";
 import { Request, Response, NextFunction } from "express";
 import authRouter from "./routes/auth.js";

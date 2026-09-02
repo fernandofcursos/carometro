@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { AnexoUploader } from "@/components/anexo-uploader";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -143,7 +144,7 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editTarget ? "Editar" : "Novo"} {tipo === "aviso" ? "Aviso" : "Informe"}</DialogTitle>
         </DialogHeader>
@@ -174,7 +175,20 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
 
           <div>
             <Label>Conteúdo</Label>
-            <Textarea value={conteudo} onChange={(e) => setConteudo(e.target.value)} rows={3} />
+            {isCardapio ? (
+              <textarea
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                rows={3}
+                value={conteudo}
+                onChange={(e) => setConteudo(e.target.value)}
+              />
+            ) : (
+              <RichTextEditor
+                value={conteudo}
+                onChange={setConteudo}
+                placeholder="Descreva o conteúdo do aviso..."
+              />
+            )}
           </div>
 
           <div>
@@ -211,6 +225,13 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
             <Checkbox id="publicado" checked={publicado} onCheckedChange={(v) => setPublicado(!!v)} />
             <Label htmlFor="publicado">Publicado</Label>
           </div>
+
+          {!isCardapio && (
+            <div>
+              <Label className="mb-1.5 block">Anexos</Label>
+              <AnexoUploader avisoId={editTarget?.id ?? null} />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
@@ -372,7 +393,10 @@ export default function AvisosPage() {
                               {a.dataFim && ` – ${new Date(a.dataFim + "T12:00:00").toLocaleDateString("pt-BR")}`}
                             </p>
                           )}
-                          <p className="text-sm text-muted-foreground line-clamp-2">{a.conteudo}</p>
+                          <div
+                            className="prose prose-sm dark:prose-invert max-w-none line-clamp-2 text-sm text-muted-foreground [&_*]:m-0 [&_p]:leading-snug"
+                            dangerouslySetInnerHTML={{ __html: a.conteudo }}
+                          />
                         </div>
                         <div className="flex gap-1 shrink-0">
                           <Button variant="ghost" size="icon" onClick={() => handleEditAviso(a)}>
