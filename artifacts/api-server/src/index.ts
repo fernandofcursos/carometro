@@ -34,6 +34,8 @@ import horariosRouter from "./routes/horarios.js";
 import portalProfessorRouter from "./routes/portal-professor.js";
 import portalGestoraRouter from "./routes/portal-gestora.js";
 import portalCoordenadorRouter from "./routes/portal-coordenador.js";
+// Módulo Avisos e Informes
+import avisosInformesRouter from "./routes/avisos-informes.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -99,6 +101,8 @@ app.use("/api/portal-professor", portalProfessorRouter);
 app.use("/api/portal-gestora", portalGestoraRouter);
 // Portal do coordenador (autoatendimento do coordenador de curso)
 app.use("/api/portal-coordenador", portalCoordenadorRouter);
+// Módulo Avisos e Informes
+app.use("/api/avisos-informes", avisosInformesRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos
