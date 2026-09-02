@@ -73,6 +73,14 @@ Módulo de Avisos e Informes do Seshat.
 
 `ehCardapio: true` — avisos exibidos exclusivamente no CardapioWidget (grade semanal Seg–Sex baseada em `dataInicio`). Nunca aparecem no feed nem na lista de avisos normais.
 
+## Público-alvo (multi-seleção)
+
+- Campo `publico_alvo` é `text[]` — permite um ou mais perfis simultaneamente.
+- Valores: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`
+- `todos` é mutuamente exclusivo com os demais: ao marcar "Todos os perfis", os outros são desmarcados e vice-versa.
+- UI: `PublicoAlvoSelector` — grid de checkboxes com estilo de card selecionável.
+- Migration: `psql "$DATABASE_URL" -f scripts/migrate-avisos-publico-alvo-array.sql`
+
 ## Perfis válidos para feed
 
 `estudante`, `professor`, `coordenador`, `pai_responsavel`, `equipe_gestora`, `todos`

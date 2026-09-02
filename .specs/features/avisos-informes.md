@@ -148,9 +148,15 @@ Campo `perfis_destino` é `text[]` no PostgreSQL — retorna como array JS no JS
 - Exclusão: física (DB + arquivo em disco).
 - Rotas: `POST/GET /avisos/:id/anexos`, `GET/DELETE /anexos/:id/arquivo`.
 
+### Público-alvo (multi-seleção)
+- Campo `publico_alvo` é `text[]` — aceita um ou mais perfis por aviso/informe.
+- Valores: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`.
+- `todos` é mutuamente exclusivo com os demais na UI (`PublicoAlvoSelector`).
+- Zod: `z.array(z.string()).min(1)` — ao menos um perfil obrigatório.
+- Migration: `scripts/migrate-avisos-publico-alvo-array.sql`
+
 ### Geral
 - Feed filtra por `perfisDestino` e `publicado=true`.
-- Público-alvo: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`.
 - Permissão necessária: `avisos:manage` para CRUD; feed e cardápio-widget são públicos para usuários autenticados.
 
 ## Tipos Padrão (sugestão)
