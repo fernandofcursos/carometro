@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Users, Building, Clock, Camera, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, UserCircle, CalendarDays, UtensilsCrossed, ChevronRight, TableProperties } from "lucide-react";
 import { LgpdBanner } from "@/components/lgpd-banner";
 import { AvisosWidget } from "@/components/avisos-widget";
+import { CardapioWidget } from "@/components/cardapio-widget";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -133,7 +134,7 @@ function OcorrenciasWidget({
 
 // ─────────────────────────── CardapioWidget ──────────────────────────────────
 
-function CardapioWidget({ cardapio, cardapioDisponivel, diaSemana }: { cardapio: DiaCardapio[]; cardapioDisponivel: boolean; diaSemana: number }) {
+function CardapioLegadoWidget({ cardapio, cardapioDisponivel, diaSemana }: { cardapio: DiaCardapio[]; cardapioDisponivel: boolean; diaSemana: number }) {
   const byDia = new Map(cardapio.map((d) => [d.dia, d]));
 
   if (!cardapioDisponivel)
@@ -413,7 +414,7 @@ function DashboardEstudante({ user }: { user: ReturnType<typeof useAuth>["user"]
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CardapioWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
+            <CardapioLegadoWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
           </CardContent>
         </Card>
       </div>
@@ -862,7 +863,7 @@ function DashboardResponsavel({ user }: { user: ReturnType<typeof useAuth>["user
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CardapioWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
+            <CardapioLegadoWidget cardapio={cardapio} cardapioDisponivel={cardapioDisponivel} diaSemana={diaSemana} />
           </CardContent>
         </Card>
       )}
@@ -966,6 +967,7 @@ function DashboardAdmin() {
         <CalendarioMesWidget hoje={hojeServer} />
       </div>
       <AvisosWidget perfil="todos" limite={5} />
+      <CardapioWidget className="mt-4" />
     </div>
   );
 }

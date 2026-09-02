@@ -20,9 +20,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   BookOpen, AlertTriangle, Bell, User, Plus, Pencil, Trash2,
-  Clock, MapPin, CalendarDays, ChevronRight, Utensils,
+  Clock, MapPin, CalendarDays, ChevronRight,
 } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
+import { CardapioWidget } from "@/components/cardapio-widget";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -212,30 +213,7 @@ function DashboardTab({ dash }: { dash: Dashboard }) {
       <AvisosWidget perfil="professor" limite={5} />
 
       {/* Cardápio */}
-      {dash.cardapioDisponivel && dash.cardapio.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Utensils className="h-4 w-4 text-emerald-600" /> Cardápio da Semana
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {dash.cardapio.map((dia) => (
-                <div key={dia.data} className="rounded-lg border p-3 bg-muted/20">
-                  <p className="text-xs font-bold text-muted-foreground mb-1.5">{dia.diaNome}</p>
-                  {dia.itens.map((item, i) => (
-                    <div key={i} className="text-xs mb-1 last:mb-0">
-                      <span className="font-medium">{item.refeicao}: </span>
-                      <span className="text-muted-foreground">{item.descricao}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <CardapioWidget className="mt-2" />
     </div>
   );
 }

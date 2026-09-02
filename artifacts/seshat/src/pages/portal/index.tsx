@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { UserCircle, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, CreditCard, Fingerprint, ArrowLeft } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
+import { CardapioWidget } from "@/components/cardapio-widget";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth";
 
@@ -809,6 +810,7 @@ export default function PortalEstudantePage() {
         </TabsContent>
       </Tabs>
       <AvisosWidget perfil="estudante" limite={5} />
+      <CardapioWidget className="mt-4" />
     </div>
   );
 }

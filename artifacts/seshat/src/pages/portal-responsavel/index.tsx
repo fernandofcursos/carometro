@@ -22,6 +22,7 @@ import {
   LogOut, FileText, Upload, Download, Plus, X, Users,
 } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
+import { CardapioWidget } from "@/components/cardapio-widget";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -602,6 +603,7 @@ export default function PortalResponsavelPage() {
         </Accordion>
       )}
       <AvisosWidget perfil="pai_responsavel" limite={5} />
+      <CardapioWidget className="mt-4" />
     </div>
   );
 }

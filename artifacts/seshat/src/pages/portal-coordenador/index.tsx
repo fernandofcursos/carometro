@@ -23,6 +23,7 @@ import {
   Users, BookOpen, ClipboardList,
 } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
+import { CardapioWidget } from "@/components/cardapio-widget";
 import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -174,6 +175,7 @@ function DashboardTab({ dash, onCiente }: { dash: Dashboard; onCiente: (id: stri
       )}
 
       <AvisosWidget perfil="coordenador" limite={5} />
+      <CardapioWidget className="mt-4" />
 
       {dash.ocorrenciasRecentes.length === 0 && dash.avisos.length === 0 && (
         <Card>
