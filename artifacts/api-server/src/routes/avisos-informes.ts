@@ -5,7 +5,8 @@ import {
   avisosTable,
   tiposAvisosInformesTable,
   avisosAnexosTable,
-  eq, and, isNull, desc, or, sql, ne,
+  avisosPublicosAlvoTable,
+  eq, and, isNull, desc, or, sql, ne, inArray,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
@@ -55,7 +56,7 @@ const avisoBodySchema = z.object({
   titulo:      z.string().min(1).max(200),
   conteudo:    z.string().min(1),
   tipo:        z.enum(["aviso", "informe"]),
-  publicoAlvo: z.array(z.string().min(1)).min(1).default(["todos"]),
+  publicoAlvo: z.array(z.string().min(1)).min(1, "Selecione ao menos um público-alvo.").default(["todos"]),
   turmaId:     z.string().uuid().nullable().optional(),
   tipoId:      z.string().uuid().nullable().optional(),
   publicado:   z.boolean().default(false),
@@ -63,7 +64,26 @@ const avisoBodySchema = z.object({
   dataFim:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 });
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function syncPublicosAlvo(avisoId: string, perfis: string[]) {
+  await db.delete(avisosPublicosAlvoTable).where(eq(avisosPublicosAlvoTable.avisoId, avisoId));
+  if (perfis.length > 0) {
+    await db.insert(avisosPublicosAlvoTable).values(perfis.map((p) => ({ avisoId, perfil: p })));
+  }
+}
+
+async function getPublicosAlvo(avisoIds: string[]): Promise<Record<string, string[]>> {
+  if (avisoIds.length === 0) return {};
+  const rows = await db.select().from(avisosPublicosAlvoTable)
+    .where(inArray(avisosPublicosAlvoTable.avisoId, avisoIds));
+  const map: Record<string, string[]> = {};
+  for (const r of rows) {
+    if (!map[r.avisoId]) map[r.avisoId] = [];
+    map[r.avisoId].push(r.perfil);
+  }
+  return map;
+}
 
 function handleZodError(err: unknown, res: Response) {
   if (err instanceof ZodError) {
@@ -189,7 +209,10 @@ router.get("/avisos", requireAuth, requirePermissao("avisos:manage"), async (req
       .where(and(...conditions))
       .orderBy(desc(avisosTable.criadoEm));
 
-    return res.json(avisos);
+    const ids = avisos.map((a) => a.id);
+    const perfisMap = await getPublicosAlvo(ids);
+    const result = avisos.map((a) => ({ ...a, publicosAlvo: perfisMap[a.id] ?? [a.publicoAlvo] }));
+    return res.json(result);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Erro ao listar avisos." });
@@ -199,13 +222,11 @@ router.get("/avisos", requireAuth, requirePermissao("avisos:manage"), async (req
 // POST /avisos — criar aviso
 router.post("/avisos", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
   try {
-    const data = avisoBodySchema.parse({ ...req.body, tipo: "aviso" });
+    const { publicoAlvo: perfis, ...rest } = avisoBodySchema.parse({ ...req.body, tipo: "aviso" });
     const autorId = (req as any).user?.id ?? null;
-    const [aviso] = await db
-      .insert(avisosTable)
-      .values({ ...data, autorId })
-      .returning();
-    return res.status(201).json(aviso);
+    const [aviso] = await db.insert(avisosTable).values({ ...rest, publicoAlvo: "todos", autorId }).returning();
+    await syncPublicosAlvo(aviso.id, perfis);
+    return res.status(201).json({ ...aviso, publicosAlvo: perfis });
   } catch (err) {
     if (err instanceof ZodError) return handleZodError(err, res);
     console.error(err);
@@ -216,14 +237,16 @@ router.post("/avisos", requireAuth, requirePermissao("avisos:manage"), async (re
 // PUT /avisos/:id — editar aviso
 router.put("/avisos/:id", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
   try {
-    const data = avisoBodySchema.partial().parse(req.body);
+    const { publicoAlvo: perfis, ...rest } = avisoBodySchema.partial().parse(req.body);
     const [aviso] = await db
       .update(avisosTable)
-      .set({ ...data, atualizadoEm: new Date() })
+      .set({ ...rest, atualizadoEm: new Date() })
       .where(and(eq(avisosTable.id, String(req.params.id)), eq(avisosTable.tipo, "aviso"), isNull(avisosTable.deletadoEm)))
       .returning();
     if (!aviso) return res.status(404).json({ error: "Aviso não encontrado." });
-    return res.json(aviso);
+    if (perfis) await syncPublicosAlvo(aviso.id, perfis);
+    const publicosAlvo = perfis ?? (await getPublicosAlvo([aviso.id]))[aviso.id] ?? [aviso.publicoAlvo];
+    return res.json({ ...aviso, publicosAlvo });
   } catch (err) {
     if (err instanceof ZodError) return handleZodError(err, res);
     console.error(err);
@@ -291,7 +314,10 @@ router.get("/informes", requireAuth, requirePermissao("avisos:manage"), async (r
       .where(whereClause)
       .orderBy(desc(avisosTable.criadoEm));
 
-    return res.json(informes);
+    const ids = informes.map((i) => i.id);
+    const perfisMap = await getPublicosAlvo(ids);
+    const result = informes.map((i) => ({ ...i, publicosAlvo: perfisMap[i.id] ?? [i.publicoAlvo] }));
+    return res.json(result);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Erro ao listar informes." });
@@ -301,13 +327,11 @@ router.get("/informes", requireAuth, requirePermissao("avisos:manage"), async (r
 // POST /informes — criar informe
 router.post("/informes", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
   try {
-    const data = avisoBodySchema.parse({ ...req.body, tipo: "informe" });
+    const { publicoAlvo: perfis, ...rest } = avisoBodySchema.parse({ ...req.body, tipo: "informe" });
     const autorId = (req as any).user?.id ?? null;
-    const [informe] = await db
-      .insert(avisosTable)
-      .values({ ...data, autorId })
-      .returning();
-    return res.status(201).json(informe);
+    const [informe] = await db.insert(avisosTable).values({ ...rest, publicoAlvo: "todos", autorId }).returning();
+    await syncPublicosAlvo(informe.id, perfis);
+    return res.status(201).json({ ...informe, publicosAlvo: perfis });
   } catch (err) {
     if (err instanceof ZodError) return handleZodError(err, res);
     console.error(err);
@@ -318,14 +342,16 @@ router.post("/informes", requireAuth, requirePermissao("avisos:manage"), async (
 // PUT /informes/:id — editar informe
 router.put("/informes/:id", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
   try {
-    const data = avisoBodySchema.partial().parse(req.body);
+    const { publicoAlvo: perfis, ...rest } = avisoBodySchema.partial().parse(req.body);
     const [informe] = await db
       .update(avisosTable)
-      .set({ ...data, atualizadoEm: new Date() })
+      .set({ ...rest, atualizadoEm: new Date() })
       .where(and(eq(avisosTable.id, String(req.params.id)), eq(avisosTable.tipo, "informe"), isNull(avisosTable.deletadoEm)))
       .returning();
     if (!informe) return res.status(404).json({ error: "Informe não encontrado." });
-    return res.json(informe);
+    if (perfis) await syncPublicosAlvo(informe.id, perfis);
+    const publicosAlvo = perfis ?? (await getPublicosAlvo([informe.id]))[informe.id] ?? [informe.publicoAlvo];
+    return res.json({ ...informe, publicosAlvo });
   } catch (err) {
     if (err instanceof ZodError) return handleZodError(err, res);
     console.error(err);

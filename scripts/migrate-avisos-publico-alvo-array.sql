@@ -1,27 +1,35 @@
--- Migration: publico_alvo de varchar → text[]
+-- Migration: Público-alvo múltiplo para Avisos e Informes (2FN)
+-- Cria tabela de junção avisos_publicos_alvo em vez de atributo multi-valorado.
 -- Execute: psql "$DATABASE_URL" -f scripts/migrate-avisos-publico-alvo-array.sql
 
 DO $$
 BEGIN
-  -- Só executa se a coluna ainda for varchar (idempotente)
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'avisos'
-      AND column_name = 'publico_alvo'
-      AND data_type = 'character varying'
+  -- 1. Criar tabela de junção
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_name = 'avisos_publicos_alvo'
   ) THEN
-    -- Remove o default antes de converter (PostgreSQL não faz cast automático do default)
-    ALTER TABLE avisos ALTER COLUMN publico_alvo DROP DEFAULT;
-
-    ALTER TABLE avisos
-      ALTER COLUMN publico_alvo TYPE text[]
-      USING ARRAY[publico_alvo];
-
-    ALTER TABLE avisos
-      ALTER COLUMN publico_alvo SET DEFAULT ARRAY['todos']::text[];
-
-    RAISE NOTICE 'avisos.publico_alvo convertido para text[].';
+    CREATE TABLE avisos_publicos_alvo (
+      aviso_id  uuid        NOT NULL REFERENCES avisos(id) ON DELETE CASCADE,
+      perfil    varchar(30) NOT NULL,
+      PRIMARY KEY (aviso_id, perfil)
+    );
+    RAISE NOTICE 'Tabela avisos_publicos_alvo criada.';
   ELSE
-    RAISE NOTICE 'avisos.publico_alvo já é text[] — ignorado.';
+    RAISE NOTICE 'Tabela avisos_publicos_alvo já existe — ignorada.';
   END IF;
+
+  -- 2. Migrar dados existentes da coluna publico_alvo (varchar) para a nova tabela
+  INSERT INTO avisos_publicos_alvo (aviso_id, perfil)
+  SELECT id, publico_alvo
+  FROM avisos
+  WHERE deletado_em IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM avisos_publicos_alvo ap WHERE ap.aviso_id = avisos.id
+    );
+  RAISE NOTICE 'Dados de publico_alvo migrados para avisos_publicos_alvo.';
+
 END $$;
+
+CREATE INDEX IF NOT EXISTS idx_avisos_publicos_alvo_aviso_id ON avisos_publicos_alvo (aviso_id);
+CREATE INDEX IF NOT EXISTS idx_avisos_publicos_alvo_perfil ON avisos_publicos_alvo (perfil);
