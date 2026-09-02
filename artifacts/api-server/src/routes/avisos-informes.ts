@@ -303,6 +303,42 @@ router.delete("/informes/:id", requireAuth, requirePermissao("avisos:manage"), a
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 
+// GET /cardapio?mes=YYYY-MM — cardápio semanal público (apenas autenticado, sem avisos:manage)
+router.get("/cardapio", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const mes = req.query.mes as string | undefined;
+    const conditions: ReturnType<typeof and>[] = [
+      isNull(avisosTable.deletadoEm),
+      eq(tiposAvisosInformesTable.ehCardapio, true),
+    ];
+
+    if (mes && /^\d{4}-\d{2}$/.test(mes)) {
+      const [ano, m] = mes.split("-").map(Number);
+      conditions.push(
+        sql`EXTRACT(year FROM ${avisosTable.dataInicio}) = ${ano} AND EXTRACT(month FROM ${avisosTable.dataInicio}) = ${m}`
+      );
+    }
+
+    const rows = await db
+      .select({
+        id:          avisosTable.id,
+        titulo:      avisosTable.titulo,
+        conteudo:    avisosTable.conteudo,
+        dataInicio:  avisosTable.dataInicio,
+        tipoEhCardapio: tiposAvisosInformesTable.ehCardapio,
+      })
+      .from(avisosTable)
+      .innerJoin(tiposAvisosInformesTable, eq(avisosTable.tipoId, tiposAvisosInformesTable.id))
+      .where(and(...conditions))
+      .orderBy(avisosTable.dataInicio);
+
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Erro ao buscar cardápio." });
+  }
+});
+
 // GET /feed — feed para dashboards, query ?perfil=ROLE&limite=10
 router.get("/feed", requireAuth, async (req: Request, res: Response) => {
   try {

@@ -80,10 +80,9 @@ export function CardapioWidget({
   const { data: avisos = [], isLoading } = useQuery<CardapioAviso[]>({
     queryKey: ["cardapio-widget", mes],
     queryFn: async () => {
-      const r = await api(`/api/avisos-informes/avisos?mes=${mes}`);
+      const r = await api(`/api/avisos-informes/cardapio?mes=${mes}`);
       if (!r.ok) return [];
-      const all: CardapioAviso[] = await r.json();
-      return all.filter((a) => a.tipoEhCardapio);
+      return r.json() as Promise<CardapioAviso[]>;
     },
     staleTime: 60_000,
   });
