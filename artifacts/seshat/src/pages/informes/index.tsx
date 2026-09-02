@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -19,6 +18,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Info, ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from "lucide-react";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { AnexoUploader } from "@/components/anexo-uploader";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string, opts?: RequestInit) =>
@@ -124,7 +125,7 @@ function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editTarget ? "Editar" : "Novo"} Informe</DialogTitle>
         </DialogHeader>
@@ -146,7 +147,11 @@ function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
           </div>
           <div>
             <Label>Conteúdo</Label>
-            <Textarea value={conteudo} onChange={(e) => setConteudo(e.target.value)} rows={3} />
+            <RichTextEditor
+              value={conteudo}
+              onChange={setConteudo}
+              placeholder="Descreva o conteúdo do informe..."
+            />
           </div>
           <div>
             <Label>Público-alvo</Label>
@@ -173,9 +178,10 @@ function InformeDialog({ open, onOpenChange, editTarget, onSuccess, tipos }: {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Checkbox id="publicado" checked={publicado} onCheckedChange={(v) => setPublicado(!!v)} />
-            <Label htmlFor="publicado">Publicado</Label>
+            <Checkbox id="publicado-informe" checked={publicado} onCheckedChange={(v) => setPublicado(!!v)} />
+            <Label htmlFor="publicado-informe">Publicado</Label>
           </div>
+          <AnexoUploader avisoId={editTarget?.id ?? null} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
@@ -195,6 +201,7 @@ export default function InformesPage() {
   const [mes, setMes] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Informe | undefined>();
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: hojeData } = useQuery<{ hoje: string }>({
@@ -286,7 +293,7 @@ export default function InformesPage() {
                         {a.dataFim && ` – ${new Date(a.dataFim + "T12:00:00").toLocaleDateString("pt-BR")}`}
                       </p>
                     )}
-                    <p className="text-sm text-muted-foreground line-clamp-2">{a.conteudo}</p>
+                    <div className="prose prose-sm dark:prose-invert max-w-none line-clamp-2 text-muted-foreground" dangerouslySetInnerHTML={{ __html: a.conteudo }} />
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => { setEditTarget(a); setDialogOpen(true); }}>
