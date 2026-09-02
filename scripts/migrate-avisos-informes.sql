@@ -1,5 +1,5 @@
 -- Migration: Módulo Avisos e Informes
--- Execute: docker compose run --rm dev psql "$DATABASE_URL" -f scripts/migrate-avisos-informes.sql
+-- Execute (dentro do container): psql "$DATABASE_URL" -f scripts/migrate-avisos-informes.sql
 
 -- ─── Função genérica (padrão do projeto) ─────────────────────────────────────
 CREATE OR REPLACE FUNCTION add_constraint_if_not_exists(
@@ -23,7 +23,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tipos_avisos_informes') THEN
     CREATE TABLE tipos_avisos_informes (
       id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-      nome           varchar(100) NOT NULL,
+      nome           varchar(100) NOT NULL UNIQUE,
       descricao      text,
       categoria      varchar(10)  NOT NULL, -- 'aviso' | 'informe'
       eh_cardapio    boolean      NOT NULL DEFAULT false,
@@ -34,6 +34,12 @@ BEGIN
       deletado_em    timestamptz
     );
     RAISE NOTICE 'Tabela tipos_avisos_informes criada.';
+  END IF;
+
+  -- Garantir constraint UNIQUE em nome (caso tabela já existisse sem ela)
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tipos_avisos_informes_nome_unique') THEN
+    ALTER TABLE tipos_avisos_informes ADD CONSTRAINT tipos_avisos_informes_nome_unique UNIQUE (nome);
+    RAISE NOTICE 'Constraint tipos_avisos_informes_nome_unique adicionada.';
   END IF;
 
   -- 2. Adicionar colunas à tabela avisos
@@ -82,9 +88,6 @@ BEGIN
   RAISE NOTICE 'Tipos padrão de avisos/informes garantidos.';
 
 END $$;
-
--- 6. Constraints
-SELECT add_constraint_if_not_exists('tipos_avisos_informes', 'tipos_avisos_informes_nome_unique', 'UNIQUE (nome)');
 
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_tipos_avisos_categoria ON tipos_avisos_informes (categoria) WHERE deletado_em IS NULL;
