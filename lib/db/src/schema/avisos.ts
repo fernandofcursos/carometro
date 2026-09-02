@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, varchar, boolean, timestamp, date } from "drizzle-orm/pg-core";
+// publico_alvo is text[] after migration migrate-avisos-publico-alvo-array.sql
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { usuariosTable } from "./usuarios";
@@ -10,7 +11,7 @@ export const avisosTable = pgTable("avisos", {
   titulo:       varchar("titulo", { length: 200 }).notNull(),
   conteudo:     text("conteudo").notNull(),
   tipo:         varchar("tipo", { length: 20 }).notNull().default("aviso"),  // 'aviso' | 'informe'
-  publicoAlvo:  varchar("publico_alvo", { length: 30 }).notNull().default("todos"), // 'estudantes' | 'responsaveis' | 'todos'
+  publicoAlvo:  text("publico_alvo").array().notNull().default(["todos"]), // ['todos'] | ['estudantes','professores',...]
   turmaId:      uuid("turma_id").references(() => turmasTable.id, { onDelete: "set null" }),  // null = todos
   autorId:      uuid("autor_id").references(() => usuariosTable.id, { onDelete: "set null" }),
   publicado:    boolean("publicado").notNull().default(false),
@@ -26,7 +27,7 @@ export const insertAvisoSchema = createInsertSchema(avisosTable, {
   titulo:      (s) => s.min(1, "Informe o título.").max(200),
   conteudo:    (s) => s.min(1, "Informe o conteúdo."),
   tipo:        z.enum(["aviso", "informe"]),
-  publicoAlvo: z.enum(["estudantes", "responsaveis", "todos"]),
+  publicoAlvo: z.array(z.string().min(1)).min(1, "Selecione ao menos um público-alvo."),
   dataInicio:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   dataFim:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   tipoId:      z.string().uuid().optional().nullable(),

@@ -23,6 +23,7 @@ import {
   Bell, ChevronLeft, ChevronRight, Plus, Pencil, Trash2,
 } from "lucide-react";
 import { CardapioWidget } from "@/components/cardapio-widget";
+import { PublicoAlvoSelector } from "@/components/publico-alvo-selector";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string, opts?: RequestInit) =>
@@ -85,7 +86,7 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
   const { toast } = useToast();
   const [titulo, setTitulo] = useState("");
   const [conteudo, setConteudo] = useState("");
-  const [publicoAlvo, setPublicoAlvo] = useState("todos");
+  const [publicoAlvo, setPublicoAlvo] = useState<string[]>(["todos"]);
   const [turmaId, setTurmaId] = useState("");
   const [tipoId, setTipoId] = useState("");
   const [publicado, setPublicado] = useState(false);
@@ -100,14 +101,14 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
       if (editTarget) {
         setTitulo(editTarget.titulo);
         setConteudo(editTarget.conteudo);
-        setPublicoAlvo(editTarget.publicoAlvo);
+        setPublicoAlvo(Array.isArray(editTarget.publicoAlvo) ? editTarget.publicoAlvo : [editTarget.publicoAlvo]);
         setTurmaId(editTarget.turmaId ?? "");
         setTipoId(editTarget.tipoId ?? "");
         setPublicado(editTarget.publicado);
         setDataInicio(editTarget.dataInicio ?? "");
         setDataFim(editTarget.dataFim ?? "");
       } else {
-        setTitulo(""); setConteudo(""); setPublicoAlvo("todos");
+        setTitulo(""); setConteudo(""); setPublicoAlvo(["todos"]);
         setTurmaId(""); setPublicado(false);
         setTipoId(defaultTipoId ?? "");
         setDataInicio(defaultData ?? ""); setDataFim("");
@@ -192,18 +193,8 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
           </div>
 
           <div>
-            <Label>Público-alvo</Label>
-            <Select value={publicoAlvo} onValueChange={setPublicoAlvo}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="estudantes">Estudantes</SelectItem>
-                <SelectItem value="responsaveis">Responsáveis</SelectItem>
-                <SelectItem value="professores">Professores</SelectItem>
-                <SelectItem value="coordenadores">Coordenadores</SelectItem>
-                <SelectItem value="equipe_gestora">Equipe Gestora</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="mb-1.5 block">Público-alvo</Label>
+            <PublicoAlvoSelector value={publicoAlvo} onChange={setPublicoAlvo} />
           </div>
 
           {!isCardapio && (
@@ -380,7 +371,9 @@ export default function AvisosPage() {
                           <div className="flex flex-wrap gap-1 items-center">
                             <p className="font-semibold text-sm">{a.titulo}</p>
                             {a.tipoNome && <Badge variant="outline" className="text-xs">{a.tipoNome}</Badge>}
-                            <Badge variant="secondary" className="text-xs">{a.publicoAlvo}</Badge>
+                            {(Array.isArray(a.publicoAlvo) ? a.publicoAlvo : [a.publicoAlvo]).map((p) => (
+                              <Badge key={p} variant="secondary" className="text-xs">{p}</Badge>
+                            ))}
                             {a.publicado ? (
                               <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Publicado</Badge>
                             ) : (

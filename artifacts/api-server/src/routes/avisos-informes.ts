@@ -55,7 +55,7 @@ const avisoBodySchema = z.object({
   titulo:      z.string().min(1).max(200),
   conteudo:    z.string().min(1),
   tipo:        z.enum(["aviso", "informe"]),
-  publicoAlvo: z.enum(["estudantes", "responsaveis", "todos"]).default("todos"),
+  publicoAlvo: z.array(z.string().min(1)).min(1).default(["todos"]),
   turmaId:     z.string().uuid().nullable().optional(),
   tipoId:      z.string().uuid().nullable().optional(),
   publicado:   z.boolean().default(false),
