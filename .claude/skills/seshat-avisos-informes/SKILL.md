@@ -28,8 +28,24 @@ Módulo de Avisos e Informes do Seshat.
 
 ## Componentes reutilizáveis
 
-- `artifacts/seshat/src/components/avisos-widget.tsx` — feed de avisos (sem cardápio)
+- `artifacts/seshat/src/components/avisos-widget.tsx` — feed de avisos (sem cardápio); renderiza `conteudo` como HTML via `prose prose-sm`
 - `artifacts/seshat/src/components/cardapio-widget.tsx` — grade semanal Seg–Sex
+- `artifacts/seshat/src/components/rich-text-editor.tsx` — editor Tiptap estilo Word (Bold/Italic/Underline/Strike, H1/H2/Para, listas, alinhamento, undo/redo, char count). Usado no `AvisoDialog` para tipos não-cardápio.
+- `artifacts/seshat/src/components/anexo-uploader.tsx` — upload de anexos (drag-and-drop CSS, lista, delete, viewer). Props: `avisoId: string | null`, `editavel?: boolean`. Exibe "Salve antes de anexar" quando `avisoId` é null.
+- `artifacts/seshat/src/components/anexo-viewer.tsx` — modal de visualização: `<img>` para imagens, `<iframe>` para PDF, link de download para doc/docx/xlsx.
+
+## Anexos (avisos/informes não-cardápio)
+
+- Tabela: `avisos_anexos` — `id`, `aviso_id` (CASCADE), `nome_original`, `nome_arquivo` (uuid.ext), `mime_type`, `tamanho`, `criado_em`
+- Tipos permitidos: doc, docx, xlsx, pdf, jpg, jpeg, png — max 2 MB
+- Armazenamento: `artifacts/api-server/uploads/avisos/` — NUNCA público; servido apenas via endpoint autenticado (LGPD/ISO27001)
+- Nomenclatura no disco: `{uuid}.{ext}` (sem nome original, evita path traversal)
+- Rotas:
+  - `POST /avisos/:id/anexos` — upload (multer, memoryStorage → writeFileSync)
+  - `GET /avisos/:id/anexos` — listar
+  - `GET /anexos/:id/arquivo` — servir inline (requireAuth)
+  - `DELETE /anexos/:id` — excluir DB + arquivo físico
+- Migration: `psql "$DATABASE_URL" -f scripts/migrate-avisos-anexos.sql`
   - Props: `editavel?: boolean`, `onEdit?`, `onAdd?`, `onDelete?`, `className?`
   - `editavel=false` (padrão): leitura, sem ações — use nos dashboards
   - `editavel=true`: CRUD completo — use apenas na página Avisos

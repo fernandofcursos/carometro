@@ -133,6 +133,21 @@ Campo `perfis_destino` é `text[]` no PostgreSQL — retorna como array JS no JS
 - A lista "Avisos do mês" usa `?excluirCardapio=true` — nunca lista cardápio.
 - O CardapioWidget com `editavel=true` é a única interface de gestão do cardápio.
 
+### Conteúdo rico (não-cardápio)
+- Campo `conteudo` armazena HTML gerado pelo editor Tiptap.
+- Editor estilo Word: Bold, Italic, Underline, Strikethrough, H1/H2/Para, listas, alinhamento, undo/redo.
+- Cardápio usa `<textarea>` simples (sem formatação).
+- Feed e lista renderizam `conteudo` como HTML via `prose prose-sm` (sanitizado via atributos do Tiptap).
+
+### Anexos (não-cardápio)
+- Tipos: doc, docx, xlsx, pdf, jpg, jpeg, png — max 2 MB por arquivo.
+- Armazenamento: filesystem em `uploads/avisos/`, nunca exposto publicamente (LGPD/ISO27001).
+- Nome no disco: `{uuid}.{ext}` — nome original preservado apenas no banco.
+- Upload após salvar o aviso (`avisoId` obrigatório).
+- Visualização: modal com `<img>` (imagens), `<iframe>` (PDF), download (Office).
+- Exclusão: física (DB + arquivo em disco).
+- Rotas: `POST/GET /avisos/:id/anexos`, `GET/DELETE /anexos/:id/arquivo`.
+
 ### Geral
 - Feed filtra por `perfisDestino` e `publicado=true`.
 - Público-alvo: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`.
