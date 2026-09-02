@@ -809,8 +809,16 @@ export default function PortalEstudantePage() {
           <CartaoLiberacao me={me} cartaoSemestral={cartaoSemestral} />
         </TabsContent>
       </Tabs>
-      <AvisosWidget perfil="estudante" limite={5} />
-      <CardapioWidget className="mt-4" />
+
+      {/* Comunicados & Cardápio */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados & Cardápio</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+        <AvisosWidget perfil="estudante" limite={5} />
+        <CardapioWidget />
+      </div>
     </div>
   );
 }

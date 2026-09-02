@@ -185,35 +185,15 @@ function DashboardTab({ dash }: { dash: Dashboard }) {
         </CardContent>
       </Card>
 
-      {/* Avisos recentes */}
-      {dash.avisos.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Bell className="h-4 w-4 text-amber-500" /> Meus Avisos Recentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dash.avisos.slice(0, 5).map((a) => (
-              <div key={a.id} className="flex gap-3 items-start rounded-lg border p-3">
-                <Bell className={cn("h-4 w-4 mt-0.5 shrink-0", a.tipo === "aviso" ? "text-amber-500" : "text-blue-500")} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{a.titulo}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-1">{a.conteudo}</p>
-                </div>
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {a.tipo === "aviso" ? "Aviso" : "Informe"}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <AvisosWidget perfil="professor" limite={5} />
-
-      {/* Cardápio */}
-      <CardapioWidget className="mt-2" />
+      {/* Comunicados & Cardápio */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comunicados & Cardápio</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+        <AvisosWidget perfil="professor" limite={5} />
+        <CardapioWidget />
+      </div>
     </div>
   );
 }
