@@ -19,9 +19,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Bell, ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Utensils,
+  Bell, ChevronLeft, ChevronRight, Plus, Pencil, Trash2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { CardapioWidget } from "@/components/cardapio-widget";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const api = (path: string, opts?: RequestInit) =>
@@ -65,28 +65,6 @@ function nextMes(mes: string) {
   const d = new Date(mes + "-01");
   d.setMonth(d.getMonth() + 1);
   return d.toISOString().slice(0, 7);
-}
-
-const DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
-const DIAS_SEMANA_ABREV = ["Seg", "Ter", "Qua", "Qui", "Sex"];
-
-// Retorna a segunda-feira da semana que contém `data`
-function segundaFeira(data: Date): Date {
-  const d = new Date(data);
-  const dow = d.getDay(); // 0=dom
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function semanaLabel(seg: Date): string {
-  const sex = new Date(seg); sex.setDate(seg.getDate() + 4);
-  const fmt = (d: Date) => `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}`;
-  return `${fmt(seg)} – ${fmt(sex)}`;
 }
 
 // ── AvisoDialog ───────────────────────────────────────────────────────────────
@@ -243,164 +221,6 @@ function AvisoDialog({ open, onOpenChange, tipo, editTarget, onSuccess, tipos, d
   );
 }
 
-// ── Cardápio Grid ─────────────────────────────────────────────────────────────
-
-function CardapioGrid({ todosAvisos, onEdit, onAdd, onDelete }: {
-  todosAvisos: Aviso[];   // todos os avisos cardápio do mês
-  onEdit: (a: Aviso) => void;
-  onAdd: (data: string, tipoIdCardapio: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  const hoje = new Date();
-  const [seg, setSeg] = useState<Date>(() => segundaFeira(hoje));
-
-  const diasDatas = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(seg);
-    d.setDate(seg.getDate() + i);
-    return { iso: isoDate(d), dia: d };
-  });
-
-  const avisosNaSemana = (data: string) =>
-    todosAvisos.filter((a) => a.dataInicio === data);
-
-  const hojeIso = isoDate(hoje);
-
-  return (
-    <Card className="shadow-sm border-orange-200/60 dark:border-orange-900/40">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Utensils className="w-4 h-4 text-orange-500" /> Cardápio Semanal
-          </CardTitle>
-          {/* Navegação por semana */}
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="h-7 w-7"
-              onClick={() => setSeg((s) => { const d = new Date(s); d.setDate(d.getDate() - 7); return d; })}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <span className="text-xs font-semibold text-muted-foreground min-w-[120px] text-center">
-              {semanaLabel(seg)}
-            </span>
-            <Button variant="outline" size="icon" className="h-7 w-7"
-              onClick={() => setSeg((s) => { const d = new Date(s); d.setDate(d.getDate() + 7); return d; })}>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground"
-              onClick={() => setSeg(segundaFeira(hoje))}>
-              Hoje
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {/* Desktop: 5 colunas */}
-        <div className="hidden sm:grid grid-cols-5 gap-2">
-          {diasDatas.map(({ iso, dia }, i) => {
-            const itens = avisosNaSemana(iso);
-            const isHoje = iso === hojeIso;
-            return (
-              <div key={iso} className={cn(
-                "border rounded-lg p-2 min-h-[110px] flex flex-col",
-                isHoje
-                  ? "border-orange-400 bg-orange-50 dark:bg-orange-950/20"
-                  : "border-border/60 bg-muted/10"
-              )}>
-                {/* Cabeçalho do dia */}
-                <p className={cn(
-                  "text-xs font-bold mb-1.5 pb-1 border-b",
-                  isHoje ? "text-orange-600 border-orange-200" : "text-muted-foreground border-border/40"
-                )}>
-                  {DIAS_SEMANA[i]}
-                  <span className="ml-1 font-normal">
-                    {dia.getDate().toString().padStart(2,"0")}/{(dia.getMonth()+1).toString().padStart(2,"0")}
-                  </span>
-                </p>
-                {/* Itens do cardápio */}
-                <div className="flex-1 space-y-1">
-                  {itens.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground/50 italic">Vazio</p>
-                  ) : itens.map((a) => (
-                    <div key={a.id}
-                      className="group relative rounded bg-white dark:bg-card border border-border/60 px-2 py-1 hover:border-orange-300 transition-colors">
-                      <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 leading-tight truncate">{a.titulo}</p>
-                      <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{a.conteudo}</p>
-                      {/* Ações — visíveis no hover */}
-                      <div className="absolute top-0.5 right-0.5 hidden group-hover:flex gap-0.5">
-                        <button onClick={() => onEdit(a)}
-                          className="rounded p-0.5 bg-white dark:bg-card border hover:border-orange-400 text-muted-foreground hover:text-orange-600 transition-colors">
-                          <Pencil className="h-2.5 w-2.5" />
-                        </button>
-                        <button onClick={() => onDelete(a.id)}
-                          className="rounded p-0.5 bg-white dark:bg-card border hover:border-destructive text-muted-foreground hover:text-destructive transition-colors">
-                          <Trash2 className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {/* Botão adicionar */}
-                <button
-                  className="mt-1.5 w-full flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-orange-600 transition-colors rounded hover:bg-orange-50 dark:hover:bg-orange-950/20 py-0.5"
-                  onClick={() => onAdd(iso, "")}
-                >
-                  <Plus className="h-3 w-3" /> Adicionar
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Mobile: lista vertical por dia */}
-        <div className="sm:hidden space-y-3">
-          {diasDatas.map(({ iso, dia }, i) => {
-            const itens = avisosNaSemana(iso);
-            const isHoje = iso === hojeIso;
-            return (
-              <div key={iso} className={cn(
-                "border rounded-lg p-3",
-                isHoje ? "border-orange-400 bg-orange-50 dark:bg-orange-950/20" : "border-border/60"
-              )}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className={cn(
-                    "text-sm font-bold",
-                    isHoje ? "text-orange-600" : "text-muted-foreground"
-                  )}>
-                    {DIAS_SEMANA_ABREV[i]} {dia.getDate().toString().padStart(2,"0")}/{(dia.getMonth()+1).toString().padStart(2,"0")}
-                  </p>
-                  <button
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors"
-                    onClick={() => onAdd(iso, "")}
-                  >
-                    <Plus className="h-3 w-3" /> Add
-                  </button>
-                </div>
-                {itens.length === 0 ? (
-                  <p className="text-xs text-muted-foreground/50 italic">Sem cardápio.</p>
-                ) : itens.map((a) => (
-                  <div key={a.id} className="flex gap-2 items-start rounded bg-white dark:bg-card border px-2 py-1.5 mb-1.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-orange-700 dark:text-orange-400">{a.titulo}</p>
-                      <p className="text-xs text-muted-foreground">{a.conteudo}</p>
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button onClick={() => onEdit(a)} className="text-muted-foreground hover:text-orange-600">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AvisosPage() {
@@ -450,7 +270,6 @@ export default function AvisosPage() {
   });
 
   const tipoCardapio = tipos.find((t) => t.ehCardapio && t.categoria === "aviso");
-  const avisosCardapio = avisos.filter((a) => a.tipoEhCardapio);
   const avisosNormais = avisos.filter((a) => !a.tipoEhCardapio);
 
   const handleNovoAviso = () => {
@@ -508,10 +327,10 @@ export default function AvisosPage() {
         <>
           {/* ── Cardápio sempre visível se existe tipo ehCardapio ── */}
           {tipoCardapio && (
-            <CardapioGrid
-              todosAvisos={avisosCardapio}
-              onEdit={handleEditAviso}
-              onAdd={handleAddCardapio}
+            <CardapioWidget
+              editavel
+              onEdit={(a) => handleEditAviso(a as unknown as Aviso)}
+              onAdd={(data) => handleAddCardapio(data, tipoCardapio?.id ?? "")}
               onDelete={(id) => setDeleteId(id)}
             />
           )}
