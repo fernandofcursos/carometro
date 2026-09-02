@@ -80,6 +80,10 @@ Soft-delete (marca inativo).
 Retorna avisos do mês. Com `excluirCardapio=true` omite avisos cujo tipo tem `ehCardapio=true`.
 Response inclui `tipoNome` e `tipoEhCardapio` via LEFT JOIN com `tipos_avisos_informes`.
 
+### GET /cardapio?de=YYYY-MM-DD&ate=YYYY-MM-DD
+Retorna apenas avisos `ehCardapio=true` no intervalo de datas informado. Requer apenas `requireAuth`.
+Aceita também `?mes=YYYY-MM` como fallback. O CardapioWidget **sempre usa range de datas** (seg–sex) para cobrir semanas que cruzam meses. Disponível para todos os perfis autenticados, incluindo **estudante** e **pai_responsavel**.
+
 ### GET /feed?perfil=ROLE&limite=10
 Feed para dashboards — retorna itens publicados filtrados pelo perfil.
 **Exclui automaticamente avisos com `ehCardapio=true`** — cardápio é exibido exclusivamente pelo CardapioWidget.
@@ -122,6 +126,8 @@ Campo `perfis_destino` é `text[]` no PostgreSQL — retorna como array JS no JS
 ### Feed (dashboards)
 - `/feed` exclui automaticamente avisos com `ehCardapio=true`.
 - Cada dashboard exibe AvisosWidget (feed) + CardapioWidget (grade) como seções complementares.
+- CardapioWidget é **obrigatório** em todos os dashboards, incluindo os perfis **estudante** e **pai_responsavel**.
+- O CardapioWidget busca por `?de=seg&ate=sex` (range de datas) para cobrir semanas que cruzam meses.
 
 ### Página de Avisos (gestão)
 - A lista "Avisos do mês" usa `?excluirCardapio=true` — nunca lista cardápio.

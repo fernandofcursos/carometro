@@ -74,13 +74,13 @@ export function CardapioWidget({
   const hoje = new Date();
   const [seg, setSeg] = useState<Date>(() => segundaFeira(hoje));
 
-  // Mês da semana exibida — para buscar avisos do mês certo
-  const mes = `${seg.getFullYear()}-${String(seg.getMonth() + 1).padStart(2, "0")}`;
+  // Intervalo da semana exibida — busca por range para não perder semanas que cruzam meses
+  const sex = new Date(seg); sex.setDate(seg.getDate() + 4);
 
   const { data: avisos = [], isLoading } = useQuery<CardapioAviso[]>({
-    queryKey: ["cardapio-widget", mes],
+    queryKey: ["cardapio-widget", isoDate(seg)],
     queryFn: async () => {
-      const r = await api(`/api/avisos-informes/cardapio?mes=${mes}`);
+      const r = await api(`/api/avisos-informes/cardapio?de=${isoDate(seg)}&ate=${isoDate(sex)}`);
       if (!r.ok) return [];
       return r.json() as Promise<CardapioAviso[]>;
     },

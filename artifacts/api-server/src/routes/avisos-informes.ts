@@ -303,16 +303,19 @@ router.delete("/informes/:id", requireAuth, requirePermissao("avisos:manage"), a
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 
-// GET /cardapio?mes=YYYY-MM — cardápio semanal público (apenas autenticado, sem avisos:manage)
+// GET /cardapio?de=YYYY-MM-DD&ate=YYYY-MM-DD — cardápio semanal público (apenas autenticado)
+// Também aceita ?mes=YYYY-MM como fallback (busca o mês inteiro)
 router.get("/cardapio", requireAuth, async (req: Request, res: Response) => {
   try {
-    const mes = req.query.mes as string | undefined;
+    const { de, ate, mes } = req.query as Record<string, string | undefined>;
     const conditions: ReturnType<typeof and>[] = [
       isNull(avisosTable.deletadoEm),
       eq(tiposAvisosInformesTable.ehCardapio, true),
     ];
 
-    if (mes && /^\d{4}-\d{2}$/.test(mes)) {
+    if (de && ate && /^\d{4}-\d{2}-\d{2}$/.test(de) && /^\d{4}-\d{2}-\d{2}$/.test(ate)) {
+      conditions.push(sql`${avisosTable.dataInicio} BETWEEN ${de}::date AND ${ate}::date`);
+    } else if (mes && /^\d{4}-\d{2}$/.test(mes)) {
       const [ano, m] = mes.split("-").map(Number);
       conditions.push(
         sql`EXTRACT(year FROM ${avisosTable.dataInicio}) = ${ano} AND EXTRACT(month FROM ${avisosTable.dataInicio}) = ${m}`

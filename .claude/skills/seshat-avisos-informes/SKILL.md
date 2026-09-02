@@ -6,6 +6,7 @@ Módulo de Avisos e Informes do Seshat.
 
 - `GET /api/avisos-informes/tipos` — tipos ativos
 - `GET /api/avisos-informes/avisos?mes=YYYY-MM[&excluirCardapio=true]` — avisos do mês; com `excluirCardapio=true` omite os do tipo Cardápio. Retorna `tipoNome` e `tipoEhCardapio` via LEFT JOIN com tipos.
+- `GET /api/avisos-informes/cardapio?de=YYYY-MM-DD&ate=YYYY-MM-DD` — cardápio por intervalo de datas (apenas `requireAuth`, sem `avisos:manage`). Aceita também `?mes=YYYY-MM` como fallback. **Sempre usar range de datas**, nunca mês isolado, para não perder semanas que cruzam meses.
 - `GET /api/avisos-informes/informes?mes=YYYY-MM` — informes do mês
 - `POST/PUT /api/avisos-informes/avisos` / `informes` — criar/editar
 - `DELETE /api/avisos-informes/avisos/:id` / `informes/:id` — excluir
@@ -15,8 +16,9 @@ Módulo de Avisos e Informes do Seshat.
 ## Regras de apresentação nos dashboards
 
 - **Feed (AvisosWidget)** — nunca exibe avisos do tipo Cardápio (`ehCardapio=true`). O `/feed` já os filtra na API.
-- **CardapioWidget** — exibe somente avisos do tipo Cardápio, em grade Seg–Sex. Presente em todos os dashboards abaixo do AvisosWidget.
+- **CardapioWidget** — exibe somente avisos do tipo Cardápio, em grade Seg–Sex. **Obrigatório** em todos os dashboards, inclusive para os perfis **Estudante** e **Pai ou Responsável**.
 - Os dois widgets são complementares e nunca duplicam conteúdo.
+- O CardapioWidget busca por intervalo de datas (`?de=seg&ate=sex`) — semanas que cruzam meses são cobertas corretamente.
 
 ## Regras da página Avisos (gestão)
 
