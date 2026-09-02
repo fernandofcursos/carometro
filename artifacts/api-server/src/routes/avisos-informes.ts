@@ -205,12 +205,31 @@ router.put("/avisos/:id", requireAuth, requirePermissao("avisos:manage"), async 
 // DELETE /avisos/:id — soft-delete aviso
 router.delete("/avisos/:id", requireAuth, requirePermissao("avisos:manage"), async (req: Request, res: Response) => {
   try {
+    const id = String(req.params.id);
+
+    // Verificar se é cardápio (exclusão física obrigatória para não deixar registros órfãos)
     const [aviso] = await db
-      .update(avisosTable)
-      .set({ deletadoEm: new Date() })
-      .where(and(eq(avisosTable.id, String(req.params.id)), eq(avisosTable.tipo, "aviso"), isNull(avisosTable.deletadoEm)))
-      .returning();
+      .select({ id: avisosTable.id, tipoId: avisosTable.tipoId })
+      .from(avisosTable)
+      .where(and(eq(avisosTable.id, id), eq(avisosTable.tipo, "aviso"), isNull(avisosTable.deletadoEm)))
+      .limit(1);
+
     if (!aviso) return res.status(404).json({ error: "Aviso não encontrado." });
+
+    const isCardapio = aviso.tipoId
+      ? (await db
+          .select({ ehCardapio: tiposAvisosInformesTable.ehCardapio })
+          .from(tiposAvisosInformesTable)
+          .where(eq(tiposAvisosInformesTable.id, aviso.tipoId))
+          .limit(1))[0]?.ehCardapio ?? false
+      : false;
+
+    if (isCardapio) {
+      await db.delete(avisosTable).where(eq(avisosTable.id, id));
+    } else {
+      await db.update(avisosTable).set({ deletadoEm: new Date() }).where(eq(avisosTable.id, id));
+    }
+
     return res.json({ ok: true });
   } catch (err) {
     console.error(err);
