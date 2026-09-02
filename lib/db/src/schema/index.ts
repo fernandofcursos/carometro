@@ -30,3 +30,4 @@ export * from "./atestados-medicos";
 export * from "./calendario";
 export * from "./horarios";
 export * from "./avisos";
+export * from "./tipos-avisos-informes";
