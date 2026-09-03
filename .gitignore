@@ -46,3 +46,4 @@ tmp/
 nginx/ssl/*.pem
 lib/db/dist
 lib/api-client-react/dist
+*.tsbuildinfo
