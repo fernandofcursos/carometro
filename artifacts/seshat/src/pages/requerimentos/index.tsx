@@ -39,7 +39,7 @@ interface ElegibilidadeResp {
   tipoRequerente?: "estudante" | "pai_responsavel";
   estudantes?: EstudanteInfo[];
 }
-interface Assinatura { papel: string; metodo: string; assinadoEm: string; nome: string | null }
+interface Assinatura { papel: string; metodo: string; assinadoEm: string; nome: string | null; roleNome?: string | null }
 interface Requerimento {
   id: string; numero: string; status: string; assuntoNome: string; tipoNome: string;
   estudanteNome: string; requerenteNome: string | null; criadoEm: string;
@@ -83,7 +83,7 @@ function AssinarModal({
     }
     setLoading(true);
     try {
-      await api(endpoint, {
+      await fetchJson(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metodo, senha: metodo === "senha" ? senha : undefined }),
@@ -272,42 +272,52 @@ function DetalheModal({ req, onClose, onAssinar }: {
             <h3 className="font-semibold uppercase text-xs tracking-wider text-muted-foreground mb-3">
               Assinaturas
             </h3>
+            {/* Linha 1: Requerente (largura total) */}
+            <div className="border rounded-lg p-4 text-center mb-3">
+              {req.assinaturas.find((a) => a.papel === "requerente") ? (
+                <div className="space-y-1">
+                  <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
+                  <p className="text-xs font-medium">Assinado por {req.assinaturas.find((a) => a.papel === "requerente")!.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(req.assinaturas.find((a) => a.papel === "requerente")!.assinadoEm)
+                      .toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mx-8" />
+                  <p className="text-xs text-muted-foreground">Assinatura e RG do Requerente</p>
+                </div>
+              )}
+            </div>
+            {/* Linha 2: Supervisor | Secretaria */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Requerente */}
-              <div className="border rounded-lg p-4 text-center">
-                {req.assinaturas.find((a) => a.papel === "requerente") ? (
-                  <div className="space-y-1">
-                    <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
-                    <p className="text-xs font-medium">Assinado</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(req.assinaturas.find((a) => a.papel === "requerente")!.assinadoEm)
-                        .toLocaleDateString("pt-BR")}
-                    </p>
+              {[
+                { label: "Supervisor Pedagógico", role: "supervisao_pedagogica" },
+                { label: "Chefe de Secretaria",   role: "secretaria" },
+              ].map(({ label, role }) => {
+                const sig = req.assinaturas.find(
+                  (a) => a.papel === "analisador" && (a as any).roleNome === role
+                );
+                return (
+                  <div key={role} className="border rounded-lg p-4 text-center">
+                    {sig ? (
+                      <div className="space-y-1">
+                        <CheckCircle2 className="h-8 w-8 text-blue-600 mx-auto" />
+                        <p className="text-xs font-medium">{sig.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(sig.assinadoEm).toLocaleDateString("pt-BR")}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mx-4" />
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mx-4" />
-                    <p className="text-xs text-muted-foreground">Assinatura e RG do Requerente</p>
-                  </div>
-                )}
-              </div>
-              {/* Análise */}
-              <div className="border rounded-lg p-4 text-center">
-                {req.assinaturas.find((a) => a.papel === "analisador") ? (
-                  <div className="space-y-1">
-                    <CheckCircle2 className="h-8 w-8 text-blue-600 mx-auto" />
-                    <p className="text-xs font-medium">Assinado</p>
-                    <p className="text-xs text-muted-foreground">
-                      {req.assinaturas.find((a) => a.papel === "analisador")!.nome ?? "Secretaria"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mx-4" />
-                    <p className="text-xs text-muted-foreground">Supervisor Pedagógico / Chefe de Secretaria</p>
-                  </div>
-                )}
-              </div>
+                );
+              })}
             </div>
           </div>
 

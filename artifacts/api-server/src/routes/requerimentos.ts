@@ -7,7 +7,7 @@ import {
   requerimentosTable, requerimentoTiposTable, requerimentoAssuntosTable,
   requerimentoAssinaturasTable, estudantesTable, usuariosTable,
   responsaveisEstudantesTable, turmasTable, cursosTable, turnosTable,
-  turmaTurnosTable, matriculasTable,
+  turmaTurnosTable, matriculasTable, usuariosRolesTable, rolesTable,
   eq, and, or, inArray, isNull, sql, count, desc,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
@@ -427,17 +427,40 @@ router.get("/:id", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "Acesso negado." });
   }
 
-  const assinaturas = await db
+  const assinaturaRows = await db
     .select({
       id:         requerimentoAssinaturasTable.id,
       papel:      requerimentoAssinaturasTable.papel,
       metodo:     requerimentoAssinaturasTable.metodo,
       assinadoEm: requerimentoAssinaturasTable.assinadoEm,
+      usuarioId:  requerimentoAssinaturasTable.usuarioId,
       nome:       usuariosTable.nome,
     })
     .from(requerimentoAssinaturasTable)
     .innerJoin(usuariosTable, eq(usuariosTable.id, requerimentoAssinaturasTable.usuarioId))
     .where(eq(requerimentoAssinaturasTable.requerimentoId, req.params.id));
+
+  // Para analisadores, busca qual role relevante (secretaria | supervisao_pedagogica) eles têm
+  const analisadorIds = [...new Set(
+    assinaturaRows.filter((a) => a.papel === "analisador").map((a) => a.usuarioId)
+  )];
+  const roleMap = new Map<string, string>();
+  if (analisadorIds.length) {
+    const roleRows = await db
+      .select({ usuarioId: usuariosRolesTable.usuarioId, roleNome: rolesTable.nome })
+      .from(usuariosRolesTable)
+      .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
+      .where(and(
+        inArray(usuariosRolesTable.usuarioId, analisadorIds),
+        inArray(rolesTable.nome, ["secretaria", "supervisao_pedagogica"]),
+      ));
+    for (const r of roleRows) roleMap.set(r.usuarioId, r.roleNome);
+  }
+
+  const assinaturas = assinaturaRows.map((a) => ({
+    ...a,
+    roleNome: a.papel === "analisador" ? (roleMap.get(a.usuarioId) ?? null) : null,
+  }));
 
   res.json({ ...row, assinaturas });
 });
