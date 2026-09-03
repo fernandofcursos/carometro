@@ -161,6 +161,17 @@ aprovado_por_id | aprovado_em | observacao_aprovador | token (varchar 400)
 
 ---
 
+## Regra: Carteira de Estudante usa modelo CIE em todos os perfis
+
+O componente de Carteira de Estudante **sempre** usa o modelo CIE (560×320px, fundo `#eaecf8`, faixa `#1a2f7a`, curvas SVG roxas, LOGO_GDF + LOGO_CEP):
+
+- **Portal do Estudante** (`portal/index.tsx`): componente `CarteiraEstudante({ me, carteira })` — usa `me.matriculas[0]` para dados do curso/turma/turno
+- **Portal do Responsável** (`portal-responsavel/index.tsx`): componente `CarteiraEstudanteCIE({ est, carteira })` — usa campos de `EstudanteInfo` (nome, fotoUrl, registro, turmaSigla, cursoNome, turnos[0].nome)
+
+> **NUNCA** usar cartão azul simples (`bg-gradient-to-br from-blue-700 to-blue-900`) para carteira de estudante. Este modelo foi substituído pelo CIE em todos os perfis.
+
+Logos LOGO_GDF e LOGO_CEP são constantes base64 declaradas no topo de cada arquivo de página — **nunca usar URL externa**.
+
 ## Arquivos-chave
 
 | Arquivo | Responsabilidade |
@@ -172,5 +183,5 @@ aprovado_por_id | aprovado_em | observacao_aprovador | token (varchar 400)
 | `artifacts/api-server/src/routes/gestao-responsaveis.ts` | aprovar/recusar cartões de saída |
 | `artifacts/api-server/src/routes/portal-responsavel.ts` | solicitar cartão de saída |
 | `artifacts/seshat/src/pages/portal/index.tsx` | CartaoLiberacao + CartaoLiberacaoCard + COR_DIA + dentroJanelaHorario (perfil estudante) |
-| `artifacts/seshat/src/pages/portal-responsavel/index.tsx` | CartaoLiberacaoTab + CartaoLiberacaoCard (adaptado para EstudanteInfo) — mesmo modelo visual, sem formulário de solicitação |
+| `artifacts/seshat/src/pages/portal-responsavel/index.tsx` | CartaoLiberacaoTab + CartaoLiberacaoCard + CarteiraEstudanteCIE (adaptado para EstudanteInfo) — mesmo modelo visual, sem formulário de solicitação |
 | `.specs/features/carteiras-e-cartoes.md` | Spec completa |
