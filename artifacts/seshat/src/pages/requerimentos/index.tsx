@@ -44,6 +44,7 @@ interface Requerimento {
   estudanteNome: string; requerenteNome: string | null; criadoEm: string;
   exposicaoMotivos: string | null; parecer: string | null; analisadoEm: string | null;
   dataSolicitacao?: string | null; horaSolicitacao?: string | null;
+  cursoNome?: string | null; turmaSigla?: string | null; turnoNome?: string | null;
   assinaturas: Assinatura[];
 }
 
@@ -170,9 +171,16 @@ function AssinarModal({
 }
 
 // ── Modal de Detalhe / Impressão ──────────────────────────────────────────────
-function DetalheModal({ req, onClose, onAssinar }: {
+function DetalheModal({ req: reqBase, onClose, onAssinar }: {
   req: Requerimento; onClose: () => void; onAssinar: () => void;
 }) {
+  // Busca o detalhe completo (inclui cursoNome, turmaSigla, turnoNome via matriculaId)
+  const { data: reqDetalhe, isLoading } = useQuery<Requerimento>({
+    queryKey: ["requerimento-detalhe", reqBase.id],
+    queryFn: () => fetchJson(`/api/requerimentos/${reqBase.id}`),
+    placeholderData: reqBase,
+  });
+  const req = reqDetalhe ?? reqBase;
   const jaAssinou = (req.assinaturas ?? []).some((a) => a.papel === "requerente");
   const dataFormatada = new Date(req.criadoEm).toLocaleDateString("pt-BR", {
     day: "2-digit", month: "long", year: "numeric",
@@ -211,11 +219,11 @@ function DetalheModal({ req, onClose, onAssinar }: {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Curso</p>
-                <p className="font-medium">{(req as any).cursoNome ?? "—"}</p>
+                <p className="font-medium">{req.cursoNome ?? "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Turno</p>
-                <p className="font-medium">{(req as any).turnoNome ?? "—"}</p>
+                <p className="font-medium">{req.turnoNome ?? "—"}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Requerente</p>
