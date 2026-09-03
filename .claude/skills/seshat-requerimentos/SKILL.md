@@ -36,16 +36,25 @@ requerimento_assinaturas → assinaturas (UNIQUE requerimento_id, usuario_id, pa
 | 2 | Trancamento de Curso | — | Não | Não | — |
 | 3 | Troca de Curso | — | Sim | Não | — |
 | 4 | Aproveitamento de Estudos | — | Sim | Não | — |
-| 5 | Pedido de Saída Antecipada (Semestral) | `saida-semestral` | Sim | **Sim** | Gera Cartão de Saída Semestral (horário armazenado em `carteiras.horario_saida`) |
+| 5 | Pedido de Saída Antecipada (Semestral) | `saida-semestral` | Sim | **Sim (hora apenas — sem data)** | Gera Cartão de Saída Semestral (horário armazenado em `carteiras.horario_saida`) |
 | 6 | Pedido de Saída Antecipada (Eventual) | `saida-eventual` | Sim | **Sim** | Gera Cartão de Saída Diário |
 | 7 | Outros | — | Sim | Não | — |
 
 ## Data e Hora nos Requerimentos
 
-- `requerimento_assuntos.requer_data_hora = true` → formulário exige data + hora
-- `requerimentos.data_solicitacao` (date) — data desejada
-- `requerimentos.hora_solicitacao` (time) — horário (obrigatório se data informada)
-- Regra UI: se o assunto exige data, campo data é obrigatório; ao preencher data, hora é obrigatória
+- `requerimento_assuntos.requer_data_hora = true` → formulário exige data e/ou hora
+- `requerimentos.data_solicitacao` (date) — data desejada (null para saida-semestral)
+- `requerimentos.hora_solicitacao` (time) — horário obrigatório sempre que requer_data_hora = true
+
+### Diferenciação por slug
+
+| Slug | Campos exigidos | Lógica |
+|---|---|---|
+| `saida-semestral` | **Apenas hora** (obrigatório) | Sem data — o cartão é válido todo dia do semestre no horário informado (±5 min) |
+| `saida-eventual` | Data (obrigatório) + Hora (obrigatório se data preenchida) | Cartão válido apenas na data/hora especificada |
+
+**Frontend:** `assunto.slug === 'saida-semestral'` → exibe somente campo `type="time"` (não desabilitado), mensagem "válido diariamente às HH:MM (±5 min)".
+**Backend:** para `saida-semestral`, valida apenas `horaSolicitacao`; para outros, valida `dataSolicitacao` + `horaSolicitacao`.
 
 ## Efeitos do Deferimento
 

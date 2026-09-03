@@ -236,8 +236,10 @@ Retorna cartões de saída **aprovados** do estudante logado (via `estudantes.us
 ```
 Estudante adulto ou Pai/Responsável
   → Requerimento "Pedido de Saída Antecipada (Semestral)" em /requerimentos
+     (formulário solicita apenas HORÁRIO de saída — obrigatório; sem campo de data)
   → Secretaria/Supervisão defere
-  → processarDeferimento() → INSERT carteiras (tipo='cartao-semestral', status='aprovado')
+  → processarDeferimento() → INSERT carteiras (tipo='cartao-semestral', status='aprovado',
+                                               horario_saida=hora_solicitacao)
      OU coordenador emite manualmente: POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }
   → token HMAC gerado → status 'ativa'
   → Visível na aba "Cartão de Liberação > Semestral" em ambos os portais

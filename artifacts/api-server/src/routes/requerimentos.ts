@@ -357,6 +357,7 @@ router.post("/", requireAuth, async (req, res) => {
   const [assunto] = await db
     .select({
       id: requerimentoAssuntosTable.id,
+      slug: requerimentoAssuntosTable.slug,
       requerMotivos: requerimentoAssuntosTable.requerMotivos,
       requerDataHora: requerimentoAssuntosTable.requerDataHora,
     })
@@ -369,12 +370,22 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(422).json({ error: "Este assunto requer a exposição de motivos." });
   }
 
-  // Data/hora: obrigatória para assuntos que exigem; se data for informada, hora é obrigatória
-  if (assunto.requerDataHora && !dataSolicitacao) {
-    return res.status(422).json({ error: "Este assunto requer a data da solicitação." });
-  }
-  if (dataSolicitacao && !horaSolicitacao) {
-    return res.status(422).json({ error: "Ao informar a data, o horário é obrigatório." });
+  // Data/hora: obrigatória para assuntos que exigem
+  // saida-semestral: apenas horário obrigatório (sem data — válido todo dia do semestre)
+  // saida-eventual: data obrigatória + horário obrigatório
+  if (assunto.requerDataHora) {
+    if (assunto.slug === "saida-semestral") {
+      if (!horaSolicitacao) {
+        return res.status(422).json({ error: "O horário de saída é obrigatório para este requerimento." });
+      }
+    } else {
+      if (!dataSolicitacao) {
+        return res.status(422).json({ error: "Este assunto requer a data da solicitação." });
+      }
+      if (dataSolicitacao && !horaSolicitacao) {
+        return res.status(422).json({ error: "Ao informar a data, o horário é obrigatório." });
+      }
+    }
   }
 
   const numero = await gerarNumero();

@@ -417,11 +417,19 @@ function NovoRequerimentoModal({
     if (palavras > 1000) {
       return toast({ title: "A exposição de motivos deve ter no máximo 1000 palavras.", variant: "destructive" });
     }
-    if (assunto?.requerDataHora && !dataSolicitacao) {
-      return toast({ title: "Informe a data da solicitação.", variant: "destructive" });
-    }
-    if (dataSolicitacao && !horaSolicitacao) {
-      return toast({ title: "Ao informar a data, o horário é obrigatório.", variant: "destructive" });
+    if (assunto?.requerDataHora) {
+      if (assunto.slug === "saida-semestral") {
+        if (!horaSolicitacao) {
+          return toast({ title: "Informe o horário de saída.", variant: "destructive" });
+        }
+      } else {
+        if (!dataSolicitacao) {
+          return toast({ title: "Informe a data da solicitação.", variant: "destructive" });
+        }
+        if (dataSolicitacao && !horaSolicitacao) {
+          return toast({ title: "Ao informar a data, o horário é obrigatório.", variant: "destructive" });
+        }
+      }
     }
     setLoading(true);
     try {
@@ -585,8 +593,29 @@ function NovoRequerimentoModal({
                 <p className="font-semibold">{assunto?.nome}</p>
               </div>
 
-              {/* Data e Hora — somente se o assunto exige ou se o usuário quiser informar */}
-              {assunto?.requerDataHora && (
+              {/* Horário de saída — saida-semestral: apenas hora; saida-eventual: data + hora */}
+              {assunto?.requerDataHora && assunto.slug === "saida-semestral" && (
+                <div className="border rounded-lg p-3 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                    Horário diário de saída autorizado *
+                  </p>
+                  <div className="space-y-1">
+                    <Label htmlFor="hora-sol">Horário de saída *</Label>
+                    <Input
+                      id="hora-sol"
+                      type="time"
+                      value={horaSolicitacao}
+                      onChange={(e) => setHoraSolicitacao(e.target.value)}
+                    />
+                  </div>
+                  {horaSolicitacao && (
+                    <p className="text-xs text-muted-foreground">
+                      O cartão semestral será válido diariamente às <strong>{horaSolicitacao}</strong> (±5 min), do deferimento até o último dia letivo.
+                    </p>
+                  )}
+                </div>
+              )}
+              {assunto?.requerDataHora && assunto.slug !== "saida-semestral" && (
                 <div className="border rounded-lg p-3 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
                   <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
                     Informe a data e o horário de saída desejados *
@@ -615,7 +644,7 @@ function NovoRequerimentoModal({
                   </div>
                   {dataSolicitacao && horaSolicitacao && (
                     <p className="text-xs text-muted-foreground">
-                      O cartão de saída será válido em <strong>{new Date(dataSolicitacao + "T00:00").toLocaleDateString("pt-BR")}</strong> das <strong>{horaSolicitacao}</strong> (±5 min).
+                      O cartão de saída será válido em <strong>{new Date(dataSolicitacao + "T00:00").toLocaleDateString("pt-BR")}</strong> às <strong>{horaSolicitacao}</strong> (±5 min).
                     </p>
                   )}
                 </div>
