@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, timestamp, boolean, smallint, customType, char, varchar, integer, date } from "drizzle-orm/pg-core";
+import { fotosTable } from "./fotos";
 
 const bytesAsString = customType<{ data: string; driverData: Buffer }>({
   dataType() { return "bytea"; },
@@ -26,6 +27,7 @@ export const usuariosTable = pgTable("usuarios", {
   tentativasLoginFalhas: smallint("tentativas_login_falhas").notNull().default(0),
   bloqueadoAte: timestamp("bloqueado_ate", { withTimezone: true }),
   ultimoLoginEm: timestamp("ultimo_login_em", { withTimezone: true }),
+  fotoId: uuid("foto_id").references(() => fotosTable.id, { onDelete: "set null" }),
   fotoStorageKey: varchar("foto_storage_key", { length: 200 }),
   fotoIv: char("foto_iv", { length: 24 }),
   fotoMimeType: varchar("foto_mime_type", { length: 20 }),

@@ -1,4 +1,4 @@
-# Guia de Desenvolvimento — Carômetro no VSCode Dev Container
+# Guia de Desenvolvimento — Seshat no VSCode Dev Container
 
 Passo a passo completo: desde a primeira execução até encerrar o ambiente corretamente.
 
@@ -126,7 +126,7 @@ Aguarde aparecer: `api-server listening on port 8080`
 ### Terminal 2 — Frontend (porta 5000)
 
 ```bash
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 ```
 
 Aguarde aparecer: `➜ Local: http://localhost:5000/`
@@ -168,7 +168,7 @@ pnpm --filter @workspace/api-server run test
 pnpm --filter @workspace/api-server run typecheck
 
 # Verificar TypeScript do frontend
-pnpm --filter @workspace/carometro run typecheck
+pnpm --filter @workspace/seshat run typecheck
 
 # Ver usuários no banco
 psql $DATABASE_URL -c "SELECT codigo_acesso, criado_em FROM usuarios;"
@@ -239,7 +239,7 @@ docker compose down -v
 | O que fazer | Comando |
 |---|---|
 | Subir API | `pnpm --filter @workspace/api-server run dev` |
-| Subir Frontend | `pnpm --filter @workspace/carometro run dev` |
+| Subir Frontend | `pnpm --filter @workspace/seshat run dev` |
 | Aplicar schema | `pnpm --filter @workspace/db run push-force` |
 | Criar admin | `pnpm --filter @workspace/api-server run seed-admin email@x.com` |
 | Rodar testes | `pnpm --filter @workspace/api-server run test` |

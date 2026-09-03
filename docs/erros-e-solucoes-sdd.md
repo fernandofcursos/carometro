@@ -1,6 +1,6 @@
 # Erros e Soluções — Migração para SDD
 
-Registro dos erros encontrados durante a implementação do Spec Driven Development no projeto Carômetro.
+Registro dos erros encontrados durante a implementação do Spec Driven Development no projeto Seshat.
 
 ---
 
@@ -175,7 +175,7 @@ pnpm install
 **Solução:**
 ```bash
 kill $(lsof -ti :5000)
-pnpm --filter @workspace/carometro run dev
+pnpm --filter @workspace/seshat run dev
 ```
 
 ---

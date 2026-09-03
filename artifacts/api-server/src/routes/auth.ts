@@ -293,7 +293,7 @@ router.post("/solicitar-recuperacao", async (req: Request, res: Response) => {
     const { email } = parsed.data;
 
     const [usuario] = await db
-      .select({ id: usuariosTable.id, emailEncrypted: usuariosTable.emailEncrypted })
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, emailEncrypted: usuariosTable.emailEncrypted, codigoAcesso: usuariosTable.codigoAcesso })
       .from(usuariosTable)
       .where(and(eq(usuariosTable.emailHash, emailHash(email)), isNull(usuariosTable.deletadoEm)));
 
@@ -309,7 +309,7 @@ router.post("/solicitar-recuperacao", async (req: Request, res: Response) => {
 
       const emailDestino = descriptografarEmail(usuario.emailEncrypted);
       try {
-        await enviarEmailRecuperacao(emailDestino, token, expiresAt);
+        await enviarEmailRecuperacao(emailDestino, token, expiresAt, usuario.nome, usuario.codigoAcesso);
       } catch (err) {
         // Falha no envio não deve revelar informação — registrar e continuar
         console.error("[recuperacao] falha ao enviar e-mail:", err);

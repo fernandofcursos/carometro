@@ -70,6 +70,9 @@ const PERMISSOES: { recurso: string; acao: string; descricao: string }[] = [
   { recurso: "tipos-ocorrencias", acao: "manage",  descricao: "Criar e editar tipos de ocorrência" },
   { recurso: "import",            acao: "execute", descricao: "Importar dados via XLSX" },
   { recurso: "auditoria",         acao: "view",    descricao: "Visualizar log de auditoria" },
+  { recurso: "requerimentos",     acao: "create",  descricao: "Criar requerimentos (estudante adulto e responsável)" },
+  { recurso: "requerimentos",     acao: "view",    descricao: "Visualizar próprios requerimentos" },
+  { recurso: "requerimentos",     acao: "manage",  descricao: "Analisar e deferir/indeferir requerimentos" },
 ];
 
 // ── Roles padrão do sistema ───────────────────────────────────────────────────
@@ -100,18 +103,22 @@ const ROLES_PADRAO: { nome: string; descricao: string; permissoes: { recurso: st
     nome: "secretaria",
     descricao: "Secretaria escolar",
     permissoes: [
-      { recurso: "carometro",   acao: "view"   },
-      { recurso: "estudantes",  acao: "view"   },
-      { recurso: "estudantes",  acao: "manage" },
-      { recurso: "import",      acao: "execute"},
+      { recurso: "carometro",     acao: "view"    },
+      { recurso: "estudantes",    acao: "view"    },
+      { recurso: "estudantes",    acao: "manage"  },
+      { recurso: "import",        acao: "execute" },
+      { recurso: "requerimentos", acao: "view"    },
+      { recurso: "requerimentos", acao: "manage"  },
     ],
   },
   {
     nome: "estudante",
     descricao: "Estudante — acesso restrito ao próprio carômetro",
     permissoes: [
-      { recurso: "carometro",   acao: "view"   },
-      { recurso: "estudantes",  acao: "view"   },
+      { recurso: "carometro",     acao: "view"   },
+      { recurso: "estudantes",    acao: "view"   },
+      { recurso: "requerimentos", acao: "create" },
+      { recurso: "requerimentos", acao: "view"   },
     ],
   },
   {
@@ -153,9 +160,11 @@ const ROLES_PADRAO: { nome: string; descricao: string; permissoes: { recurso: st
     nome: "supervisao_pedagogica",
     descricao: "Supervisão Pedagógica",
     permissoes: [
-      { recurso: "carometro",   acao: "view"   },
-      { recurso: "estudantes",  acao: "view"   },
-      { recurso: "ocorrencias", acao: "view"   },
+      { recurso: "carometro",     acao: "view"   },
+      { recurso: "estudantes",    acao: "view"   },
+      { recurso: "ocorrencias",   acao: "view"   },
+      { recurso: "requerimentos", acao: "view"   },
+      { recurso: "requerimentos", acao: "manage" },
     ],
   },
   {
@@ -207,7 +216,9 @@ const ROLES_PADRAO: { nome: string; descricao: string; permissoes: { recurso: st
     nome: "pai_responsavel",
     descricao: "Pai / Responsável",
     permissoes: [
-      { recurso: "carometro",   acao: "view"   },
+      { recurso: "carometro",     acao: "view"   },
+      { recurso: "requerimentos", acao: "create" },
+      { recurso: "requerimentos", acao: "view"   },
     ],
   },
 ];

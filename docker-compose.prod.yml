@@ -1,9 +1,26 @@
 # =============================================================================
-# docker-compose.prod.yml — Fase 7: orquestração de produção
+# docker-compose.prod.yml — orquestração de produção
 #
-# Sobe três serviços: banco PostgreSQL local, api-server e nginx (TLS + frontend).
-# Para usar com Neon (sem serviço db local), comente o bloco "db" e ajuste
-# o DATABASE_URL no .env para apontar para o Neon.
+# Serviços:
+#   Aplicação: db, api-server, frontend (nginx)
+#   Monitoramento: prometheus, grafana, postgres-exporter
+#
+# Redes:
+#   app_net      — aplicação (db, api-server, frontend)
+#   monitoring_net — monitoramento (prometheus, grafana, postgres-exporter, api-server)
+#   Nenhuma porta de monitoramento é exposta ao host — acesso via nginx HTTPS.
+#
+# Segurança (ISO 27001):
+#   - /api/metrics protegido por IP allowlist interna (ver api-server/src/index.ts)
+#   - Grafana acessado via /grafana/ sob TLS (nginx)
+#   - Prometheus acessado via /prometheus/ sob TLS + HTTP Basic Auth (nginx)
+#   - Credenciais Grafana via .env (nunca hardcoded)
+#   - postgres-exporter usa usuário dedicado com permissões mínimas
+#
+# LGPD:
+#   - Métricas agregadas (counters, histogramas) sem PII
+#   - Retenção Prometheus: 15 dias (--storage.tsdb.retention.time=15d)
+#   - Dashboards Grafana não exibem dados de usuários individuais
 #
 # Uso:
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -11,32 +28,36 @@
 #   docker compose -f docker-compose.prod.yml down
 #
 # Pré-requisito:
-#   1. cp .env.example .env && vi .env   (preencher valores reais)
-#   2. bash scripts/gerar-certificado-dev.sh   (ou montar certificado real)
+#   1. cp .env.example .env && vi .env   (preencher TODOS os valores)
+#   2. bash scripts/gerar-certificado-dev.sh   (ou certificado real)
 # =============================================================================
 
-name: carometro-prod  # Fase 7: nome separado do stack de dev (carometro-dev)
+name: seshat-prod
 
 services:
 
   # ---------------------------------------------------------------------------
-  # db — PostgreSQL local (Fase 7: opcional se usar Neon)
-  # Para usar Neon: comente este bloco e ajuste DATABASE_URL no .env
+  # db — PostgreSQL local
   # ---------------------------------------------------------------------------
   db:
     image: postgres:16-alpine
-    container_name: carometro-prod-db
+    container_name: seshat-prod-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     ${POSTGRES_USER}      # Fase 7: via .env
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # Fase 7: via .env
-      POSTGRES_DB:       ${POSTGRES_DB}        # Fase 7: via .env
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
       POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
     volumes:
-      - postgres_prod_data:/var/lib/postgresql/data  # Fase 7: volume persistente
-    # Fase 7: porta NÃO exposta externamente em produção (segurança — ISO 27001 A.8.20)
-    # ports:
-    #   - "5432:5432"
+      - postgres_prod_data:/var/lib/postgresql/data
+      # Script que cria o banco dedicado para o n8n
+      - ./scripts/init-n8n-db.sql:/docker-entrypoint-initdb.d/98-n8n-db.sql:ro
+      # Script que cria o usuário de leitura para o postgres-exporter (mínimo privilégio)
+      - ./scripts/init-monitoring-user.sql:/docker-entrypoint-initdb.d/99-monitoring-user.sql:ro
+    # ISO 27001 A.8.20: porta NÃO exposta externamente
+    networks:
+      - app_net
+      - monitoring_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -45,28 +66,28 @@ services:
       start_period: 20s
 
   # ---------------------------------------------------------------------------
-  # api-server — Express + Drizzle ORM (Fase 7)
+  # api-server — Express + Drizzle ORM
   # ---------------------------------------------------------------------------
   api-server:
     build:
       context: .
-      dockerfile: artifacts/api-server/Dockerfile  # Fase 6+7: Dockerfile multi-stage
-    image: carometro-api:latest
-    container_name: carometro-prod-api
+      dockerfile: artifacts/api-server/Dockerfile
+    image: seshat-api:latest
+    container_name: seshat-prod-api
     restart: unless-stopped
     environment:
-      DATABASE_URL:   ${DATABASE_URL}            # Fase 7: via .env
-      SESSION_SECRET: ${SESSION_SECRET}          # Fase 7: via .env
+      DATABASE_URL:   ${DATABASE_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
       NODE_ENV:       ${NODE_ENV:-production}
       LOG_LEVEL:      ${LOG_LEVEL:-info}
-      FRONTEND_URL:   ${FRONTEND_URL}            # Fase 7: necessário para CORS
+      FRONTEND_URL:   ${FRONTEND_URL}
       PORT:           8080
-    # Fase 7: porta NÃO exposta externamente — nginx faz o proxy
-    # ports:
-    #   - "8080:8080"
+    networks:
+      - app_net
+      - monitoring_net   # Prometheus precisa alcançar /api/metrics
     depends_on:
       db:
-        condition: service_healthy               # Fase 7: aguarda PG estar pronto
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/healthz"]
       interval: 30s
@@ -75,33 +96,196 @@ services:
       start_period: 30s
 
   # ---------------------------------------------------------------------------
-  # frontend — nginx: TLS termination + estáticos + proxy /api/* (Fase 6+7)
+  # frontend — nginx: TLS + estáticos + proxy reverso
   # ---------------------------------------------------------------------------
   frontend:
     build:
       context: .
-      dockerfile: artifacts/carometro/Dockerfile  # Fase 6+7: Dockerfile multi-stage
-    image: carometro-frontend:latest
-    container_name: carometro-prod-frontend
+      dockerfile: artifacts/seshat/Dockerfile
+    image: seshat-frontend:latest
+    container_name: seshat-prod-frontend
     restart: unless-stopped
     ports:
-      - "80:80"    # Fase 7: redireciona para HTTPS
-      - "443:443"  # Fase 7: HTTPS (câmera exige contexto seguro — Fase 6)
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro         # Fase 6: config com TLS
-      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro     # Fase 6: certificado
-      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro       # Fase 6: chave privada
-      # Fase 7: em produção com Let's Encrypt, substituir pelos caminhos do Certbot:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro
+      # Arquivo de senhas para HTTP Basic Auth do /prometheus/ (gerado pelo htpasswd)
+      - ./nginx/monitoring.htpasswd:/etc/nginx/monitoring.htpasswd:ro
+      # Em produção com Let's Encrypt:
       # - /etc/letsencrypt/live/SEU_DOMINIO/fullchain.pem:/etc/nginx/ssl/cert.pem:ro
       # - /etc/letsencrypt/live/SEU_DOMINIO/privkey.pem:/etc/nginx/ssl/key.pem:ro
+    networks:
+      - app_net
+      - monitoring_net
     depends_on:
       api-server:
-        condition: service_healthy               # Fase 7: só sobe após a API estar pronta
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # prometheus — coleta de métricas (rede interna apenas)
+  # ISO 27001 A.8.20: nenhuma porta exposta externamente
+  # LGPD: retenção limitada a 15 dias
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.53.4
+    container_name: seshat-prod-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"   # LGPD: retenção máxima
+      - "--web.enable-lifecycle"               # permite reload sem restart
+      - "--web.listen-address=0.0.0.0:9090"
+      - "--web.external-url=/prometheus/"      # subpath nginx
+      - "--web.route-prefix=/"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring_net
+    # ISO 27001: porta NÃO exposta ao host — acesso via nginx /prometheus/
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # grafana — visualização de métricas (rede interna apenas)
+  # Acesso via nginx /grafana/ com autenticação própria do Grafana
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: seshat-prod-grafana
+    restart: unless-stopped
+    environment:
+      # Credenciais admin — OBRIGATÓRIO definir no .env (nunca usar padrão em produção)
+      GF_SECURITY_ADMIN_USER:     ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      # Subpath nginx
+      GF_SERVER_ROOT_URL:         https://%(domain)s/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Desabilitar telemetria externa (LGPD / ISO 27001)
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED:   "false"
+      # Segurança de sessão
+      GF_SESSION_COOKIE_SECURE:    "true"
+      GF_SESSION_COOKIE_SAMESITE:  "lax"
+      GF_SECURITY_COOKIE_SECURE:   "true"
+      # Desabilitar registro público (somente admin cria usuários)
+      GF_USERS_ALLOW_SIGN_UP:      "false"
+      GF_AUTH_ANONYMOUS_ENABLED:   "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring_net
+    depends_on:
+      - prometheus
+    # ISO 27001: porta NÃO exposta ao host — acesso via nginx /grafana/
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # n8n — automação de fluxos e integração (Slack, e-mail, webhooks, etc.)
+  # Acesso via nginx /n8n/ com autenticação própria do n8n
+  # ISO 27001 A.8.20: porta NÃO exposta ao host
+  # LGPD: credenciais e dados de workflow criptografados (N8N_ENCRYPTION_KEY)
+  # ---------------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:1.68.0
+    container_name: seshat-prod-n8n
+    restart: unless-stopped
+    environment:
+      # Banco de dados — PostgreSQL dedicado (banco seshat_n8n)
+      DB_TYPE:                    postgresdb
+      DB_POSTGRESDB_HOST:         db
+      DB_POSTGRESDB_PORT:         5432
+      DB_POSTGRESDB_DATABASE:     seshat_n8n
+      DB_POSTGRESDB_USER:         ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD:     ${POSTGRES_PASSWORD}
+      # Criptografia de credenciais — OBRIGATÓRIO definir no .env
+      N8N_ENCRYPTION_KEY:         ${N8N_ENCRYPTION_KEY}
+      # Subpath nginx
+      N8N_PATH:                   /n8n/
+      N8N_EDITOR_BASE_URL:        ${FRONTEND_URL}/n8n/
+      WEBHOOK_URL:                ${FRONTEND_URL}/n8n/
+      # Segurança — desabilitar telemetria externa (LGPD / ISO 27001)
+      N8N_DIAGNOSTICS_ENABLED:    "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED:      "true"
+      # Fuso horário
+      GENERIC_TIMEZONE:           America/Sao_Paulo
+      TZ:                         America/Sao_Paulo
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - app_net       # pode chamar api-server para webhooks internos
+      - monitoring_net
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # postgres-exporter — expõe métricas do PostgreSQL para o Prometheus
+  # Usa usuário dedicado com permissões mínimas (ver init-monitoring-user.sql)
+  # ---------------------------------------------------------------------------
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: seshat-prod-pg-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${PG_EXPORTER_USER:-seshat_monitor}:${PG_EXPORTER_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable"
+    networks:
+      - monitoring_net
+    depends_on:
+      db:
+        condition: service_healthy
 
 # ---------------------------------------------------------------------------
-# Volumes persistentes (Fase 7)
+# Redes internas (isolamento — ISO 27001 A.8.20)
+# ---------------------------------------------------------------------------
+networks:
+  app_net:
+    driver: bridge
+    name: seshat-app
+    internal: false   # frontend precisa de acesso à internet (Let's Encrypt, atualizações)
+
+  monitoring_net:
+    driver: bridge
+    name: seshat-monitoring
+    internal: true    # completamente isolada — nenhum serviço acessa a internet
+
+# ---------------------------------------------------------------------------
+# Volumes persistentes
 # ---------------------------------------------------------------------------
 volumes:
   postgres_prod_data:
     driver: local
-    name: carometro-prod-postgres  # Fase 7: nome distinto do volume de dev
+    name: seshat-prod-postgres
+
+  prometheus_data:
+    driver: local
+    name: seshat-prod-prometheus
+
+  grafana_data:
+    driver: local
+    name: seshat-prod-grafana
+
+  n8n_data:
+    driver: local
+    name: seshat-prod-n8n

@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: seshat
+    folder: Seshat
+    type: file
+    disableDeletion: true     # impede exclusão via UI (imutabilidade em produção)
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

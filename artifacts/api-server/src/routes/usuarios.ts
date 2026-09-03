@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
-import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, eq, isNull, and } from "@workspace/db";
-import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable } from "@workspace/db/schema";
+import { db, usuariosTable, rolesTable, usuariosRolesTable, permissoesTable, rolesPermissoesTable, estudantesTable, estudanteEmailsTable, responsaveisEstudantesTable, eq, isNull, and, ne, inArray, ilike, or } from "@workspace/db";
+import { usuarioDisciplinasTable, disciplinaOfertasTable, disciplinasTable, cursosTable, turnosTable, coordenadorCursosTable, fotosTable } from "@workspace/db/schema";
 import { z } from "zod";
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from "crypto";
 import bcrypt from "bcryptjs";
@@ -74,6 +74,47 @@ const createUsuarioSchema = z.object({
   dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   roleIds: z.array(z.string().uuid()).optional().default([]),
   disciplinaOfertaIds: z.array(z.string().uuid()).optional().default([]),
+  cursoIds: z.array(z.string().uuid()).optional().default([]),
+  responsavelIds: z.array(z.string().uuid()).optional().default([]),
+});
+
+// GET /api/usuarios/responsaveis?q= — lista usuários com role pai_responsavel (para vincular ao estudante)
+router.get("/responsaveis", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+
+    // Busca IDs dos usuários que têm role pai_responsavel
+    const [rolePai] = await db
+      .select({ id: rolesTable.id })
+      .from(rolesTable)
+      .where(eq(rolesTable.nome, "pai_responsavel"));
+
+    if (!rolePai) return res.json([]);
+
+    const paiIds = await db
+      .select({ usuarioId: usuariosRolesTable.usuarioId })
+      .from(usuariosRolesTable)
+      .where(eq(usuariosRolesTable.roleId, rolePai.id));
+
+    if (paiIds.length === 0) return res.json([]);
+
+    const ids = paiIds.map((r) => r.usuarioId);
+
+    const rows = await db
+      .select({ id: usuariosTable.id, nome: usuariosTable.nome, codigoAcesso: usuariosTable.codigoAcesso, emailEncrypted: usuariosTable.emailEncrypted })
+      .from(usuariosTable)
+      .where(and(inArray(usuariosTable.id, ids), isNull(usuariosTable.deletadoEm)));
+
+    const resultado = rows
+      .map((u) => ({ id: u.id, nome: u.nome, codigoAcesso: u.codigoAcesso, email: decryptEmail(String(u.emailEncrypted), secret) }))
+      .filter((u) => !q || u.nome?.toLowerCase().includes(q.toLowerCase()) || u.codigoAcesso.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()))
+      .sort((a, b) => (a.nome ?? "").localeCompare(b.nome ?? ""));
+
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao buscar responsáveis" });
+  }
 });
 
 // GET /api/usuarios — listar usuários ativos com seus roles
@@ -111,18 +152,42 @@ router.get("/", requirePermissao("usuarios:manage"), async (req: Request, res: R
           .innerJoin(turnosTable, eq(disciplinaOfertasTable.turnoId, turnosTable.id))
           .where(eq(usuarioDisciplinasTable.usuarioId, u.id));
 
+        const cursosCoordenados = await db
+          .select({ id: cursosTable.id, nome: cursosTable.nome })
+          .from(coordenadorCursosTable)
+          .innerJoin(cursosTable, eq(coordenadorCursosTable.cursoId, cursosTable.id))
+          .where(eq(coordenadorCursosTable.usuarioId, u.id));
+
+        // Fallback: usa foto do estudante vinculado se o usuário não tiver foto própria
+        let estudanteFotoId: string | null = null;
+        if (!u.fotoId) {
+          const [est] = await db
+            .select({ fotoId: estudantesTable.fotoId })
+            .from(estudantesTable)
+            .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+          estudanteFotoId = est?.fotoId ?? null;
+        }
+
+        const fotoUrl = u.fotoId
+          ? `/api/fotos/${u.fotoId}`
+          : (estudanteFotoId
+              ? `/api/fotos/${estudanteFotoId}`
+              : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null));
+
         return {
-          id:            u.id,
-          nome:          u.nome,
-          email:         decryptEmail(u.emailEncrypted, secret),
-          codigoAcesso:  u.codigoAcesso,
-          primeiroAcesso: u.primeiroAcesso,
-          fotoUrl:       (u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null,
-          bloqueadoAte:  u.bloqueadoAte,
-          ultimoLoginEm: u.ultimoLoginEm,
-          criadoEm:      u.criadoEm,
+          id:              u.id,
+          nome:            u.nome,
+          dataNascimento:  u.dataNascimento ?? null,
+          email:           decryptEmail(u.emailEncrypted, secret),
+          codigoAcesso:    u.codigoAcesso,
+          primeiroAcesso:  u.primeiroAcesso,
+          fotoUrl,
+          bloqueadoAte:    u.bloqueadoAte,
+          ultimoLoginEm:   u.ultimoLoginEm,
+          criadoEm:        u.criadoEm,
           roles,
           disciplinas,
+          cursosCoordenados,
         };
       })
     );
@@ -153,10 +218,26 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
       .innerJoin(permissoesTable, eq(rolesPermissoesTable.permissaoId, permissoesTable.id))
       .where(eq(usuariosRolesTable.usuarioId, u.id));
 
+    let estudanteFotoIdSingle: string | null = null;
+    if (!u.fotoId) {
+      const [est] = await db
+        .select({ fotoId: estudantesTable.fotoId })
+        .from(estudantesTable)
+        .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+      estudanteFotoIdSingle = est?.fotoId ?? null;
+    }
+
+    const fotoUrlSingle = u.fotoId
+      ? `/api/fotos/${u.fotoId}`
+      : (estudanteFotoIdSingle
+          ? `/api/fotos/${estudanteFotoIdSingle}`
+          : ((u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null));
+
     res.json({
       id: u.id, nome: u.nome,
+      dataNascimento: u.dataNascimento ?? null,
       email: decryptEmail(u.emailEncrypted, secret),
-      fotoUrl: (u.fotoStorageKey && u.fotoDados) ? `/api/usuarios/${u.id}/foto` : null,
+      fotoUrl: fotoUrlSingle,
       codigoAcesso: u.codigoAcesso, primeiroAcesso: u.primeiroAcesso,
       bloqueadoAte: u.bloqueadoAte, ultimoLoginEm: u.ultimoLoginEm, criadoEm: u.criadoEm,
       roles,
@@ -170,7 +251,7 @@ router.get("/:id", requirePermissao("usuarios:manage"), async (req: Request, res
 // POST /api/usuarios — criar usuário com senha temporária
 router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds } = createUsuarioSchema.parse(req.body);
+    const { email, nome, dataNascimento, roleIds, disciplinaOfertaIds, cursoIds, responsavelIds } = createUsuarioSchema.parse(req.body);
     const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
 
     const erroRegra = await validarRegrasRoles(roleIds, dataNascimento);
@@ -206,6 +287,33 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       ).onConflictDoNothing();
     }
 
+    // Vincular cursos coordenados
+    if (cursoIds.length > 0) {
+      await db.insert(coordenadorCursosTable).values(
+        cursoIds.map((cursoId) => ({ usuarioId: u.id, cursoId }))
+      ).onConflictDoNothing();
+    }
+
+    // Vincular responsáveis ao estudante (somente quando role estudante está presente)
+    if (responsavelIds.length > 0 && roleIds.length > 0) {
+      const [roleEstudante] = await db.select({ id: rolesTable.id }).from(rolesTable).where(eq(rolesTable.nome, "estudante"));
+      const temEstudanteRole = roleEstudante && roleIds.includes(roleEstudante.id);
+      if (temEstudanteRole) {
+        // Localizar o registro em estudantes criado pelo sistema (via usuarioId)
+        const [estudante] = await db.select({ id: estudantesTable.id }).from(estudantesTable)
+          .where(and(eq(estudantesTable.usuarioId, u.id), isNull(estudantesTable.deletadoEm)));
+        if (estudante) {
+          await db.insert(responsaveisEstudantesTable).values(
+            responsavelIds.map((responsavelId) => ({
+              usuarioId: responsavelId,
+              estudanteId: estudante.id,
+              criadoPorId: req.usuarioId,
+            }))
+          ).onConflictDoNothing();
+        }
+      }
+    }
+
     await registrarAuditoria({
       tabela: "usuarios", operacao: "INSERT", registroId: u.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
@@ -231,15 +339,20 @@ router.post("/", requirePermissao("usuarios:manage"), async (req: Request, res: 
       console.error("[usuarios] falha ao enviar e-mail de boas-vindas:", err);
     });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("23505") || msg.includes("email_hash") || msg.includes("unique")) {
+      return res.status(400).json({ error: "O e-mail informado já está cadastrado para outro usuário." });
+    }
+    res.status(400).json({ error: msg || "Dados inválidos" });
   }
 });
 
-// GET /api/usuarios/:id/foto — servir foto descriptografada
+// GET /api/usuarios/:id/foto — servir foto (nova tabela ou fallback inline)
 router.get("/:id/foto", async (req: Request, res: Response) => {
   try {
     const [u] = await db
       .select({
+        fotoId: usuariosTable.fotoId,
         fotoDados: usuariosTable.fotoDados,
         fotoIv: usuariosTable.fotoIv,
         fotoMimeType: usuariosTable.fotoMimeType,
@@ -248,7 +361,11 @@ router.get("/:id/foto", async (req: Request, res: Response) => {
       .from(usuariosTable)
       .where(eq(usuariosTable.id, String(req.params.id)));
 
-    if (!u?.fotoDados || !u.fotoIv) return res.status(404).end();
+    if (!u) return res.status(404).end();
+
+    if (u.fotoId) return res.redirect(302, `/api/fotos/${u.fotoId}`);
+
+    if (!u.fotoDados || !u.fotoIv) return res.status(404).end();
 
     const dadosBrutos = descriptografarFoto(u.fotoDados, u.fotoIv);
 
@@ -270,21 +387,22 @@ router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request
     const { fotoBase64 } = z.object({ fotoBase64: z.string().min(1) }).parse(req.body);
     if (fotoBase64.length > 5_000_000) return res.status(413).json({ error: "Foto muito grande. Máximo: ~3.7MB" });
 
+    const usuarioId = String(req.params.id);
     const foto = criptografarFoto(fotoBase64);
-    const { randomUUID } = await import("crypto");
+
+    const [fotoRow] = await db.insert(fotosTable).values({
+      entidadeTipo: "usuario", entidadeId: usuarioId,
+      mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes,
+      iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados,
+    }).onConflictDoUpdate({
+      target: [fotosTable.entidadeTipo, fotosTable.entidadeId],
+      set: { mimeType: foto.mimeType, tamanhoBytes: foto.tamanhoBytes, iv: foto.iv, hashIntegridade: foto.hash, dados: foto.dadosCriptografados, atualizadoEm: new Date() },
+    }).returning({ id: fotosTable.id });
 
     const [u] = await db
       .update(usuariosTable)
-      .set({
-        fotoStorageKey: randomUUID(),
-        fotoDados: foto.dadosCriptografados,
-        fotoIv: foto.iv,
-        fotoMimeType: foto.mimeType,
-        fotoTamanhoBytes: foto.tamanhoBytes,
-        fotoHashIntegridade: foto.hash,
-        atualizadoEm: new Date(),
-      })
-      .where(eq(usuariosTable.id, String(req.params.id)))
+      .set({ fotoId: fotoRow.id, atualizadoEm: new Date() })
+      .where(eq(usuariosTable.id, usuarioId))
       .returning({ id: usuariosTable.id });
 
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
@@ -292,35 +410,80 @@ router.put("/:id/foto", requirePermissao("usuarios:manage"), async (req: Request
     await registrarAuditoria({
       tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
-      endpoint: `PUT /api/usuarios/${String(req.params.id)}/foto`, metodoHttp: "PUT", statusHttp: 200,
+      endpoint: `PUT /api/usuarios/${usuarioId}/foto`, metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
 
-    res.json({ ok: true, fotoUrl: `/api/usuarios/${u.id}/foto` });
+    res.json({ ok: true, fotoUrl: `/api/fotos/${fotoRow.id}` });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Erro ao salvar foto" });
   }
 });
 
-// PUT /api/usuarios/:id — atualizar dados do usuário (nome)
+// PUT /api/usuarios/:id — atualizar dados do usuário
 router.put("/:id", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
   try {
-    const { nome } = z.object({ nome: z.string().min(2) }).parse(req.body);
+    const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
+    const { nome, email, dataNascimento, primeiroAcesso } = z.object({
+      nome:           z.string().min(2).optional(),
+      email:          z.string().email("E-mail inválido").optional(),
+      dataNascimento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      primeiroAcesso: z.boolean().optional(),
+    }).parse(req.body);
+
+    const usuarioId = String(req.params.id);
+    const setFields: Record<string, unknown> = { atualizadoEm: new Date() };
+    if (nome !== undefined) setFields.nome = nome;
+    if (dataNascimento !== undefined) setFields.dataNascimento = dataNascimento;
+    if (primeiroAcesso !== undefined) setFields.primeiroAcesso = primeiroAcesso;
+
+    if (email !== undefined) {
+      const emailNormalizado = email.toLowerCase().trim();
+      const novoHash = createHash("sha256").update(emailNormalizado).digest("hex");
+      // Verificar unicidade: nenhum outro usuário pode ter o mesmo email
+      const [conflito] = await db
+        .select({ id: usuariosTable.id })
+        .from(usuariosTable)
+        .where(and(eq(usuariosTable.emailHash, novoHash), ne(usuariosTable.id, usuarioId)));
+      if (conflito) return res.status(409).json({ error: "Este e-mail já está cadastrado para outro usuário." });
+      setFields.emailEncrypted = encryptEmail(emailNormalizado, secret);
+      setFields.emailHash      = novoHash;
+    }
+
     const [u] = await db
       .update(usuariosTable)
-      .set({ nome, atualizadoEm: new Date() })
-      .where(eq(usuariosTable.id, String(req.params.id)))
+      .set(setFields)
+      .where(eq(usuariosTable.id, usuarioId))
       .returning();
     if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    // Sincronizar estudante_emails.tipo='proprio' para manter consistência com carômetro
+    if (email !== undefined) {
+      const emailNormalizado = email.toLowerCase().trim();
+      const [estudante] = await db
+        .select({ id: estudantesTable.id })
+        .from(estudantesTable)
+        .where(eq(estudantesTable.usuarioId, usuarioId));
+      if (estudante) {
+        await db.delete(estudanteEmailsTable)
+          .where(and(eq(estudanteEmailsTable.estudanteId, estudante.id), eq(estudanteEmailsTable.tipo, "proprio")));
+        await db.insert(estudanteEmailsTable)
+          .values({ estudanteId: estudante.id, email: emailNormalizado, tipo: "proprio" });
+      }
+    }
+
     await registrarAuditoria({
       tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
       usuarioId: req.usuarioId, ipOrigem: req.ip,
       endpoint: "PUT /api/usuarios/:id", metodoHttp: "PUT", statusHttp: 200,
       duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
     });
-    res.json({ id: u.id, nome: u.nome });
+    const emailDecryptado = decryptEmail(u.emailEncrypted, secret);
+    res.json({ id: u.id, nome: u.nome, email: emailDecryptado, dataNascimento: u.dataNascimento, primeiroAcesso: u.primeiroAcesso });
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+    const msg = err instanceof Error ? err.message : "Dados inválidos";
+    if (msg.includes("23505") || msg.includes("email_hash")) return res.status(409).json({ error: "Este e-mail já está cadastrado para outro usuário." });
+    res.status(400).json({ error: msg });
   }
 });
 
@@ -355,6 +518,100 @@ router.put("/:id/roles", requirePermissao("usuarios:manage"), async (req: Reques
     res.json({ ok: true, total: roleIds.length });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// PUT /api/usuarios/:id/cursos — substituir cursos coordenados pelo usuário
+router.put("/:id/cursos", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const { cursoIds } = z
+      .object({ cursoIds: z.array(z.string().uuid()) })
+      .parse(req.body);
+
+    const usuarioId = String(req.params.id);
+
+    await db.delete(coordenadorCursosTable).where(eq(coordenadorCursosTable.usuarioId, usuarioId));
+
+    if (cursoIds.length > 0) {
+      await db.insert(coordenadorCursosTable).values(
+        cursoIds.map((cursoId) => ({ usuarioId, cursoId }))
+      );
+    }
+
+    await registrarAuditoria({
+      tabela: "coordenador_cursos", operacao: "UPDATE", registroId: usuarioId,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/usuarios/:id/cursos", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, total: cursoIds.length });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// PUT /api/usuarios/:id/disciplinas — substituir disciplinas (ofertas) do usuário
+router.put("/:id/disciplinas", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const { disciplinaOfertaIds } = z
+      .object({ disciplinaOfertaIds: z.array(z.string().uuid()) })
+      .parse(req.body);
+
+    const usuarioId = String(req.params.id);
+
+    await db.delete(usuarioDisciplinasTable).where(eq(usuarioDisciplinasTable.usuarioId, usuarioId));
+
+    if (disciplinaOfertaIds.length > 0) {
+      await db.insert(usuarioDisciplinasTable).values(
+        disciplinaOfertaIds.map((disciplinaOfertaId) => ({ usuarioId, disciplinaOfertaId }))
+      );
+    }
+
+    await registrarAuditoria({
+      tabela: "usuario_disciplinas", operacao: "UPDATE", registroId: usuarioId,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: "PUT /api/usuarios/:id/disciplinas", metodoHttp: "PUT", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, total: disciplinaOfertaIds.length });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Dados inválidos" });
+  }
+});
+
+// POST /api/usuarios/:id/resetar-senha — gera nova senha temporária
+router.post("/:id/resetar-senha", requirePermissao("usuarios:manage"), async (req: Request, res: Response) => {
+  try {
+    const senhaGerada = randomBytes(8).toString("base64url").slice(0, 10);
+    const senhaHash = await bcrypt.hash(senhaGerada, 12);
+
+    const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+    const [u] = await db
+      .update(usuariosTable)
+      .set({ senhaHash, primeiroAcesso: true, atualizadoEm: new Date() })
+      .where(and(eq(usuariosTable.id, String(req.params.id)), isNull(usuariosTable.deletadoEm)))
+      .returning();
+
+    if (!u) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    const email = decryptEmail(u.emailEncrypted, secret);
+
+    await registrarAuditoria({
+      tabela: "usuarios", operacao: "UPDATE", registroId: u.id,
+      usuarioId: req.usuarioId, ipOrigem: req.ip,
+      endpoint: `POST /api/usuarios/${String(req.params.id)}/resetar-senha`, metodoHttp: "POST", statusHttp: 200,
+      duracaoMs: req.startTime ? Date.now() - req.startTime : undefined,
+    });
+
+    res.json({ ok: true, senhaGerada });
+
+    enviarEmailBoasVindas(email, u.codigoAcesso ?? "", senhaGerada, u.nome).catch((err) => {
+      console.error("[usuarios] falha ao enviar e-mail de reset de senha:", err);
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao resetar senha" });
   }
 });
 

@@ -1,5 +1,5 @@
 # =============================================================================
-# Carômetro — docker-compose de desenvolvimento
+# Seshat — docker-compose de desenvolvimento
 #
 # Ambiente de desenvolvimento local.
 # Por padrão usa PostgreSQL INTERNO ao container.
@@ -8,12 +8,14 @@
 # Uso:
 #   docker compose up            # sobe tudo com VSCode Dev Container
 #   docker compose up --build    # rebuild ao mudar o Dockerfile
-#   docker compose run --rm dev shell   # abre shell interativo
-#   docker compose run --rm dev codegen # roda orval codegen
-#   docker compose run --rm dev db:push # aplica schema
+#   docker compose run --rm dev shell       # abre shell interativo
+#   docker compose run --rm dev codegen     # roda orval codegen
+#   docker compose run --rm dev db:push     # aplica schema
+#   docker compose run --rm dev db:seed     # cria/verifica admin
+#   docker compose run --rm dev db:hash-reset  # força re-setup completo
 # =============================================================================
 
-name: carometro-dev
+name: seshat-dev
 
 services:
   # ---------------------------------------------------------------------------
@@ -25,9 +27,9 @@ services:
       dockerfile: Dockerfile
       cache_from:
         - type=local,src=/tmp/.buildx-cache
-    image: carometro-dev:local
+    image: seshat-dev:local
 
-    container_name: carometro-dev
+    container_name: seshat-dev
 
     volumes:
       - ./:/workspace:cached                         # repositório com hot-reload
@@ -37,10 +39,11 @@ services:
     working_dir: /workspace
 
     # Carregar variáveis de ambiente em ordem (último sobrescreve anterior).
-    # .env.local (ignorado pelo git) permite usar Neon ou overrides locais.
+    # .env não vai para o git — copie .env.example para .env e ajuste.
+    # .env.local permite overrides locais (Neon, SMTP real, etc.)
     env_file:
       - path: .env
-        required: true
+        required: false
       - path: .env.local
         required: false
 
@@ -56,11 +59,11 @@ services:
     restart: unless-stopped
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U carometro -d carometro -q || exit 1"]
-      interval: 15s
+      test: ["CMD-SHELL", "pg_isready -U seshat -d seshat -q || exit 1"]
+      interval: 10s
       timeout: 5s
-      retries: 6
-      start_period: 60s
+      retries: 5
+      start_period: 30s
 
     # Inicialização manual — o entrypoint apenas abre um shell interativo.
     # Suba os servidores manualmente no terminal do VSCode.
@@ -70,28 +73,26 @@ services:
     tty: true
 
   # ---------------------------------------------------------------------------
-  # Fase 6: nginx — TLS termination + proxy reverso (perfil "https")
+  # nginx — TLS termination + proxy reverso (perfil "https")
   # Uso: docker compose --profile https up -d
   #
   # Pré-requisito: gerar certificado com `bash scripts/gerar-certificado-dev.sh`
   # ---------------------------------------------------------------------------
   nginx:
-    profiles: ["https"]                                # Fase 6: não sobe no dev padrão
+    profiles: ["https"]
     image: nginx:alpine
-    container_name: carometro-nginx
+    container_name: seshat-nginx
     restart: unless-stopped
     ports:
-      - "80:80"                                        # Fase 6: redireciona para HTTPS
-      - "443:443"                                      # Fase 6: HTTPS (câmera exige)
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro    # Fase 6: config com TLS
-      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro  # Fase 6: certificado
-      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro    # Fase 6: chave privada
-      # Em produção: montar html do build do frontend
-      # - ./artifacts/carometro/dist/public:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./nginx/ssl/key.pem:/etc/nginx/ssl/key.pem:ro
     depends_on:
       dev:
-        condition: service_healthy                     # Fase 6: só sobe após o dev estar pronto
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://localhost/api/healthz"]
       interval: 30s
@@ -105,12 +106,12 @@ services:
   db:
     profiles: ["split"]
     image: postgres:16-alpine
-    container_name: carometro-db
+    container_name: seshat-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: carometro
-      POSTGRES_PASSWORD: carometro
-      POSTGRES_DB: carometro
+      POSTGRES_USER: seshat
+      POSTGRES_PASSWORD: seshat
+      POSTGRES_DB: seshat
       POSTGRES_INITDB_ARGS: "--locale=pt_BR.UTF-8 --encoding=UTF8"
     volumes:
       - pg_data_split:/var/lib/postgresql/data
@@ -118,10 +119,73 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U carometro -d carometro"]
+      test: ["CMD-SHELL", "pg_isready -U seshat -d seshat"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # ---------------------------------------------------------------------------
+  # prometheus — monitoramento local (perfil "monitoring")
+  # Uso: docker compose --profile monitoring up -d
+  # Porta 9090 exposta SOMENTE em dev (nunca em produção)
+  # ---------------------------------------------------------------------------
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v2.53.4
+    container_name: seshat-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_dev_data:/prometheus
+    ports:
+      - "9090:9090"    # apenas em dev — acesso direto para inspeção
+
+  # ---------------------------------------------------------------------------
+  # grafana — visualização local (perfil "monitoring")
+  # Uso: docker compose --profile monitoring up -d
+  # ---------------------------------------------------------------------------
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.4.0
+    container_name: seshat-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER:         admin
+      GF_SECURITY_ADMIN_PASSWORD:     seshat-dev   # apenas para dev local
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP:         "false"
+      GF_AUTH_ANONYMOUS_ENABLED:      "false"
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"    # 3001 para não colidir com Vite dev server
+
+  # ---------------------------------------------------------------------------
+  # n8n — automação de fluxos e integração (Slack, webhooks, e-mail…)
+  # Uso: docker compose --profile tools up
+  # UI: http://localhost:5678
+  # ---------------------------------------------------------------------------
+  n8n:
+    profiles: ["tools"]
+    image: n8nio/n8n:1.68.0
+    container_name: seshat-n8n
+    restart: unless-stopped
+    environment:
+      N8N_ENCRYPTION_KEY:         seshat-dev-key-nao-usar-em-producao
+      GENERIC_TIMEZONE:           America/Sao_Paulo
+      TZ:                         America/Sao_Paulo
+      N8N_DIAGNOSTICS_ENABLED:    "false"
+    volumes:
+      - n8n_dev_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
 
   # ---------------------------------------------------------------------------
   # pgAdmin — interface visual para o banco (opcional)
@@ -130,10 +194,10 @@ services:
   pgadmin:
     profiles: ["tools"]
     image: dpage/pgadmin4:latest
-    container_name: carometro-pgadmin
+    container_name: seshat-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@carometro.local
+      PGADMIN_DEFAULT_EMAIL: admin@seshat.local
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
@@ -152,16 +216,30 @@ services:
 volumes:
   pnpm_store:
     driver: local
-    name: carometro-pnpm-store
+    name: seshat-pnpm-store
 
+  # Volume do banco declarado como EXTERNO — nunca removido por "docker compose down -v"
+  # Para recriar do zero: docker volume rm seshat-pg-dev && docker compose up --build
   pg_data_dev:
-    driver: local
-    name: carometro-pg-dev
+    external: true
+    name: seshat-pg-dev
 
   pg_data_split:
     driver: local
-    name: carometro-pg-split
+    name: seshat-pg-split
 
   pgadmin_data:
     driver: local
-    name: carometro-pgadmin
+    name: seshat-pgadmin
+
+  prometheus_dev_data:
+    driver: local
+    name: seshat-prometheus-dev
+
+  grafana_dev_data:
+    driver: local
+    name: seshat-grafana-dev
+
+  n8n_dev_data:
+    driver: local
+    name: seshat-n8n-dev

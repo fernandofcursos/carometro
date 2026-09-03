@@ -1,6 +1,6 @@
-# Carômetro — Ambiente de Desenvolvimento Docker
+# Seshat — Ambiente de Desenvolvimento Docker
 
-Container Docker que replica o ambiente Replit para desenvolvimento local do projeto Carômetro.
+Container Docker para desenvolvimento local da plataforma **Seshat** — sistema de gestão educacional com registro fotográfico, equipes, turmas e ocorrências.
 
 ## O que está incluído
 
@@ -62,7 +62,7 @@ make up
 
 O entrypoint faz automaticamente na primeira vez:
 1. Inicia o PostgreSQL 16 interno
-2. Cria o banco e usuário `carometro`
+2. Cria o banco e usuário `seshat`
 3. Roda `pnpm install` (usa o cache do volume pnpm_store)
 4. Aplica o schema com `pnpm --filter @workspace/db run push`
 5. Cria o administrador inicial se o banco estiver vazio
@@ -88,7 +88,7 @@ make help          # lista todos os comandos
 Edite o `.env` e substitua `DATABASE_URL`:
 
 ```env
-DATABASE_URL=postgresql://usuario:senha@ep-xxx.us-east-2.aws.neon.tech/carometro?sslmode=require
+DATABASE_URL=postgresql://usuario:senha@ep-xxx.us-east-2.aws.neon.tech/seshat?sslmode=require
 ```
 
 O entrypoint detecta que não é `localhost` e pula a inicialização do PostgreSQL local.
@@ -103,6 +103,37 @@ docker compose --profile split up
 docker compose --profile split --profile tools up
 ```
 
-Credenciais do pgAdmin: `admin@carometro.local` / `admin`
+Credenciais do pgAdmin: `admin@seshat.local` / `admin`
+
+## Monitoramento — Prometheus + Grafana
+
+```bash
+# Sobe Prometheus + Grafana
+docker compose --profile monitoring up -d
+
+# Grafana:    http://localhost:3001   (admin / seshat-dev)
+# Prometheus: http://localhost:9090   (sem auth em dev)
+```
+
+Métricas coletadas: requisições HTTP (total, duração p95, in-flight), Node.js heap, PostgreSQL stats.  
+Labels sem PII — `normalizeRoute()` remove query strings e UUIDs antes de criar labels.
+
+## Automação e Integração — n8n + Slack
+
+```bash
+# Sobe n8n (junto com pgAdmin)
+docker compose --profile tools up -d n8n
+
+# n8n: http://localhost:5678
+# (criar conta de owner na primeira abertura)
+```
+
+n8n conecta o Seshat ao Slack, Gmail, Google Sheets e qualquer API REST sem código adicional.  
+Integração Slack via Incoming Webhook ou Bot Token — configurado na UI do n8n.
+
+Tudo junto:
+```bash
+docker compose --profile monitoring --profile tools up -d
+```
 
 ## 

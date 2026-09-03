@@ -26,11 +26,22 @@
 - Nunca retornar dados sensíveis descriptografados no listing (foto, email raw)
 
 ### Frontend
-- Implementar páginas em `artifacts/carometro/src/pages/<recurso>/index.tsx`
+- Implementar páginas em `artifacts/seshat/src/pages/<recurso>/index.tsx`
 - Usar TanStack Query (`useQuery`, `useMutation`) para toda comunicação com a API
 - Validar formulários com Zod + React Hook Form
 - Usar componentes shadcn/ui — nunca criar componentes UI do zero sem necessidade
 - Tratar estados: loading, erro, vazio, sucesso
+
+**ATENÇÃO — padrão de fetch em páginas novas:**  
+`@workspace/api-client-react` pode ter `dist/index.d.ts` desatualizado — não exporta `customFetch`.  
+Usar sempre `fetch` nativo com `credentials: "include"` e prefixo `BASE`:
+
+```typescript
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const res = await fetch(`${BASE}/api/<rota>`, { credentials: "include" });
+```
+
+Nunca importar `apiClient` ou `customFetch` de `@workspace/api-client-react` em páginas novas — só os hooks gerados (`useListXxx`, etc.) são seguros.
 
 ### Banco de Dados
 - Aplicar schema com `pnpm --filter @workspace/db run push-force` após toda mudança
@@ -61,7 +72,7 @@ Argos revisa o PR antes do merge
 artifacts/api-server/src/routes/<recurso>.ts   — rota Express
 artifacts/api-server/src/tests/<recurso>.test.ts — testes Vitest
 lib/db/src/schema/<recurso>.ts                 — schema Drizzle
-artifacts/carometro/src/pages/<recurso>/index.tsx — página React
+artifacts/seshat/src/pages/<recurso>/index.tsx — página React
 ```
 
 - Exportar `router` nomeado em cada arquivo de rota
@@ -77,10 +88,13 @@ artifacts/carometro/src/pages/<recurso>/index.tsx — página React
 | Feature | Arquivo de Spec | Status |
 |---------|----------------|--------|
 | Autenticação | `features/auth.md` | ✅ Implementado |
-| Carômetro | `features/carometro.md` | ✅ Implementado |
+| Carômetro | `features/seshat.md` | ✅ Implementado |
 | Estudantes | `features/estudantes.md` | ✅ Implementado |
 | Turmas | `features/turmas.md` | ✅ Implementado |
 | Ocorrências | `features/ocorrencias.md` | ✅ Implementado |
+| Mailer | `features/mailer.md` | ✅ Implementado |
+| Textos Padrão de Ocorrências | `features/textos-padrao-ocorrencias.md` | ✅ Implementado |
+| Carômetro — Estudantes | `features/carometro-estudantes.md` | ✅ Implementado |
 | Importação XLSX | `features/import.md` | ✅ Implementado |
 | LGPD | `features/lgpd.md` | ✅ Implementado |
 | Auditoria | `features/auditoria.md` | ✅ Implementado |

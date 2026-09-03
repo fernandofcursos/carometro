@@ -18,3 +18,4 @@ export * from "./schema";
 // Re-exportar operadores do drizzle-orm para uso nos pacotes que dependem de @workspace/db
 export { eq, and, or, isNull, isNotNull, gt, gte, lt, lte, ne, inArray, notInArray, like, ilike, sql } from "drizzle-orm";
 export { desc, asc, count } from "drizzle-orm"; // Fase 9: ordenação e agregação para auditoria
+export { alias } from "drizzle-orm/pg-core";

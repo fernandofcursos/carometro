@@ -35,7 +35,7 @@ FROM node:24-alpine AS runtime
 WORKDIR /app
 
 # Fase 6: usuário sem privilégios (não rodar como root)
-RUN addgroup -S carometro && adduser -S carometro -G carometro
+RUN addgroup -S seshat && adduser -S seshat -G seshat
 
 # Copiar apenas o bundle final
 COPY --from=builder /app/artifacts/api-server/dist/ ./dist/
@@ -44,7 +44,7 @@ COPY --from=builder /app/artifacts/api-server/dist/ ./dist/
 COPY artifacts/api-server/package.json ./
 RUN npm install --omit=dev --silent
 
-USER carometro
+USER seshat
 
 EXPOSE 8080
 

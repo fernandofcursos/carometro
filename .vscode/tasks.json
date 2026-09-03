@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "🚀 Carômetro: subir tudo",
+      "label": "🚀 Seshat: subir tudo",
       "dependsOn": ["API: api-server dev", "Frontend: Vite dev server"],
       "dependsOrder": "parallel",
       "group": { "kind": "build", "isDefault": true },
@@ -20,7 +20,7 @@
     {
       "label": "Frontend: Vite dev server",
       "type": "shell",
-      "command": "ulimit -n 65536; pnpm --filter @workspace/carometro run dev",
+      "command": "ulimit -n 65536; pnpm --filter @workspace/seshat run dev",
       "group": "build",
       "isBackground": true,
       "presentation": { "reveal": "always", "panel": "dedicated", "group": "dev", "label": "Frontend :5000" },
@@ -41,7 +41,7 @@
     {
       "label": "TypeScript: typecheck",
       "type": "shell",
-      "command": "pnpm --filter @workspace/api-server run typecheck && pnpm --filter @workspace/carometro run typecheck",
+      "command": "pnpm --filter @workspace/api-server run typecheck && pnpm --filter @workspace/seshat run typecheck",
       "group": { "kind": "test", "isDefault": true },
       "presentation": { "reveal": "always", "panel": "new", "label": "TypeCheck" },
       "problemMatcher": "$tsc"

@@ -1,0 +1,45 @@
+# =============================================================================
+# Prometheus — configuração de scrape
+#
+# Segurança (ISO 27001 A.8.20):
+#   - Prometheus opera SOMENTE na rede interna Docker (monitoring_net).
+#   - Nenhuma porta é exposta externamente; acesso via nginx (/prometheus/)
+#     protegido por HTTP Basic Auth.
+#   - Retenção padrão: 15 dias (ajustável via --storage.tsdb.retention.time).
+#
+# LGPD:
+#   - Labels de métricas NÃO devem conter dados pessoais (user_id, email,
+#     CPF, nome). Apenas: method, route (sem query strings), status_code.
+# =============================================================================
+
+global:
+  scrape_interval:     15s   # frequência de coleta
+  evaluation_interval: 15s   # frequência de avaliação de alertas
+  external_labels:
+    environment: production
+    app: seshat
+
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # api-server — métricas da aplicação Node.js (prom-client)
+  # Endpoint interno: http://api-server:8080/api/metrics
+  # ---------------------------------------------------------------------------
+  - job_name: seshat_api
+    static_configs:
+      - targets: ["api-server:8080"]
+    metrics_path: /api/metrics
+    scheme: http
+
+  # ---------------------------------------------------------------------------
+  # Prometheus auto-coleta (meta-monitoramento)
+  # ---------------------------------------------------------------------------
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # ---------------------------------------------------------------------------
+  # postgres_exporter — métricas do PostgreSQL
+  # ---------------------------------------------------------------------------
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]

@@ -118,7 +118,7 @@ beforeAll(async () => {
     { default: rolesRouter },
     { default: usuariosRouter },
     { default: estudantesRouter },
-    { default: carometroRouter },
+    { default: seshatRouter },
     { default: auditoriaRouter },
   ] = await Promise.all([
     import("../routes/turnos.js"),
@@ -128,7 +128,7 @@ beforeAll(async () => {
     import("../routes/roles.js"),
     import("../routes/usuarios.js"),
     import("../routes/estudantes.js"),
-    import("../routes/carometro.js"),
+    import("../routes/seshat.js"),
     import("../routes/auditoria.js"),
   ]);
 
@@ -142,7 +142,7 @@ beforeAll(async () => {
   app.use("/api/roles",              rolesRouter);
   app.use("/api/usuarios",           usuariosRouter);
   app.use("/api/estudantes",         estudantesRouter);
-  app.use("/api/carometro",          carometroRouter);
+  app.use("/api/carometro",          seshatRouter);
   app.use("/api/auditoria",          auditoriaRouter);
 });
 
