@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, fetchJson } from "@/lib/api";
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(BASE + url, { credentials: "include", ...init });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw { status: r.status, data: e }; }
+  return r.json();
+}
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
