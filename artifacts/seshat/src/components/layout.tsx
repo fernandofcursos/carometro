@@ -115,6 +115,16 @@ export function AppSidebar() {
         nav("Meu Portal", "/portal-gestora", Home),
       ],
     }] : []),
+    // Portal da Secretaria — role 'secretaria' ou admin
+    ...((user?.roles ?? []).includes("secretaria") || isAdmin ? [{
+      label: "Portal da Secretaria",
+      icon: ClipboardList,
+      color: "#0891b2",
+      bgColor: "#ecfeff",
+      items: [
+        nav("Meu Portal", "/portal-secretaria", Home),
+      ],
+    }] : []),
     // Portal do Coordenador — role 'coordenador' ou admin (para ajuste/teste)
     ...((user?.roles ?? []).includes("coordenador") || isAdmin ? [{
       label: "Portal do Coordenador",

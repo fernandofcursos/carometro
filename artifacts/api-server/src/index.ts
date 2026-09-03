@@ -41,6 +41,7 @@ import horariosRouter from "./routes/horarios.js";
 import portalProfessorRouter from "./routes/portal-professor.js";
 import portalGestoraRouter from "./routes/portal-gestora.js";
 import portalCoordenadorRouter from "./routes/portal-coordenador.js";
+import portalSecretariaRouter from "./routes/portal-secretaria.js";
 // Módulo Avisos e Informes
 import avisosInformesRouter from "./routes/avisos-informes.js";
 import requerimentosRouter from "./routes/requerimentos.js";
@@ -139,6 +140,8 @@ app.use("/api/portal-professor", portalProfessorRouter);
 app.use("/api/portal-gestora", portalGestoraRouter);
 // Portal do coordenador (autoatendimento do coordenador de curso)
 app.use("/api/portal-coordenador", portalCoordenadorRouter);
+// Portal da secretaria
+app.use("/api/portal-secretaria", portalSecretariaRouter);
 // Módulo Avisos e Informes
 app.use("/api/avisos-informes", avisosInformesRouter);
 app.use("/api/requerimentos", requerimentosRouter);
