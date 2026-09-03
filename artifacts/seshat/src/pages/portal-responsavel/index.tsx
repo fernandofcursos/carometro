@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   UserCircle, GraduationCap, AlertTriangle, CheckCircle2, CreditCard,
-  LogOut, FileText, Upload, Download, Plus, X, Users,
+  FileText, Upload, Download, Users, Fingerprint,
 } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
 import { CardapioWidget } from "@/components/cardapio-widget";
@@ -52,6 +52,9 @@ type CartaoSaida = {
   aprovadoEm: string | null; observacaoAprovador: string | null;
   token: string | null; criadoEm: string;
 };
+
+// Alias para uso no componente de cartão de liberação (mesmo shape, nome explícito)
+type CartaoSaidaDB = CartaoSaida;
 
 type Atestado = {
   id: string; dataInicio: string; dataFim: string | null;
@@ -252,99 +255,233 @@ function OcorrenciasTab({ estudanteId }: { estudanteId: string }) {
   );
 }
 
-// ── Aba: Cartão de Saída ──────────────────────────────────────────────────────
+// ── Paleta de cores por dia da semana — Cartão de Liberação ──────────────────
+const COR_DIA: Record<number, { bg: string; strip: string; curve1: string; curve2: string; curve3: string; text: string; label: string }> = {
+  1: { bg: "#dbeafe", strip: "#1d4ed8", curve1: "#3b82f6", curve2: "#60a5fa", curve3: "#93c5fd", text: "#1e3a8a", label: "Segunda-feira" },
+  2: { bg: "#fee2e2", strip: "#991b1b", curve1: "#dc2626", curve2: "#f87171", curve3: "#fca5a5", text: "#7f1d1d", label: "Terça-feira" },
+  3: { bg: "#fefce8", strip: "#a16207", curve1: "#ca8a04", curve2: "#facc15", curve3: "#fde047", text: "#713f12", label: "Quarta-feira" },
+  4: { bg: "#ede9fe", strip: "#3730a3", curve1: "#6d28d9", curve2: "#8b5cf6", curve3: "#a78bfa", text: "#1e1b4b", label: "Quinta-feira" },
+  5: { bg: "#fdf2f8", strip: "#9d174d", curve1: "#db2777", curve2: "#f472b6", curve3: "#f9a8d4", text: "#831843", label: "Sexta-feira" },
+};
+const COR_SEMESTRAL = { bg: "#dcfce7", strip: "#166534", curve1: "#16a34a", curve2: "#4ade80", curve3: "#86efac", text: "#14532d", label: "Semestral" };
 
-function CartaoSaidaTab({ estudanteId }: { estudanteId: string }) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [dataSaida, setDataSaida] = useState("");
-  const [horario, setHorario] = useState("");
-  const [motivo, setMotivo] = useState("");
+function getCorDia(dataSaida: string) {
+  const [a, m, d] = dataSaida.split("-").map(Number);
+  const dow = new Date(a, m - 1, d).getDay();
+  return COR_DIA[dow] ?? COR_DIA[1];
+}
 
-  const { data: cartoes = [], isLoading } = useQuery<CartaoSaida[]>({
-    queryKey: ["resp-cartoes-saida", estudanteId],
-    queryFn:  () => fetchJson(`${BASE}/api/portal-responsavel/cartoes-saida/${estudanteId}`),
+function dentroJanelaHorario(dataSaida: string, horarioSaida: string | null): boolean {
+  if (!horarioSaida) return false;
+  const [hh, mm] = horarioSaida.split(":").map(Number);
+  const agora = new Date();
+  const hoje = agora.toISOString().substring(0, 10);
+  if (dataSaida !== hoje) return false;
+  const totalMin = agora.getHours() * 60 + agora.getMinutes();
+  const alvoMin  = hh * 60 + mm;
+  return Math.abs(totalMin - alvoMin) <= 5;
+}
+
+// ── Card visual CIE — Cartão de Liberação (adaptado para EstudanteInfo) ────────
+function CartaoLiberacaoCard({
+  est, cartao, semestral,
+}: {
+  est: EstudanteInfo;
+  cartao: CarteiraDB | CartaoSaidaDB;
+  semestral: boolean;
+}) {
+  const cor = semestral ? COR_SEMESTRAL : getCorDia((cartao as CartaoSaidaDB).dataSaida ?? "");
+  const token = cartao.token ?? "";
+  const verUrl = token ? `${window.location.origin}${BASE}/verificar/${token}` : "";
+
+  const validade = semestral
+    ? `${(cartao as CarteiraDB).semestre}º sem. / ${(cartao as CarteiraDB).ano}`
+    : `${(cartao as CartaoSaidaDB).dataSaida?.split("-").reverse().join("/")} ${(cartao as CartaoSaidaDB).horarioSaida?.substring(0, 5) ?? ""}`;
+
+  return (
+    <div style={{ position: "relative", width: "100%", maxWidth: 560, margin: "0 auto", aspectRatio: "560/320" }}>
+      <div style={{ position: "absolute", inset: 0, background: cor.bg, borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.13)" }}>
+        {/* Curvas decorativas */}
+        <svg style={{ position: "absolute", bottom: 0, left: 0, width: 130, height: 110, opacity: 0.7 }} viewBox="0 0 130 110" fill="none">
+          <path d="M0 110 Q 0 20 110 0 L 0 0 Z" fill={cor.curve1} opacity="0.25" />
+          <path d="M0 110 Q 10 50 90 10 L 0 10 Z" fill={cor.curve2} opacity="0.35" />
+          <path d="M0 110 Q 15 70 70 30 L 0 30 Z" fill={cor.curve3} opacity="0.5" />
+        </svg>
+        {/* Faixa lateral */}
+        <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 14, background: cor.strip, borderRadius: "0 12px 12px 0" }} />
+
+        <div className="relative h-full flex flex-col" style={{ padding: "14px 28px 14px 18px" }}>
+          {/* Cabeçalho */}
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p style={{ fontSize: 8, color: cor.strip, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Cartão de</p>
+              <p style={{ fontSize: 10, color: cor.text, fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1.2 }}>Liberação {cor.label}</p>
+            </div>
+            <p style={{ fontSize: 9, color: cor.strip, fontWeight: 600 }}>Sec. Est. de Educação do DF</p>
+          </div>
+
+          {/* Nome */}
+          <p style={{ fontSize: 13, fontWeight: 800, color: cor.text, marginBottom: 8, lineHeight: 1.2 }}>{est.nome ?? "—"}</p>
+
+          {/* Corpo */}
+          <div className="flex gap-3 flex-1 items-start">
+            {/* Foto */}
+            <div className="flex-shrink-0 rounded overflow-hidden" style={{ width: 72, height: 88, background: "#fff", border: `2px solid ${cor.strip}` }}>
+              {est.fotoUrl ? (
+                <img src={est.fotoUrl} alt="Foto" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <UserCircle style={{ width: 36, height: 36, color: cor.strip }} />
+                </div>
+              )}
+            </div>
+
+            {/* Campos */}
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0" style={{ fontSize: 9.5 }}>
+              {est.cursoNome && <div><span style={{ color: cor.strip, fontWeight: 600 }}>Curso: </span><span style={{ color: cor.text }}>{est.cursoNome}</span></div>}
+              {est.turmaSigla && <div><span style={{ color: cor.strip, fontWeight: 600 }}>Turma: </span><span style={{ color: cor.text }}>{est.turmaSigla}</span></div>}
+              {est.turnos[0] && <div><span style={{ color: cor.strip, fontWeight: 600 }}>Turno: </span><span style={{ color: cor.text }}>{est.turnos[0].nome}</span></div>}
+              {est.registro && <div><span style={{ color: cor.strip, fontWeight: 600 }}>Matrícula: </span><span style={{ color: cor.text }}>{est.registro}</span></div>}
+              <div><span style={{ color: cor.strip, fontWeight: 600 }}>Validade: </span><span style={{ color: cor.text, fontWeight: 700 }}>{validade}</span></div>
+              {!semestral && (cartao as CartaoSaidaDB).motivo && (
+                <div><span style={{ color: cor.strip, fontWeight: 600 }}>Motivo: </span><span style={{ color: cor.text }}>{(cartao as CartaoSaidaDB).motivo}</span></div>
+              )}
+            </div>
+
+            {/* QR Code */}
+            <div className="flex-shrink-0 flex flex-col items-center gap-1">
+              {verUrl ? (
+                <QrCodeCanvas value={verUrl} size={76} />
+              ) : (
+                <div style={{ width: 76, height: 76, background: "#fff", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 8, color: cor.strip, textAlign: "center", padding: 4 }}>QR indisponível</span>
+                </div>
+              )}
+              <span style={{ fontSize: 7, color: cor.text, letterSpacing: "0.04em", fontFamily: "monospace" }}>
+                {token ? token.split(".")[0]?.slice(-12).toUpperCase() : "—"}
+              </span>
+            </div>
+          </div>
+
+          {/* Rodapé */}
+          <div className="flex items-end justify-between mt-1">
+            <span style={{ fontSize: 6.5, color: cor.text, opacity: 0.6, maxWidth: 200 }}>
+              Documento protegido pela LGPD (Lei 13.709/2018) — uso exclusivo para identificação e controle de saída escolar.
+            </span>
+            <span style={{ fontSize: 22, fontWeight: 900, color: cor.strip, lineHeight: 1 }}>
+              {semestral ? (cartao as CarteiraDB).ano : new Date((cartao as CartaoSaidaDB).dataSaida + "T00:00:00").getFullYear()}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Aba: Cartão de Liberação (responsável) ────────────────────────────────────
+function CartaoLiberacaoTab({ est }: { est: EstudanteInfo }) {
+  const [subAba, setSubAba] = useState<"semestral" | "diario">("semestral");
+
+  const { data: carteiras = [] } = useQuery<CarteiraDB[]>({
+    queryKey: ["resp-carteiras", est.id],
+    queryFn: () => fetchJson(`${BASE}/api/portal-responsavel/carteiras/${est.id}`),
+  });
+  const cartaoSemestral = carteiras
+    .filter((c) => c.tipo === "cartao-semestral")
+    .sort((a, b) => b.ano - a.ano || b.semestre - a.semestre)[0] ?? null;
+
+  const { data: cartoesDiarios = [] } = useQuery<CartaoSaidaDB[]>({
+    queryKey: ["resp-cartoes-saida", est.id],
+    queryFn: () => fetchJson(`${BASE}/api/portal-responsavel/cartoes-saida/${est.id}`),
+    refetchInterval: 30_000,
   });
 
-  const solicitarMut = useMutation({
-    mutationFn: () => postJson(`${BASE}/api/portal-responsavel/cartao-saida`, {
-      estudanteId, dataSaida, horarioSaida: horario || undefined, motivo: motivo || undefined,
-    }),
-    onSuccess: () => {
-      toast({ title: "Solicitação enviada com sucesso." });
-      qc.invalidateQueries({ queryKey: ["resp-cartoes-saida", estudanteId] });
-      setShowForm(false); setDataSaida(""); setHorario(""); setMotivo("");
-    },
-    onError: (e: Error) => toast({ variant: "destructive", title: e.message }),
-  });
+  const cartaoDiarioAtivo = cartoesDiarios.find(
+    (c) => c.status === "aprovado" && dentroJanelaHorario(c.dataSaida, c.horarioSaida)
+  ) ?? null;
+
+  const hoje = new Date().toISOString().substring(0, 10);
+  const proximoCartao = cartoesDiarios
+    .filter((c) => c.status === "aprovado" && c.dataSaida >= hoje)
+    .sort((a, b) => a.dataSaida.localeCompare(b.dataSaida))[0] ?? null;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Solicite autorização para saída antecipada. O coordenador irá aprovar ou recusar.
-        </p>
-        <Button size="sm" onClick={() => setShowForm((v) => !v)} className="gap-1 flex-shrink-0">
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? "Cancelar" : "Nova solicitação"}
-        </Button>
+      {/* Sub-abas */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setSubAba("semestral")}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${subAba === "semestral" ? "bg-green-100 text-green-800 border border-green-300" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+        >
+          Semestral
+        </button>
+        <button
+          onClick={() => setSubAba("diario")}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${subAba === "diario" ? "text-white border" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+          style={subAba === "diario" ? { background: getCorDia(hoje).strip, borderColor: getCorDia(hoje).strip } : {}}
+        >
+          Diário
+        </button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardContent className="p-4 flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Data de saída *</Label>
-                <Input type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} />
-              </div>
-              <div>
-                <Label className="text-xs">Horário (opcional)</Label>
-                <Input type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Motivo (opcional)</Label>
-              <Textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} maxLength={300} placeholder="Descreva o motivo da saída..." />
-            </div>
-            <Button onClick={() => solicitarMut.mutate()} disabled={!dataSaida || solicitarMut.isPending} size="sm">
-              {solicitarMut.isPending ? "Enviando..." : "Enviar solicitação"}
+      {/* Semestral */}
+      {subAba === "semestral" && (
+        cartaoSemestral && cartaoSemestral.status === "ativa" ? (
+          <>
+            <CartaoLiberacaoCard est={est} cartao={cartaoSemestral} semestral />
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="w-full">
+              Imprimir cartão
             </Button>
-          </CardContent>
-        </Card>
+          </>
+        ) : (
+          <div className="rounded-xl border border-dashed border-green-300 bg-green-50/50 p-6 text-center flex flex-col gap-2 items-center">
+            <Fingerprint className="w-8 h-8 text-green-600" />
+            <p className="text-sm font-medium text-green-800">Nenhum cartão de liberação semestral ativo</p>
+            <p className="text-xs text-muted-foreground">
+              O cartão semestral é emitido pela coordenação após aprovação do requerimento de liberação semestral.
+              {cartaoSemestral && cartaoSemestral.status !== "ativa" && (
+                <> O último cartão foi <strong>{cartaoSemestral.status}</strong>.</>
+              )}
+            </p>
+          </div>
+        )
       )}
 
-      {isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p>
-        : !cartoes.length ? <p className="text-sm text-muted-foreground">Nenhuma solicitação encontrada.</p>
-        : cartoes.map((c) => (
-          <Card key={c.id}>
-            <CardContent className="p-4 flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium text-sm">Saída em {fmt(c.dataSaida)}{c.horarioSaida ? ` às ${c.horarioSaida.substring(0, 5)}` : ""}</p>
-                  {c.motivo && <p className="text-xs text-muted-foreground">{c.motivo}</p>}
-                  {c.observacaoAprovador && (
-                    <p className="text-xs text-muted-foreground mt-1 italic">Coordenador: {c.observacaoAprovador}</p>
-                  )}
-                </div>
-                <StatusBadge status={c.status} />
-              </div>
-              {c.status === "aprovado" && c.token && (
-                <div className="flex flex-col items-center gap-1 border-t pt-2 mt-1">
-                  <p className="text-xs text-muted-foreground">Apresente o QR code na portaria</p>
-                  <div className="bg-white p-1 rounded border">
-                    <QrCodeCanvas
-                      value={`${window.location.origin}${BASE}/verificar-saida/${c.token}`}
-                      size={110}
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))
-      }
+      {/* Diário */}
+      {subAba === "diario" && (
+        cartaoDiarioAtivo ? (
+          <>
+            <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              Cartão válido agora — apresente ao responsável pela portaria para validação via QR Code.
+            </div>
+            <CartaoLiberacaoCard est={est} cartao={cartaoDiarioAtivo} semestral={false} />
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="w-full">
+              Imprimir cartão
+            </Button>
+          </>
+        ) : proximoCartao ? (
+          <div className="rounded-xl border border-dashed p-6 text-center flex flex-col gap-2 items-center"
+            style={{ borderColor: getCorDia(proximoCartao.dataSaida).strip, background: getCorDia(proximoCartao.dataSaida).bg + "66" }}>
+            <Fingerprint className="w-8 h-8" style={{ color: getCorDia(proximoCartao.dataSaida).strip }} />
+            <p className="text-sm font-medium" style={{ color: getCorDia(proximoCartao.dataSaida).text }}>
+              Cartão aprovado para {fmt(proximoCartao.dataSaida)} às {proximoCartao.horarioSaida?.substring(0, 5) ?? "—"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              O cartão ficará disponível 5 minutos antes do horário solicitado e expira 5 minutos após.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-muted p-6 text-center flex flex-col gap-2 items-center">
+            <Fingerprint className="w-8 h-8 text-muted-foreground" />
+            <p className="text-sm font-medium">Nenhum cartão de liberação diário aprovado</p>
+            <p className="text-xs text-muted-foreground">
+              Solicite a liberação antecipada através do formulário de Requerimentos.
+              O cartão será exibido na janela de ±5 minutos do horário aprovado.
+            </p>
+          </div>
+        )
+      )}
     </div>
   );
 }
@@ -577,7 +714,7 @@ export default function PortalResponsavelPage() {
                       <AlertTriangle className="w-3.5 h-3.5" /> Ocorrências
                     </TabsTrigger>
                     <TabsTrigger value="cartao-saida" className="flex-1 gap-1 text-xs">
-                      <LogOut className="w-3.5 h-3.5" /> Cartão de Saída
+                      <CreditCard className="w-3.5 h-3.5" /> Cartão de Liberação
                     </TabsTrigger>
                     <TabsTrigger value="atestados" className="flex-1 gap-1 text-xs">
                       <FileText className="w-3.5 h-3.5" /> Atestados
@@ -591,7 +728,7 @@ export default function PortalResponsavelPage() {
                     <OcorrenciasTab estudanteId={est.id} />
                   </TabsContent>
                   <TabsContent value="cartao-saida">
-                    <CartaoSaidaTab estudanteId={est.id} />
+                    <CartaoLiberacaoTab est={est} />
                   </TabsContent>
                   <TabsContent value="atestados">
                     <AtestadosTab estudanteId={est.id} />

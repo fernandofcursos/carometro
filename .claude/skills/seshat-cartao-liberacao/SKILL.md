@@ -37,18 +37,20 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 
 ```
 # Semestral:
-Pedido formal → coordenador emite no sistema
-  POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }
+Requerimento "Pedido de Saída Antecipada (Semestral)" → aprovado pela Secretaria/Supervisão
+  → processarDeferimento() insere carteira (tipo='cartao-semestral')
+  OU: coordenador emite manualmente via POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }
 
-# Diário (menor):
-Responsável: POST /api/portal-responsavel/cartao-saida
-  { estudanteId, dataSaida, horarioSaida, motivo }  → pendente
-  Coordenador: POST /api/cartoes-saida/:id/aprovar { observacao? }
+# Diário (menor de idade):
+Responsável: preenche Requerimento "Pedido de Saída Antecipada (Eventual)" em /requerimentos
+  → Secretaria/Supervisão defere → processarDeferimento() insere cartoes_saida (status='aprovado')
 
-# Diário (maior):
-Requerimento presencial → coordenador:
-  POST /api/cartoes-saida/:id/aprovar { observacao? }
+# Diário (maior de idade):
+Estudante: preenche Requerimento "Pedido de Saída Antecipada (Eventual)" em /requerimentos
+  → Secretaria/Supervisão defere → processarDeferimento() insere cartoes_saida (status='aprovado')
 ```
+
+> **REGRA:** A aba "Cartão de Saída" no Portal do Responsável **não** tem formulário de "Nova Solicitação". O requerimento substitui essa funcionalidade. O portal do responsável exibe os cartões gerados a partir de requerimentos deferidos, no mesmo modelo visual do Portal do Estudante.
 
 ---
 
@@ -169,5 +171,6 @@ aprovado_por_id | aprovado_em | observacao_aprovador | token (varchar 400)
 | `artifacts/api-server/src/routes/carteiras.ts` | emitirCarteirasParaMatricula + emitir-liberacao |
 | `artifacts/api-server/src/routes/gestao-responsaveis.ts` | aprovar/recusar cartões de saída |
 | `artifacts/api-server/src/routes/portal-responsavel.ts` | solicitar cartão de saída |
-| `artifacts/seshat/src/pages/portal/index.tsx` | CartaoLiberacao + CartaoLiberacaoCard + COR_DIA + dentroJanelaHorario |
+| `artifacts/seshat/src/pages/portal/index.tsx` | CartaoLiberacao + CartaoLiberacaoCard + COR_DIA + dentroJanelaHorario (perfil estudante) |
+| `artifacts/seshat/src/pages/portal-responsavel/index.tsx` | CartaoLiberacaoTab + CartaoLiberacaoCard (adaptado para EstudanteInfo) — mesmo modelo visual, sem formulário de solicitação |
 | `.specs/features/carteiras-e-cartoes.md` | Spec completa |
