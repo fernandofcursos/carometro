@@ -173,7 +173,7 @@ function AssinarModal({
 function DetalheModal({ req, onClose, onAssinar }: {
   req: Requerimento; onClose: () => void; onAssinar: () => void;
 }) {
-  const jaAssinou = req.assinaturas.some((a) => a.papel === "requerente");
+  const jaAssinou = (req.assinaturas ?? []).some((a) => a.papel === "requerente");
   const dataFormatada = new Date(req.criadoEm).toLocaleDateString("pt-BR", {
     day: "2-digit", month: "long", year: "numeric",
   });
@@ -290,12 +290,12 @@ function DetalheModal({ req, onClose, onAssinar }: {
             </h3>
             {/* Linha 1: Requerente (largura total) */}
             <div className="border rounded-lg p-4 text-center mb-3">
-              {req.assinaturas.find((a) => a.papel === "requerente") ? (
+              {(req.assinaturas ?? []).find((a) => a.papel === "requerente") ? (
                 <div className="space-y-1">
                   <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto" />
-                  <p className="text-xs font-medium">Assinado por {req.assinaturas.find((a) => a.papel === "requerente")!.nome}</p>
+                  <p className="text-xs font-medium">Assinado por {(req.assinaturas ?? []).find((a) => a.papel === "requerente")!.nome}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(req.assinaturas.find((a) => a.papel === "requerente")!.assinadoEm)
+                    {new Date((req.assinaturas ?? []).find((a) => a.papel === "requerente")!.assinadoEm)
                       .toLocaleDateString("pt-BR")}
                   </p>
                 </div>
@@ -312,7 +312,7 @@ function DetalheModal({ req, onClose, onAssinar }: {
                 { label: "Supervisor Pedagógico", role: "supervisao_pedagogica" },
                 { label: "Chefe de Secretaria",   role: "secretaria" },
               ].map(({ label, role }) => {
-                const sig = req.assinaturas.find(
+                const sig = (req.assinaturas ?? []).find(
                   (a) => a.papel === "analisador" && (a as any).roleNome === role
                 );
                 return (
@@ -786,7 +786,7 @@ export default function RequerimentosPage() {
       ) : (
         <div className="space-y-3">
           {lista.map((req) => {
-            const jaAssinou = req.assinaturas.some((a) => a.papel === "requerente");
+            const jaAssinou = (req.assinaturas ?? []).some((a) => a.papel === "requerente");
             return (
               <Card key={req.id} className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => setDetalhe(req)}>
