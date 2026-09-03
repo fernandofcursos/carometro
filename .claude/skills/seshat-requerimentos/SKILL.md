@@ -138,6 +138,18 @@ function calcularIdade(dataNasc: Date | null): number {
 }
 ```
 
+## Estudantes no modal — sem duplicatas por turno
+
+`/elegibilidade` retorna **um objeto por estudante** com `turnos: string[]` (apenas os turnos das matrículas ativas). Nunca usar JOIN direto em `turma_turnos` — gera linhas duplicadas.
+
+```typescript
+// Padrão correto: buscar matriculas separado e agrupar em JS
+const mat = await buscarMatriculasAtivas(usuarioIds); // Map<usuarioId, {cursoNome, turnos[]}>
+const estudantes = estRows.map(e => ({ ...e, ...mat.get(e.usuarioId) }));
+```
+
+Na UI: `est.turnos.join(" / ")` → "Matutino / Noturno"
+
 ## UI — Fluxo de Criação (3 steps)
 
 ```

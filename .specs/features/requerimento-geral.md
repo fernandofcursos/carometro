@@ -29,6 +29,7 @@ A análise (deferimento/indeferimento) é feita exclusivamente por **Supervisor 
 - Pai/Responsável deve selecionar qual estudante vinculado (`responsaveis_estudantes`) antes de preencher
 - Cada requerimento é individual por estudante
 - Não há limite de requerimentos por estudante
+- O modal exibe **um card por estudante** com os turnos reais das matrículas ativas (ex: "Técnico em Redes · Matutino / Noturno") — sem duplicatas por turno
 
 ### Assuntos disponíveis (seed — modelo físico)
 

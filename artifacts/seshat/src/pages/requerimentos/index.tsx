@@ -29,7 +29,9 @@ interface Assunto { id: string; nome: string; descricao: string | null; requerMo
 interface Tipo    { id: string; nome: string; assuntos: Assunto[] }
 interface EstudanteInfo {
   id: string; nome: string; dataNascimento: string | null;
-  cursoNome?: string | null; turnoNome?: string | null;
+  usuarioId: string;
+  cursoNome?: string | null;
+  turnos?: string[]; // apenas os turnos em que o estudante está matriculado
 }
 interface ElegibilidadeResp {
   elegivel: boolean; motivo?: string;
@@ -434,7 +436,7 @@ function NovoRequerimentoModal({
                         <div>
                           <p className="font-medium text-sm">{est.nome}</p>
                           <p className="text-xs text-muted-foreground">
-                            {est.cursoNome ?? "Sem curso"} {est.turnoNome ? `· ${est.turnoNome}` : ""}
+                            {est.cursoNome ?? "Sem curso"}{est.turnos?.length ? ` · ${est.turnos.join(" / ")}` : ""}
                           </p>
                         </div>
                       </label>
@@ -447,7 +449,7 @@ function NovoRequerimentoModal({
                   <div>
                     <p className="font-semibold">{estudante?.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {estudante?.cursoNome ?? "Sem curso"} {estudante?.turnoNome ? `· ${estudante.turnoNome}` : ""}
+                      {estudante?.cursoNome ?? "Sem curso"}{estudante?.turnos?.length ? ` · ${estudante.turnos.join(" / ")}` : ""}
                     </p>
                   </div>
                 </div>
