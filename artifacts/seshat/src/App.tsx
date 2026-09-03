@@ -56,6 +56,8 @@ import PortalGestoraPage from "@/pages/portal-gestora/index";
 import AvisosPage from "@/pages/avisos/index";
 import InformesPage from "@/pages/informes/index";
 import TiposAvisosPage from "@/pages/tipos-avisos/index";
+import RequerimentosPage from "@/pages/requerimentos/index";
+import RequerimentoAnalisePage from "@/pages/requerimentos/analise";
 
 const queryClient = new QueryClient();
 
@@ -124,6 +126,8 @@ function AppRoutes() {
           <Route path="/avisos" component={AvisosPage} />
           <Route path="/informes" component={InformesPage} />
           <Route path="/tipos-avisos" component={TiposAvisosPage} />
+          <Route path="/requerimentos" component={RequerimentosPage} />
+          <Route path="/requerimentos/analise" component={RequerimentoAnalisePage} />
           <Route path="/iso27001" component={Iso27001Page} />
           <Route component={NotFound} />
         </Switch>

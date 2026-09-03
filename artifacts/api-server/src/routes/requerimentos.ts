@@ -1,0 +1,544 @@
+import { Router } from "express";
+import { createHash } from "crypto";
+import { compare } from "bcrypt";
+import { z } from "zod";
+import {
+  db,
+  requerimentosTable, requerimentoTiposTable, requerimentoAssuntosTable,
+  requerimentoAssinaturasTable, estudantesTable, usuariosTable,
+  responsaveisEstudantesTable, turmasTable, cursosTable, turnosTable,
+  turmaTurnosTable,
+  eq, and, or, inArray, isNull, sql, count, desc,
+} from "@workspace/db";
+import { requireAuth } from "../lib/auth.js";
+import { requirePermissao } from "../lib/permissions.js";
+import { registrarAuditoria } from "../lib/audit.js";
+
+const router = Router();
+router.use(requireAuth);
+
+// ── Utilidades ────────────────────────────────────────────────────────────────
+
+function contarPalavras(texto: string): number {
+  return texto.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function gerarTokenHash(requerimentoId: string, usuarioId: string, senha: string): string {
+  const payload = `${requerimentoId}:${usuarioId}:${Date.now()}:${senha}`;
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+async function gerarNumero(): Promise<string> {
+  const ano = new Date().getFullYear();
+  const prefix = `REQ-${ano}-`;
+  const [row] = await db
+    .select({ n: count() })
+    .from(requerimentosTable)
+    .where(sql`numero LIKE ${prefix + "%"}`);
+  const seq = ((row?.n as number) ?? 0) + 1;
+  return `${prefix}${String(seq).padStart(4, "0")}`;
+}
+
+async function buscarEstudanteCompleto(estudanteId: string) {
+  const [est] = await db
+    .select({
+      id:             estudantesTable.id,
+      nome:           estudantesTable.nome,
+      registro:       estudantesTable.registro,
+      dataNascimento: estudantesTable.dataNascimento,
+      usuarioId:      estudantesTable.usuarioId,
+      turmaId:        estudantesTable.turmaId,
+      cursoNome:      cursosTable.nome,
+      turnoNome:      turnosTable.nome,
+    })
+    .from(estudantesTable)
+    .leftJoin(turmasTable,        eq(turmasTable.id, estudantesTable.turmaId))
+    .leftJoin(cursosTable,        eq(cursosTable.id, turmasTable.cursoId))
+    .leftJoin(turmaTurnosTable,  eq(turmaTurnosTable.turmaId, turmasTable.id))
+    .leftJoin(turnosTable,        eq(turnosTable.id, turmaTurnosTable.turnoId))
+    .where(eq(estudantesTable.id, estudanteId))
+    .limit(1);
+  return est ?? null;
+}
+
+function calcularIdade(dataNasc: string | null): number {
+  if (!dataNasc) return 99; // sem data → assume maior de idade
+  const nasc  = new Date(dataNasc);
+  const hoje  = new Date();
+  let idade   = hoje.getFullYear() - nasc.getFullYear();
+  const m     = hoje.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade;
+}
+
+// ── GET /api/requerimentos/tipos ──────────────────────────────────────────────
+// Retorna tipos com assuntos ativos. Disponível para qualquer usuário logado.
+router.get("/tipos", async (_req, res) => {
+  const tipos = await db
+    .select()
+    .from(requerimentoTiposTable)
+    .where(eq(requerimentoTiposTable.ativo, true))
+    .orderBy(requerimentoTiposTable.ordem);
+
+  const assuntos = await db
+    .select()
+    .from(requerimentoAssuntosTable)
+    .where(eq(requerimentoAssuntosTable.ativo, true))
+    .orderBy(requerimentoAssuntosTable.ordem);
+
+  res.json(
+    tipos.map((t) => ({
+      ...t,
+      assuntos: assuntos.filter((a) => a.tipoId === t.id),
+    }))
+  );
+});
+
+// ── GET /api/requerimentos/elegibilidade ──────────────────────────────────────
+// Verifica se o usuário pode usar o formulário e lista estudantes disponíveis.
+router.get("/elegibilidade", async (req, res) => {
+  const usuarioId = req.usuarioId!;
+  const roles     = (req.user?.roles ?? []) as string[];
+
+  const isEstudante     = roles.includes("estudante");
+  const isPaiResponsavel = roles.includes("pai_responsavel");
+
+  if (!isEstudante && !isPaiResponsavel) {
+    return res.status(403).json({ elegivel: false, motivo: "Perfil sem acesso ao formulário." });
+  }
+
+  if (isEstudante) {
+    const [est] = await db
+      .select({ id: estudantesTable.id, nome: estudantesTable.nome,
+                dataNascimento: estudantesTable.dataNascimento })
+      .from(estudantesTable)
+      .where(and(eq(estudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)))
+      .limit(1);
+
+    if (!est) {
+      return res.status(403).json({ elegivel: false, motivo: "Estudante não encontrado no sistema." });
+    }
+    if (calcularIdade(est.dataNascimento) < 18) {
+      return res.status(403).json({
+        elegivel: false,
+        motivo:   "Formulário disponível somente para estudantes maiores de 18 anos.",
+      });
+    }
+    return res.json({ elegivel: true, tipoRequerente: "estudante", estudantes: [est] });
+  }
+
+  // pai_responsavel
+  const vinculados = await db
+    .select({
+      id:             estudantesTable.id,
+      nome:           estudantesTable.nome,
+      dataNascimento: estudantesTable.dataNascimento,
+      cursoNome:      cursosTable.nome,
+      turnoNome:      turnosTable.nome,
+    })
+    .from(responsaveisEstudantesTable)
+    .innerJoin(estudantesTable, and(
+      eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId),
+      isNull(estudantesTable.deletadoEm),
+    ))
+    .leftJoin(turmasTable,        eq(turmasTable.id, estudantesTable.turmaId))
+    .leftJoin(cursosTable,        eq(cursosTable.id, turmasTable.cursoId))
+    .leftJoin(turmaTurnosTable,  eq(turmaTurnosTable.turmaId, turmasTable.id))
+    .leftJoin(turnosTable,        eq(turnosTable.id, turmaTurnosTable.turnoId))
+    .where(eq(responsaveisEstudantesTable.usuarioId, usuarioId));
+
+  if (!vinculados.length) {
+    return res.status(403).json({ elegivel: false, motivo: "Nenhum estudante vinculado." });
+  }
+
+  return res.json({ elegivel: true, tipoRequerente: "pai_responsavel", estudantes: vinculados });
+});
+
+// ── GET /api/requerimentos ────────────────────────────────────────────────────
+// Estudante/Pai: lista os próprios requerimentos.
+// Secretaria/Supervisor: lista todos (com filtro de status).
+router.get("/", requirePermissao("requerimentos:view"), async (req, res) => {
+  const usuarioId = req.usuarioId!;
+  const roles     = (req.user?.roles ?? []) as string[];
+  const { status } = req.query;
+
+  const isAnalisador = roles.some((r) => ["secretaria", "supervisao_pedagogica"].includes(r));
+
+  const rows = await db
+    .select({
+      id:              requerimentosTable.id,
+      numero:          requerimentosTable.numero,
+      status:          requerimentosTable.status,
+      tipoRequerente:  requerimentosTable.tipoRequerente,
+      exposicaoMotivos: requerimentosTable.exposicaoMotivos,
+      parecer:         requerimentosTable.parecer,
+      analisadoEm:     requerimentosTable.analisadoEm,
+      criadoEm:        requerimentosTable.criadoEm,
+      estudanteNome:   estudantesTable.nome,
+      estudanteId:     estudantesTable.id,
+      assuntoNome:     requerimentoAssuntosTable.nome,
+      requerenteNome:  usuariosTable.nome,
+    })
+    .from(requerimentosTable)
+    .innerJoin(estudantesTable,             eq(estudantesTable.id, requerimentosTable.estudanteId))
+    .innerJoin(requerimentoAssuntosTable,   eq(requerimentoAssuntosTable.id, requerimentosTable.assuntoId))
+    .innerJoin(usuariosTable,               eq(usuariosTable.id, requerimentosTable.requerenteId))
+    .where(
+      isAnalisador
+        ? (status ? eq(requerimentosTable.status, String(status)) : undefined)
+        : or(
+            eq(requerimentosTable.requerenteId, usuarioId),
+            sql`EXISTS (
+              SELECT 1 FROM responsaveis_estudantes re
+              WHERE re.usuario_id = ${usuarioId}
+                AND re.estudante_id = ${requerimentosTable.estudanteId}
+            )`,
+          )
+    )
+    .orderBy(desc(requerimentosTable.criadoEm));
+
+  // Enriquecer com assinaturas
+  const ids = rows.map((r) => r.id);
+  const assinaturas = ids.length
+    ? await db
+        .select({
+          requerimentoId: requerimentoAssinaturasTable.requerimentoId,
+          papel:          requerimentoAssinaturasTable.papel,
+          metodo:         requerimentoAssinaturasTable.metodo,
+          assinadoEm:     requerimentoAssinaturasTable.assinadoEm,
+          usuarioId:      requerimentoAssinaturasTable.usuarioId,
+          nome:           usuariosTable.nome,
+        })
+        .from(requerimentoAssinaturasTable)
+        .innerJoin(usuariosTable, eq(usuariosTable.id, requerimentoAssinaturasTable.usuarioId))
+        .where(inArray(requerimentoAssinaturasTable.requerimentoId, ids))
+    : [];
+
+  res.json(
+    rows.map((r) => ({
+      ...r,
+      assinaturas: assinaturas.filter((a) => a.requerimentoId === r.id),
+    }))
+  );
+});
+
+// ── POST /api/requerimentos ───────────────────────────────────────────────────
+const criarSchema = z.object({
+  estudanteId:      z.string().uuid(),
+  assuntoId:        z.string().uuid(),
+  exposicaoMotivos: z.string().max(10000).optional().nullable(),
+});
+
+router.post("/", requirePermissao("requerimentos:create"), async (req, res) => {
+  const usuarioId = req.usuarioId!;
+  const roles     = (req.user?.roles ?? []) as string[];
+
+  const parsed = criarSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { estudanteId, assuntoId, exposicaoMotivos } = parsed.data;
+
+  // Validação: contagem de palavras
+  if (exposicaoMotivos && contarPalavras(exposicaoMotivos) > 1000) {
+    return res.status(422).json({ error: "O campo 'Exposição de Motivos' deve ter no máximo 1000 palavras." });
+  }
+
+  const isEstudante      = roles.includes("estudante");
+  const isPaiResponsavel = roles.includes("pai_responsavel");
+
+  if (!isEstudante && !isPaiResponsavel) {
+    return res.status(403).json({ error: "Perfil sem acesso ao formulário de requerimento." });
+  }
+
+  // Verificar elegibilidade e propriedade do estudante
+  if (isEstudante) {
+    const [est] = await db
+      .select({ id: estudantesTable.id, dataNascimento: estudantesTable.dataNascimento })
+      .from(estudantesTable)
+      .where(and(eq(estudantesTable.usuarioId, usuarioId), eq(estudantesTable.id, estudanteId)))
+      .limit(1);
+
+    if (!est) return res.status(403).json({ error: "Estudante não encontrado ou não pertence ao usuário." });
+    if (calcularIdade(est.dataNascimento) < 18) {
+      return res.status(403).json({ error: "Formulário disponível somente para estudantes maiores de 18 anos." });
+    }
+  } else {
+    const [vinculo] = await db
+      .select({ id: responsaveisEstudantesTable.id })
+      .from(responsaveisEstudantesTable)
+      .where(and(
+        eq(responsaveisEstudantesTable.usuarioId, usuarioId),
+        eq(responsaveisEstudantesTable.estudanteId, estudanteId),
+      ))
+      .limit(1);
+    if (!vinculo) return res.status(403).json({ error: "Estudante não vinculado ao responsável." });
+  }
+
+  // Verificar se assunto existe e está ativo
+  const [assunto] = await db
+    .select({ id: requerimentoAssuntosTable.id, requerMotivos: requerimentoAssuntosTable.requerMotivos })
+    .from(requerimentoAssuntosTable)
+    .where(and(eq(requerimentoAssuntosTable.id, assuntoId), eq(requerimentoAssuntosTable.ativo, true)))
+    .limit(1);
+  if (!assunto) return res.status(400).json({ error: "Assunto inválido." });
+
+  if (assunto.requerMotivos && !exposicaoMotivos?.trim()) {
+    return res.status(422).json({ error: "Este assunto requer a exposição de motivos." });
+  }
+
+  const numero = await gerarNumero();
+  const tipoRequerente = isEstudante ? "estudante" : "pai_responsavel";
+
+  const [criado] = await db
+    .insert(requerimentosTable)
+    .values({
+      numero, estudanteId, requerenteId: usuarioId,
+      tipoRequerente, assuntoId,
+      exposicaoMotivos: exposicaoMotivos?.trim() || null,
+      status: "pendente",
+    })
+    .returning();
+
+  await registrarAuditoria({
+    usuarioId, acao: "create", recurso: "requerimentos", recursoId: criado.id,
+    detalhes: { numero, assuntoId, estudanteId },
+    ipReq: req,
+  });
+
+  res.status(201).json(criado);
+});
+
+// ── GET /api/requerimentos/:id ────────────────────────────────────────────────
+router.get("/:id", requirePermissao("requerimentos:view"), async (req, res) => {
+  const usuarioId = req.usuarioId!;
+  const roles     = (req.user?.roles ?? []) as string[];
+
+  const [row] = await db
+    .select({
+      id:              requerimentosTable.id,
+      numero:          requerimentosTable.numero,
+      status:          requerimentosTable.status,
+      tipoRequerente:  requerimentosTable.tipoRequerente,
+      exposicaoMotivos: requerimentosTable.exposicaoMotivos,
+      parecer:         requerimentosTable.parecer,
+      analisadoEm:     requerimentosTable.analisadoEm,
+      criadoEm:        requerimentosTable.criadoEm,
+      estudanteId:     estudantesTable.id,
+      estudanteNome:   estudantesTable.nome,
+      estudanteRegistro: estudantesTable.registro,
+      dataNascimento:  estudantesTable.dataNascimento,
+      requerenteId:    usuariosTable.id,
+      requerenteNome:  usuariosTable.nome,
+      assuntoId:       requerimentoAssuntosTable.id,
+      assuntoNome:     requerimentoAssuntosTable.nome,
+      tipoNome:        requerimentoTiposTable.nome,
+      cursoNome:       cursosTable.nome,
+      turnoNome:       turnosTable.nome,
+    })
+    .from(requerimentosTable)
+    .innerJoin(estudantesTable,           eq(estudantesTable.id, requerimentosTable.estudanteId))
+    .innerJoin(usuariosTable,             eq(usuariosTable.id, requerimentosTable.requerenteId))
+    .innerJoin(requerimentoAssuntosTable, eq(requerimentoAssuntosTable.id, requerimentosTable.assuntoId))
+    .innerJoin(requerimentoTiposTable,    eq(requerimentoTiposTable.id, requerimentoAssuntosTable.tipoId))
+    .leftJoin(turmasTable,                eq(turmasTable.id, estudantesTable.turmaId))
+    .leftJoin(cursosTable,                eq(cursosTable.id, turmasTable.cursoId))
+    .leftJoin(turmaTurnosTable,          eq(turmaTurnosTable.turmaId, turmasTable.id))
+    .leftJoin(turnosTable,                eq(turnosTable.id, turmaTurnosTable.turnoId))
+    .where(eq(requerimentosTable.id, req.params.id))
+    .limit(1);
+
+  if (!row) return res.status(404).json({ error: "Requerimento não encontrado." });
+
+  const isAnalisador = roles.some((r) => ["secretaria", "supervisao_pedagogica"].includes(r));
+  const isProprietario = row.requerenteId === usuarioId;
+  const isResponsavel  = !isProprietario && !isAnalisador
+    ? !!(await db.select({ id: responsaveisEstudantesTable.id })
+        .from(responsaveisEstudantesTable)
+        .where(and(
+          eq(responsaveisEstudantesTable.usuarioId, usuarioId),
+          eq(responsaveisEstudantesTable.estudanteId, row.estudanteId),
+        ))
+        .limit(1))[0]
+    : true;
+
+  if (!isAnalisador && !isProprietario && !isResponsavel) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+
+  const assinaturas = await db
+    .select({
+      id:         requerimentoAssinaturasTable.id,
+      papel:      requerimentoAssinaturasTable.papel,
+      metodo:     requerimentoAssinaturasTable.metodo,
+      assinadoEm: requerimentoAssinaturasTable.assinadoEm,
+      nome:       usuariosTable.nome,
+    })
+    .from(requerimentoAssinaturasTable)
+    .innerJoin(usuariosTable, eq(usuariosTable.id, requerimentoAssinaturasTable.usuarioId))
+    .where(eq(requerimentoAssinaturasTable.requerimentoId, req.params.id));
+
+  res.json({ ...row, assinaturas });
+});
+
+// ── POST /api/requerimentos/:id/assinar ───────────────────────────────────────
+const assinarSchema = z.object({
+  metodo: z.enum(["senha", "gov_br", "certificado_digital"]),
+  senha:  z.string().optional(),
+  token:  z.string().optional(),
+});
+
+router.post("/:id/assinar", requirePermissao("requerimentos:create"), async (req, res) => {
+  const usuarioId = req.usuarioId!;
+  const roles     = (req.user?.roles ?? []) as string[];
+
+  const parsed = assinarSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { metodo, senha } = parsed.data;
+
+  const [req_] = await db
+    .select({ id: requerimentosTable.id, status: requerimentosTable.status,
+              requerenteId: requerimentosTable.requerenteId,
+              estudanteId: requerimentosTable.estudanteId })
+    .from(requerimentosTable)
+    .where(eq(requerimentosTable.id, req.params.id))
+    .limit(1);
+  if (!req_) return res.status(404).json({ error: "Requerimento não encontrado." });
+
+  // Verificar propriedade
+  const isProprietario = req_.requerenteId === usuarioId;
+  const isResponsavel = !isProprietario
+    ? !!(await db.select({ id: responsaveisEstudantesTable.id })
+        .from(responsaveisEstudantesTable)
+        .where(and(
+          eq(responsaveisEstudantesTable.usuarioId, usuarioId),
+          eq(responsaveisEstudantesTable.estudanteId, req_.estudanteId),
+        ))
+        .limit(1))[0]
+    : true;
+
+  if (!isProprietario && !isResponsavel) {
+    return res.status(403).json({ error: "Você não tem acesso a este requerimento." });
+  }
+
+  // Verificar senha se metodo=senha
+  if (metodo === "senha") {
+    if (!senha) return res.status(400).json({ error: "Senha é obrigatória para assinar." });
+    const [usuario] = await db
+      .select({ senhaHash: usuariosTable.senhaHash })
+      .from(usuariosTable).where(eq(usuariosTable.id, usuarioId)).limit(1);
+    if (!usuario?.senhaHash) return res.status(400).json({ error: "Usuário sem senha cadastrada." });
+    const ok = await compare(senha, usuario.senhaHash);
+    if (!ok) return res.status(401).json({ error: "Senha incorreta." });
+  }
+
+  const tokenHash = gerarTokenHash(req_.id, usuarioId, senha ?? "token");
+
+  await db
+    .insert(requerimentoAssinaturasTable)
+    .values({
+      requerimentoId: req_.id,
+      usuarioId,
+      papel: "requerente",
+      metodo,
+      tokenHash,
+      ipOrigem: req.ip ?? null,
+    })
+    .onConflictDoNothing();
+
+  res.json({ ok: true, tokenHash });
+});
+
+// ── PUT /api/requerimentos/:id/analisar ───────────────────────────────────────
+const analisarSchema = z.object({
+  status:  z.enum(["em_analise", "deferido", "indeferido"]),
+  parecer: z.string().max(10000).optional().nullable(),
+});
+
+router.put("/:id/analisar", requirePermissao("requerimentos:manage"), async (req, res) => {
+  const usuarioId = req.usuarioId!;
+
+  const parsed = analisarSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { status, parecer } = parsed.data;
+
+  if (status === "indeferido" && !parecer?.trim()) {
+    return res.status(422).json({ error: "Indeferimento requer a motivação." });
+  }
+  if (parecer && contarPalavras(parecer) > 1000) {
+    return res.status(422).json({ error: "O parecer deve ter no máximo 1000 palavras." });
+  }
+
+  const [existente] = await db
+    .select({ id: requerimentosTable.id })
+    .from(requerimentosTable)
+    .where(eq(requerimentosTable.id, req.params.id))
+    .limit(1);
+  if (!existente) return res.status(404).json({ error: "Requerimento não encontrado." });
+
+  const [atualizado] = await db
+    .update(requerimentosTable)
+    .set({
+      status,
+      parecer: status === "indeferido" ? (parecer?.trim() || null) : null,
+      analisadoPorId: usuarioId,
+      analisadoEm:    new Date(),
+      atualizadoEm:   new Date(),
+    })
+    .where(eq(requerimentosTable.id, req.params.id))
+    .returning();
+
+  await registrarAuditoria({
+    usuarioId, acao: "update", recurso: "requerimentos", recursoId: req.params.id,
+    detalhes: { status, parecer: parecer ?? null },
+    ipReq: req,
+  });
+
+  res.json(atualizado);
+});
+
+// ── POST /api/requerimentos/:id/assinar-analise ───────────────────────────────
+router.post("/:id/assinar-analise", requirePermissao("requerimentos:manage"), async (req, res) => {
+  const usuarioId = req.usuarioId!;
+
+  const parsed = assinarSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const { metodo, senha } = parsed.data;
+
+  const [req_] = await db
+    .select({ id: requerimentosTable.id, status: requerimentosTable.status })
+    .from(requerimentosTable)
+    .where(eq(requerimentosTable.id, req.params.id))
+    .limit(1);
+  if (!req_) return res.status(404).json({ error: "Requerimento não encontrado." });
+
+  if (!["deferido", "indeferido"].includes(req_.status)) {
+    return res.status(422).json({ error: "Analise o requerimento (deferir ou indeferir) antes de assinar." });
+  }
+
+  if (metodo === "senha") {
+    if (!senha) return res.status(400).json({ error: "Senha é obrigatória para assinar." });
+    const [usuario] = await db
+      .select({ senhaHash: usuariosTable.senhaHash })
+      .from(usuariosTable).where(eq(usuariosTable.id, usuarioId)).limit(1);
+    if (!usuario?.senhaHash) return res.status(400).json({ error: "Usuário sem senha cadastrada." });
+    const ok = await compare(senha, usuario.senhaHash);
+    if (!ok) return res.status(401).json({ error: "Senha incorreta." });
+  }
+
+  const tokenHash = gerarTokenHash(req_.id, usuarioId, senha ?? "token");
+
+  await db
+    .insert(requerimentoAssinaturasTable)
+    .values({
+      requerimentoId: req_.id,
+      usuarioId,
+      papel: "analisador",
+      metodo,
+      tokenHash,
+      ipOrigem: req.ip ?? null,
+    })
+    .onConflictDoNothing();
+
+  res.json({ ok: true, tokenHash });
+});
+
+export default router;

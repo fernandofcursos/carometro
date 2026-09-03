@@ -76,6 +76,8 @@ export function AppSidebar() {
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
   const canManageAvisos = hasAny("avisos:manage");
+  const canCreateRequerimentos = hasAny("requerimentos:create");
+  const canManageRequerimentos = hasAny("requerimentos:manage");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);
@@ -89,6 +91,7 @@ export function AppSidebar() {
       bgColor: "#f0f9ff",
       items: [
         nav("Meu Perfil", "/portal", GraduationCap),
+        ...(canCreateRequerimentos ? [nav("Requerimento Geral", "/requerimentos", FileText)] : []),
       ],
     }] : []),
     // Portal do Professor — role 'professor' ou admin (para ajuste/teste)
@@ -129,6 +132,7 @@ export function AppSidebar() {
       bgColor: "#fffbeb",
       items: [
         nav("Meus Filhos", "/portal-responsavel", GraduationCap),
+        ...(canCreateRequerimentos ? [nav("Requerimento Geral", "/requerimentos", FileText)] : []),
       ],
     }] : []),
     ...(canViewCarometro ? [{
@@ -143,6 +147,15 @@ export function AppSidebar() {
         nav("Equipe Pedagógica", "/carometro/equipe-pedagogica", GraduationCap),
         nav("Corpo Docente", "/carometro/corpo-docente", BookOpen),
         nav("Apoio / Operacional", "/carometro/apoio-operacional", Wrench),
+      ],
+    }] : []),
+    ...(canManageRequerimentos ? [{
+      label: "Requerimentos",
+      icon: FileText,
+      color: "#0891b2",
+      bgColor: "#ecfeff",
+      items: [
+        nav("Análise de Requerimentos", "/requerimentos/analise", FileText),
       ],
     }] : []),
     ...(canManageAvisos ? [{
