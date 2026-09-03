@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-interface Assinatura { papel: string; metodo: string; assinadoEm: string; nome: string | null }
+interface Assinatura { papel: string; metodo: string; assinadoEm: string; nome: string | null; roleNome?: string | null }
 interface Requerimento {
   id: string; numero: string; status: string; assuntoNome: string; tipoNome: string;
   estudanteNome: string; estudanteRegistro?: string; requerenteNome: string | null;
@@ -58,7 +58,7 @@ function AssinarModal({
     if (!senha) { toast({ title: "Informe a senha.", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      await api(`/api/requerimentos/${requerimentoId}/assinar-analise`, {
+      await fetchJson(`/api/requerimentos/${requerimentoId}/assinar-analise`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metodo, senha }),
@@ -132,7 +132,7 @@ function AnalisarModal({
     }
     setLoading(true);
     try {
-      await api(`/api/requerimentos/${req.id}/analisar`, {
+      await fetchJson(`/api/requerimentos/${req.id}/analisar`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: decisao, parecer: decisao === "indeferido" ? parecer : null }),
@@ -319,16 +319,50 @@ function AnalisarModal({
             </div>
 
             {/* Assinaturas lado a lado */}
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="border rounded p-3 text-center">
-                <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
-                <p className="text-xs text-muted-foreground">Supervisor Pedagógico</p>
-              </div>
-              <div className="border rounded p-3 text-center">
-                <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
-                <p className="text-xs text-muted-foreground">Chefe de Secretaria</p>
-              </div>
-            </div>
+            {(() => {
+              const assinsSupervisor = req.assinaturas.find(
+                (a) => a.papel === "analisador" && a.roleNome === "supervisao_pedagogica"
+              );
+              const assinsSecretaria = req.assinaturas.find(
+                (a) => a.papel === "analisador" && a.roleNome === "secretaria"
+              );
+              return (
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className={`border rounded p-3 text-center ${assinsSupervisor ? "border-green-300 bg-green-50 dark:bg-green-950/20" : ""}`}>
+                    {assinsSupervisor ? (
+                      <>
+                        <div className="flex justify-center mb-1">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <p className="text-xs font-medium text-green-700">{assinsSupervisor.nome ?? "Supervisor"}</p>
+                        <p className="text-xs text-green-600">{new Date(assinsSupervisor.assinadoEm).toLocaleDateString("pt-BR")}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
+                      </>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">Supervisor Pedagógico</p>
+                  </div>
+                  <div className={`border rounded p-3 text-center ${assinsSecretaria ? "border-green-300 bg-green-50 dark:bg-green-950/20" : ""}`}>
+                    {assinsSecretaria ? (
+                      <>
+                        <div className="flex justify-center mb-1">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <p className="text-xs font-medium text-green-700">{assinsSecretaria.nome ?? "Secretaria"}</p>
+                        <p className="text-xs text-green-600">{new Date(assinsSecretaria.assinadoEm).toLocaleDateString("pt-BR")}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
+                      </>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">Chefe de Secretaria</p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
