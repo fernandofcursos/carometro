@@ -67,16 +67,20 @@ slug === 'saida-eventual':
 
 ## API Endpoints
 
-| Método | Endpoint | Permissão |
+| Método | Endpoint | Verificação de Acesso |
 |---|---|---|
 | GET | `/api/requerimentos/tipos` | autenticado |
-| GET | `/api/requerimentos/elegibilidade` | autenticado |
-| GET | `/api/requerimentos` | `requerimentos:view` |
-| POST | `/api/requerimentos` | `requerimentos:create` |
-| GET | `/api/requerimentos/:id` | `requerimentos:view` |
-| POST | `/api/requerimentos/:id/assinar` | `requerimentos:create` |
-| PUT | `/api/requerimentos/:id/analisar` | `requerimentos:manage` |
-| POST | `/api/requerimentos/:id/assinar-analise` | `requerimentos:manage` |
+| GET | `/api/requerimentos/elegibilidade` | autenticado + `buscarRoles` |
+| GET | `/api/requerimentos` | autenticado + `buscarRoles` (analisador vê tudo; requerente vê só os seus) |
+| POST | `/api/requerimentos` | autenticado + `buscarRoles` (`estudante` ≥18 ou `pai_responsavel`) |
+| GET | `/api/requerimentos/:id` | autenticado + `buscarRoles` |
+| POST | `/api/requerimentos/:id/assinar` | autenticado + `buscarRoles` |
+| PUT | `/api/requerimentos/:id/analisar` | autenticado + `buscarRoles` (`secretaria` ou `supervisao_pedagogica`) |
+| POST | `/api/requerimentos/:id/assinar-analise` | autenticado + `buscarRoles` (`secretaria` ou `supervisao_pedagogica`) |
+
+> **IMPORTANTE:** Nenhum endpoint usa `requirePermissao` — todos usam `requireAuth` + `buscarRoles` (cache 60s).
+> `requirePermissao` depende de seed na tabela `roles_permissoes` que pode não existir.
+> `buscarRoles` consulta `usuarios_roles JOIN roles` — independente de seed de permissões.
 
 ## Numeração
 
@@ -226,6 +230,38 @@ psql $DATABASE_URL -f scripts/migrate-requerimentos.sql
 ```
 
 Idempotente: usa `CREATE TABLE IF NOT EXISTS` + seed em bloco `DO $$ ... $$`.
+
+## Autorização — padrão buscarRoles
+
+Todos os endpoints de requerimentos usam `requireAuth` + `buscarRoles` internamente.
+**Nunca usar `requirePermissao`** nos endpoints de requerimentos — depende de seed externo.
+
+```typescript
+// Padrão correto para endpoints de análise (secretaria/supervisão):
+router.put("/:id/analisar", requireAuth, async (req, res) => {
+  const roles = await buscarRoles(req.usuarioId!);
+  const podeAnalisar = roles.some(r => ["secretaria", "supervisao_pedagogica"].includes(r));
+  if (!podeAnalisar) return res.status(403).json({ error: "Permissão negada." });
+  // ...handler
+});
+```
+
+### Troubleshooting: "Permissão Negada" ao analisar
+
+Causas e soluções:
+
+| Causa | Solução |
+|---|---|
+| Servidor rodando código anterior ao fix | Fazer `git pull` e reiniciar o servidor |
+| Cache de roles com TTL (60s) desatualizado | Aguardar 60s ou reiniciar servidor (limpa cache em memória) |
+| Usuário não tem a role atribuída no banco | Verificar `usuarios_roles` para o `usuarioId` do analisador |
+| Servidor em produção sem rebuild | Rodar `pnpm build` em `artifacts/api-server` antes de reiniciar |
+
+### Assinaturas — campo roleNome
+
+Ambos `GET /api/requerimentos` (lista) e `GET /api/requerimentos/:id` (detalhe) retornam `roleNome` em cada assinatura com `papel === "analisador"`. Valores possíveis: `"secretaria"` | `"supervisao_pedagogica"` | `null`.
+
+Usado no modal de análise para exibir a caixa de assinatura correta (Supervisor Pedagógico vs Chefe de Secretaria).
 
 ## Arquivos-chave
 

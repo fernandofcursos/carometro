@@ -174,16 +174,18 @@ UNIQUE (requerimento_id, usuario_id, papel)
 
 ## API
 
-| Método | Endpoint | Permissão | Descrição |
+| Método | Endpoint | Verificação | Descrição |
 |---|---|---|---|
 | GET | `/api/requerimentos/tipos` | autenticado | Tipos + assuntos ativos |
-| GET | `/api/requerimentos/elegibilidade` | autenticado | Verifica acesso + lista estudantes |
-| GET | `/api/requerimentos` | `requerimentos:view` | Lista (filtrado por perfil) |
-| POST | `/api/requerimentos` | `requerimentos:create` | Cria requerimento |
-| GET | `/api/requerimentos/:id` | `requerimentos:view` | Detalhe completo |
-| POST | `/api/requerimentos/:id/assinar` | `requerimentos:create` | Assina como requerente |
-| PUT | `/api/requerimentos/:id/analisar` | `requerimentos:manage` | Atualiza status + parecer |
-| POST | `/api/requerimentos/:id/assinar-analise` | `requerimentos:manage` | Assina como analisador |
+| GET | `/api/requerimentos/elegibilidade` | autenticado + `buscarRoles` | Verifica acesso + lista estudantes |
+| GET | `/api/requerimentos` | autenticado + `buscarRoles` | Lista (filtrado por perfil) |
+| POST | `/api/requerimentos` | autenticado + `buscarRoles` | Cria requerimento |
+| GET | `/api/requerimentos/:id` | autenticado + `buscarRoles` | Detalhe completo |
+| POST | `/api/requerimentos/:id/assinar` | autenticado + `buscarRoles` | Assina como requerente |
+| PUT | `/api/requerimentos/:id/analisar` | autenticado + `buscarRoles` (`secretaria`\|`supervisao_pedagogica`) | Atualiza status + parecer |
+| POST | `/api/requerimentos/:id/assinar-analise` | autenticado + `buscarRoles` (`secretaria`\|`supervisao_pedagogica`) | Assina como analisador |
+
+> **Implementação:** nenhum endpoint usa `requirePermissao` — todos usam `requireAuth` + `buscarRoles` (cache 60s, consulta `usuarios_roles JOIN roles`). Independente do estado do seed de permissões.
 
 ### Filtro de acesso em `GET /api/requerimentos`
 
@@ -194,11 +196,13 @@ UNIQUE (requerimento_id, usuario_id, papel)
 
 ## Permissões
 
-| Permissão | Roles |
+| Verificação | Roles permitidas |
 |---|---|
-| `requerimentos:create` | `estudante`, `pai_responsavel` |
-| `requerimentos:view` | `estudante`, `pai_responsavel`, `secretaria`, `supervisao_pedagogica` |
-| `requerimentos:manage` | `secretaria`, `supervisao_pedagogica` |
+| Criar requerimento | `estudante` (≥18 anos), `pai_responsavel` |
+| Visualizar requerimentos | `estudante`, `pai_responsavel`, `secretaria`, `supervisao_pedagogica` |
+| Analisar / Assinar análise | `secretaria`, `supervisao_pedagogica` |
+
+> Controle feito via `buscarRoles` (não via tabela `permissoes`). Seed de `roles_permissoes` é opcional — o módulo funciona sem ele.
 
 ---
 

@@ -266,7 +266,7 @@ router.get("/", requireAuth, async (req, res) => {
 
   // Enriquecer com assinaturas
   const ids = rows.map((r) => r.id);
-  const assinaturas = ids.length
+  const assinaturaRows = ids.length
     ? await db
         .select({
           requerimentoId: requerimentoAssinaturasTable.requerimentoId,
@@ -281,10 +281,32 @@ router.get("/", requireAuth, async (req, res) => {
         .where(inArray(requerimentoAssinaturasTable.requerimentoId, ids))
     : [];
 
+  // Resolver roleNome para analisadores (mesmo padrão do GET /:id)
+  const analisadorIds = [...new Set(
+    assinaturaRows.filter((a) => a.papel === "analisador").map((a) => a.usuarioId)
+  )];
+  const roleMapLista = new Map<string, string>();
+  if (analisadorIds.length) {
+    const roleRows = await db
+      .select({ usuarioId: usuariosRolesTable.usuarioId, roleNome: rolesTable.nome })
+      .from(usuariosRolesTable)
+      .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
+      .where(and(
+        inArray(usuariosRolesTable.usuarioId, analisadorIds),
+        inArray(rolesTable.nome, ["secretaria", "supervisao_pedagogica"]),
+      ));
+    for (const r of roleRows) roleMapLista.set(r.usuarioId, r.roleNome);
+  }
+
+  const assinaturasEnriquecidas = assinaturaRows.map((a) => ({
+    ...a,
+    roleNome: a.papel === "analisador" ? (roleMapLista.get(a.usuarioId) ?? null) : null,
+  }));
+
   res.json(
     rows.map((r) => ({
       ...r,
-      assinaturas: assinaturas.filter((a) => a.requerimentoId === r.id),
+      assinaturas: assinaturasEnriquecidas.filter((a) => a.requerimentoId === r.id),
     }))
   );
 });
