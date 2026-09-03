@@ -7,26 +7,17 @@ import {
   requerimentosTable, requerimentoTiposTable, requerimentoAssuntosTable,
   requerimentoAssinaturasTable, estudantesTable, usuariosTable,
   responsaveisEstudantesTable, turmasTable, cursosTable, turnosTable,
-  turmaTurnosTable, usuariosRolesTable, rolesTable,
+  turmaTurnosTable,
   eq, and, or, inArray, isNull, sql, count, desc,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
-import { requirePermissao } from "../lib/permissions.js";
+import { requirePermissao, buscarRoles } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
 
 const router = Router();
 router.use(requireAuth);
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
-
-async function buscarRoles(usuarioId: string): Promise<string[]> {
-  const rows = await db
-    .select({ nome: rolesTable.nome })
-    .from(usuariosRolesTable)
-    .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
-    .where(eq(usuariosRolesTable.usuarioId, usuarioId));
-  return rows.map(r => r.nome);
-}
 
 function contarPalavras(texto: string): number {
   return texto.trim().split(/\s+/).filter(Boolean).length;

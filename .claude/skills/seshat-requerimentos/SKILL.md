@@ -99,16 +99,33 @@ function contarPalavras(texto: string): number {
 ```
 
 > **ATENÇÃO:** roles NÃO estão no JWT (`req.user?.roles` não existe).
-> Sempre buscar via banco com `buscarRoles(usuarioId)`:
+> Usar `buscarRoles` exportada de `lib/permissions.ts` — tem cache de 60s:
 > ```typescript
-> async function buscarRoles(usuarioId: string): Promise<string[]> {
->   const rows = await db.select({ nome: rolesTable.nome })
->     .from(usuariosRolesTable)
->     .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
->     .where(eq(usuariosRolesTable.usuarioId, usuarioId));
->   return rows.map(r => r.nome);
-> }
+> import { requirePermissao, buscarRoles } from "../lib/permissions.js";
+> const roles = await buscarRoles(req.usuarioId!);
 > ```
+
+## Cache de roles e permissões
+
+`artifacts/api-server/src/lib/permissions.ts` mantém dois caches em memória com TTL de 60s:
+- `permCache` — `Map<usuarioId, string[]>` de `"recurso:acao"`
+- `roleCache` — `Map<usuarioId, string[]>` de nomes de role
+
+Ambos são invalidados juntos por `invalidarCachePermissoes(usuarioId)` (chamada no logout e troca de role).
+
+## UI — tratamento de elegibilidade
+
+`/elegibilidade` retorna HTTP 403 com body `{ elegivel: false, motivo: "..." }` quando inelegível — isso é resposta legítima, não erro. A UI trata explicitamente:
+
+```typescript
+queryFn: async () => {
+  const r = await fetch(url, { credentials: "include" });
+  const body = await r.json().catch(() => ({}));
+  if (r.status === 403) return body; // inelegível = dado válido
+  if (!r.ok) throw body;             // outros erros = exceção
+  return body;
+},
+```
 
 ```typescript
 function calcularIdade(dataNasc: Date | null): number {

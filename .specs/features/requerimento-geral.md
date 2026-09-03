@@ -24,7 +24,7 @@ A análise (deferimento/indeferimento) é feita exclusivamente por **Supervisor 
 | `estudante` menor | ❌ | Bloqueado — formulário indisponível |
 | Outros perfis | ❌ | Sem acesso |
 
-> **Implementação:** roles são verificadas via banco (`usuarios_roles JOIN roles`), nunca pelo JWT. `req.user?.roles` **não existe** neste sistema — usar `buscarRoles(usuarioId)` na rota.
+> **Implementação:** roles são verificadas via banco com cache de 60s (`buscarRoles` exportada de `lib/permissions.ts`). `req.user?.roles` **não existe** — o JWT só carrega `sub` (userId).
 
 - Pai/Responsável deve selecionar qual estudante vinculado (`responsaveis_estudantes`) antes de preencher
 - Cada requerimento é individual por estudante

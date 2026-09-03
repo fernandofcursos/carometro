@@ -1,17 +1,17 @@
 import { Request, Response, NextFunction } from "express";
 import {
-  db, usuariosRolesTable, rolesPermissoesTable, permissoesTable,
+  db, usuariosRolesTable, rolesPermissoesTable, permissoesTable, rolesTable,
   eq,
 } from "@workspace/db";
 
-type CacheEntry = { permissoes: string[]; expiraEm: number };
-
-// Cache em memória por usuarioId — evita 3 JOINs por request
-const cache = new Map<string, CacheEntry>();
 const TTL_MS = 60_000; // 60 segundos
 
+// ── Cache de permissões (recurso:acao) ────────────────────────────────────────
+type PermEntry = { permissoes: string[]; expiraEm: number };
+const permCache = new Map<string, PermEntry>();
+
 async function buscarPermissoes(usuarioId: string): Promise<string[]> {
-  const cached = cache.get(usuarioId);
+  const cached = permCache.get(usuarioId);
   if (cached && Date.now() < cached.expiraEm) return cached.permissoes;
 
   const rows = await db
@@ -22,19 +22,42 @@ async function buscarPermissoes(usuarioId: string): Promise<string[]> {
     .where(eq(usuariosRolesTable.usuarioId, usuarioId));
 
   const permissoes = rows.map(r => `${r.recurso}:${r.acao}`);
-  cache.set(usuarioId, { permissoes, expiraEm: Date.now() + TTL_MS });
+  permCache.set(usuarioId, { permissoes, expiraEm: Date.now() + TTL_MS });
   return permissoes;
 }
 
-// Invalidar cache ao fazer logout, troca de role ou alteração de permissões
-export function invalidarCachePermissoes(usuarioId: string): void {
-  cache.delete(usuarioId);
+// ── Cache de roles (nomes) ────────────────────────────────────────────────────
+type RoleEntry = { roles: string[]; expiraEm: number };
+const roleCache = new Map<string, RoleEntry>();
+
+export async function buscarRoles(usuarioId: string): Promise<string[]> {
+  const cached = roleCache.get(usuarioId);
+  if (cached && Date.now() < cached.expiraEm) return cached.roles;
+
+  const rows = await db
+    .select({ nome: rolesTable.nome })
+    .from(usuariosRolesTable)
+    .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
+    .where(eq(usuariosRolesTable.usuarioId, usuarioId));
+
+  const roles = rows.map(r => r.nome);
+  roleCache.set(usuarioId, { roles, expiraEm: Date.now() + TTL_MS });
+  return roles;
 }
 
-// Limpar todo o cache — usado em testes para isolamento entre casos
-export function limparCachePermissoes(): void {
-  cache.clear();
+// ── Invalidação ───────────────────────────────────────────────────────────────
+
+export function invalidarCachePermissoes(usuarioId: string): void {
+  permCache.delete(usuarioId);
+  roleCache.delete(usuarioId);
 }
+
+export function limparCachePermissoes(): void {
+  permCache.clear();
+  roleCache.clear();
+}
+
+// ── Middleware requirePermissao ───────────────────────────────────────────────
 
 export function requirePermissao(permissao: string) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {

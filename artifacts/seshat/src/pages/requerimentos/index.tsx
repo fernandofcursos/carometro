@@ -559,9 +559,16 @@ export default function RequerimentosPage() {
   const [detalhe, setDetalhe] = useState<Requerimento | null>(null);
   const [assinar, setAssinar] = useState<string | null>(null); // requerimentoId
 
-  const { data: elegibilidade, isLoading: loadEleg } = useQuery<ElegibilidadeResp>({
+  const { data: elegibilidade, isLoading: loadEleg, isError: errEleg } = useQuery<ElegibilidadeResp>({
     queryKey: ["requerimentos-elegibilidade"],
-    queryFn: () => fetchJson("/api/requerimentos/elegibilidade"),
+    queryFn: async () => {
+      const r = await fetch(`${BASE}/api/requerimentos/elegibilidade`, { credentials: "include" });
+      const body = await r.json().catch(() => ({}));
+      // 403 com elegivel:false é resposta legítima da API, não erro de fetch
+      if (r.status === 403) return body as ElegibilidadeResp;
+      if (!r.ok) throw body;
+      return body as ElegibilidadeResp;
+    },
     retry: false,
   });
 
@@ -581,6 +588,20 @@ export default function RequerimentosPage() {
     return (
       <div className="flex items-center justify-center h-60">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (errEleg) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <Card>
+          <CardContent className="pt-6 text-center space-y-3">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+            <h2 className="text-lg font-semibold">Erro ao verificar elegibilidade</h2>
+            <p className="text-muted-foreground text-sm">Tente recarregar a página. Se o problema persistir, contate o suporte.</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
