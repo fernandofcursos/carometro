@@ -220,7 +220,7 @@ router.get("/elegibilidade", async (req, res) => {
 // ── GET /api/requerimentos ────────────────────────────────────────────────────
 // Estudante/Pai: lista os próprios requerimentos.
 // Secretaria/Supervisor: lista todos (com filtro de status).
-router.get("/", requirePermissao("requerimentos:view"), async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
   const roles = await buscarRoles(usuarioId);
   const { status } = req.query;
@@ -292,7 +292,7 @@ const criarSchema = z.object({
   exposicaoMotivos: z.string().max(10000).optional().nullable(),
 });
 
-router.post("/", requirePermissao("requerimentos:create"), async (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
   const roles = await buscarRoles(usuarioId);
 
@@ -371,7 +371,7 @@ router.post("/", requirePermissao("requerimentos:create"), async (req, res) => {
 });
 
 // ── GET /api/requerimentos/:id ────────────────────────────────────────────────
-router.get("/:id", requirePermissao("requerimentos:view"), async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
   const roles = await buscarRoles(usuarioId);
 
@@ -449,7 +449,7 @@ const assinarSchema = z.object({
   token:  z.string().optional(),
 });
 
-router.post("/:id/assinar", requirePermissao("requerimentos:create"), async (req, res) => {
+router.post("/:id/assinar", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
   const roles = await buscarRoles(usuarioId);
 
