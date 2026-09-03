@@ -251,7 +251,7 @@ router.get("/carteiras/:estudanteId", async (req: Request, res: Response) => {
     if (!est?.usuarioId) return res.json([]);
 
     const rows = await db
-      .select({ id: carteirasTable.id, tipo: carteirasTable.tipo, ano: carteirasTable.ano, semestre: carteirasTable.semestre, status: carteirasTable.status, token: carteirasTable.token })
+      .select({ id: carteirasTable.id, tipo: carteirasTable.tipo, ano: carteirasTable.ano, semestre: carteirasTable.semestre, horarioSaida: carteirasTable.horarioSaida, status: carteirasTable.status, token: carteirasTable.token })
       .from(carteirasTable)
       .where(eq(carteirasTable.usuarioId, est.usuarioId))
       .orderBy(carteirasTable.ano, carteirasTable.semestre);

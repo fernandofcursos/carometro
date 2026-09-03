@@ -45,7 +45,7 @@ type OcorrenciaPortal = {
 
 type CarteiraDB = {
   id: string; tipo: string; ano: number; semestre: number;
-  status: string; token: string; criadoEm: string;
+  horarioSaida: string | null; status: string; token: string; criadoEm: string;
 };
 
 type CartaoSaidaDB = {
@@ -356,9 +356,14 @@ function CartaoLiberacaoCard({
   const token = cartao.token ?? "";
   const verUrl = token ? `${window.location.origin}${BASE}/verificar/${token}` : "";
 
+  const cartSem = cartao as CarteiraDB;
+  const cartDia = cartao as CartaoSaidaDB;
   const validade = semestral
-    ? `${(cartao as CarteiraDB).semestre}º sem. / ${(cartao as CarteiraDB).ano}`
-    : `${(cartao as CartaoSaidaDB).dataSaida?.split("-").reverse().join("/")} ${(cartao as CartaoSaidaDB).horarioSaida?.substring(0, 5) ?? ""}`;
+    ? `${cartSem.semestre}º sem. / ${cartSem.ano}`
+    : `${cartDia.dataSaida?.split("-").reverse().join("/")} ${cartDia.horarioSaida?.substring(0, 5) ?? ""}`;
+  const horarioSaidaLabel = semestral
+    ? (cartSem.horarioSaida?.substring(0, 5) ?? "—")
+    : (cartDia.horarioSaida?.substring(0, 5) ?? "—");
 
   return (
     <div style={{ position: "relative", width: "100%", maxWidth: 560, margin: "0 auto", aspectRatio: "560/320" }}>
@@ -426,9 +431,10 @@ function CartaoLiberacaoCard({
                   <div><span style={{ color: cor.strip, fontWeight: 600 }}>Matrícula: </span><span style={{ color: cor.text }}>{me.matriculas[0].registro}</span></div>
                 </>
               )}
+              <div><span style={{ color: cor.strip, fontWeight: 600 }}>Horário saída: </span><span style={{ color: cor.text, fontWeight: 700 }}>{horarioSaidaLabel}</span></div>
               <div><span style={{ color: cor.strip, fontWeight: 600 }}>Validade: </span><span style={{ color: cor.text, fontWeight: 700 }}>{validade}</span></div>
-              {!semestral && (cartao as CartaoSaidaDB).motivo && (
-                <div><span style={{ color: cor.strip, fontWeight: 600 }}>Motivo: </span><span style={{ color: cor.text }}>{(cartao as CartaoSaidaDB).motivo}</span></div>
+              {!semestral && cartDia.motivo && (
+                <div><span style={{ color: cor.strip, fontWeight: 600 }}>Motivo: </span><span style={{ color: cor.text }}>{cartDia.motivo}</span></div>
               )}
             </div>
 
@@ -462,9 +468,19 @@ function CartaoLiberacaoCard({
   );
 }
 
+function dentroJanelaSemestral(horarioSaida: string | null): boolean {
+  if (!horarioSaida) return false;
+  const [hh, mm] = horarioSaida.split(":").map(Number);
+  const agora = new Date();
+  const totalMin = agora.getHours() * 60 + agora.getMinutes();
+  const alvoMin  = hh * 60 + mm;
+  return Math.abs(totalMin - alvoMin) <= 5;
+}
+
 // ── Componente principal da aba Cartão de Liberação ───────────────────────────
 function CartaoLiberacao({ me, cartaoSemestral }: { me: PortalMe; cartaoSemestral: CarteiraDB | null }) {
   const [subAba, setSubAba] = useState<"semestral" | "diario">("semestral");
+  const semestralAtivo = cartaoSemestral?.status === "ativa" && dentroJanelaSemestral(cartaoSemestral.horarioSaida ?? null);
 
   const { data: cartoesDiarios = [] } = useQuery<CartaoSaidaDB[]>({
     queryKey: ["portal-cartoes-saida"],
@@ -517,19 +533,32 @@ function CartaoLiberacao({ me, cartaoSemestral }: { me: PortalMe; cartaoSemestra
 
       {/* Semestral */}
       {subAba === "semestral" && (
-        cartaoSemestral && cartaoSemestral.status === "ativa" ? (
+        semestralAtivo ? (
           <>
-            <CartaoLiberacaoCard me={me} cartao={cartaoSemestral} semestral />
+            <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              Cartão válido agora — apresente ao responsável pela portaria para validação via QR Code.
+            </div>
+            <CartaoLiberacaoCard me={me} cartao={cartaoSemestral!} semestral />
             <Button variant="outline" size="sm" onClick={() => window.print()} className="w-full">
               Imprimir cartão
             </Button>
           </>
+        ) : cartaoSemestral?.status === "ativa" ? (
+          <div className="rounded-xl border border-dashed border-green-300 bg-green-50/50 p-6 text-center flex flex-col gap-2 items-center">
+            <Fingerprint className="w-8 h-8 text-green-600" />
+            <p className="text-sm font-medium text-green-800">Cartão semestral aprovado</p>
+            <p className="text-xs text-muted-foreground">
+              Horário de saída autorizado: <strong>{cartaoSemestral.horarioSaida?.substring(0, 5) ?? "—"}</strong>.
+              O cartão fica disponível 5 minutos antes e expira 5 minutos após o horário aprovado.
+            </p>
+          </div>
         ) : (
           <div className="rounded-xl border border-dashed border-green-300 bg-green-50/50 p-6 text-center flex flex-col gap-2 items-center">
             <Fingerprint className="w-8 h-8 text-green-600" />
             <p className="text-sm font-medium text-green-800">Nenhum cartão de liberação semestral ativo</p>
             <p className="text-xs text-muted-foreground">
-              O cartão semestral é emitido pela coordenação após aprovação do requerimento específico de liberação semestral.
+              Solicite a liberação semestral através do formulário de Requerimentos.
               {cartaoSemestral && cartaoSemestral.status !== "ativa" && (
                 <> Seu último cartão foi <strong>{cartaoSemestral.status}</strong>.</>
               )}
@@ -678,6 +707,7 @@ export default function PortalEstudantePage() {
     queryKey: ["portal-carteiras"],
     queryFn:  () => fetchJson(`${BASE}/api/portal/carteiras`),
     enabled:  !!me,
+    refetchInterval: 30_000,
   });
 
   // Carteira ativa do tipo 'carteira' (prioriza mais recente)

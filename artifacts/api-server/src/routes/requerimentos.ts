@@ -696,6 +696,7 @@ async function processarDeferimento(req_: {
       usuarioId: est.usuarioId,
       matriculaId: mat.id,
       tipo, ano: mat.ano, semestre: mat.semestre,
+      horarioSaida: req_.horaSolicitacao ?? null,
       status: "ativa", token,
     });
 

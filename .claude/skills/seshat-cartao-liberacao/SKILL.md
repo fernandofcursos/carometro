@@ -10,17 +10,21 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 
 | Tipo | Tabela | Emissão | Validade |
 |---|---|---|---|
-| **Semestral** | `carteiras` (tipo=`cartao-semestral`) | Coordenador após pedido formal | Semestre inteiro |
-| **Diário** | `cartoes_saida` (status=`aprovado`) | Coordenador/supervisor/direção após requerimento | Janela ±5 min do horário |
+| **Semestral** | `carteiras` (tipo=`cartao-semestral`) | Deferimento do requerimento "saida-semestral" | Do deferimento ao último dia letivo — exibido somente na janela ±5 min do `horario_saida` |
+| **Diário** | `cartoes_saida` (status=`aprovado`) | Deferimento do requerimento "saida-eventual" | Data única — exibido somente na janela ±5 min do `horario_saida` |
 
 ---
 
 ## Regras de Exibição
 
 ### Semestral
-- Exibido se `cartao-semestral` com `status = 'ativa'` no período atual
-- Requer requerimento presencial/digital aprovado por coordenação, supervisão ou direção
-- Emitido via `POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }`
+- Exibido se `cartao-semestral` com `status = 'ativa'` E dentro da janela `horario_saida ± 5 min`
+- Válido do deferimento ao último dia letivo (calendário pedagógico) — a cada dia, somente na janela de ±5 min
+- Requer requerimento "Pedido de Saída Antecipada (Semestral)" com `requer_data_hora = true`
+  → o horário informado no requerimento é armazenado em `carteiras.horario_saida`
+- Pode ser emitido manualmente via `POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }`
+  (neste caso `horario_saida` fica null e o cartão nunca aparece — é necessário definir o horário)
+- **Refetch a cada 30 s** para detectar entrada/saída da janela automaticamente
 
 ### Diário
 - **Menor de idade**: requerimento preenchido pelo pai/responsável no Portal do Responsável → aprovação da coordenação/supervisão/direção
@@ -105,9 +109,34 @@ function horarioJaPassou(dataSaida: string, horarioSaida: string | null): boolea
   const totalMin = agora.getHours() * 60 + agora.getMinutes();
   return totalMin > hh * 60 + mm + 5; // passou a janela +5 min
 }
+
+// Semestral: sem restrição de data — verifica apenas o horário do dia
+function dentroJanelaSemestral(horarioSaida: string | null): boolean {
+  if (!horarioSaida) return false;
+  const [hh, mm] = horarioSaida.split(":").map(Number);
+  const agora = new Date();
+  const totalMin = agora.getHours() * 60 + agora.getMinutes();
+  return Math.abs(totalMin - (hh * 60 + mm)) <= 5;
+}
 ```
 
-### Comportamento do componente `CartaoLiberacao`
+### Comportamento — sub-aba Semestral
+
+```
+semestralAtivo = cartaoSemestral?.status === "ativa" && dentroJanelaSemestral(horarioSaida)
+
+SE semestralAtivo:
+  → aviso verde "Cartão válido agora" + CartaoLiberacaoCard + botão imprimir
+
+SE cartaoSemestral.status === "ativa" mas fora da janela:
+  → aviso "Cartão semestral aprovado — horário de saída: HH:MM"
+  → NÃO exibe o cartão
+
+SENÃO:
+  → "Nenhum cartão de liberação semestral ativo"
+```
+
+### Comportamento — sub-aba Diário
 
 ```
 cartaoDiarioAtivo = cartoesDiarios.find(dentroJanelaHorario)

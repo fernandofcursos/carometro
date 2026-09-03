@@ -39,6 +39,7 @@ matricula_id    uuid FK → matriculas (set null)
 tipo            varchar(20)  CHECK ('carteira', 'cartao-semestral')
 ano             integer NOT NULL
 semestre        smallint CHECK (1, 2)
+horario_saida   time         — horário diário de saída autorizado (cartao-semestral); null para tipo='carteira'
 status          varchar(20)  CHECK ('ativa', 'cancelada', 'revogada')
 token           text NOT NULL  — HMAC-SHA256 assinado com SESSION_SECRET
 cancelado_em    timestamptz

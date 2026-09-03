@@ -120,8 +120,8 @@ BEGIN
        'Pedido de aproveitamento de disciplinas cursadas em outra instituição.',
        true, false, 4),
       (v_tipo_id, 'Pedido de Saída Antecipada (Semestral)', 'saida-semestral',
-       'Autorização de saída antecipada válida por todo o semestre. Ao ser deferido, gera automaticamente o Cartão de Saída Semestral.',
-       true, false, 5),
+       'Autorização de saída antecipada válida por todo o semestre (do deferimento ao último dia letivo). Informe o horário diário de saída. Ao ser deferido, gera automaticamente o Cartão de Saída Semestral — válido ±5 min do horário aprovado.',
+       true, true, 5),
       (v_tipo_id, 'Pedido de Saída Antecipada (Eventual)',  'saida-eventual',
        'Autorização de saída antecipada em data específica. Ao ser deferido, gera automaticamente o Cartão de Saída Diário — válido somente no dia e horário indicados (±5 min).',
        true, true, 6),
@@ -139,11 +139,18 @@ BEGIN
     UPDATE requerimento_assuntos
     SET nome = 'Pedido de Saída Antecipada (Semestral)',
         slug = 'saida-semestral',
-        descricao = 'Autorização de saída antecipada válida por todo o semestre. Ao ser deferido, gera automaticamente o Cartão de Saída Semestral.',
-        requer_motivos = true
+        descricao = 'Autorização de saída antecipada válida por todo o semestre (do deferimento ao último dia letivo). Informe o horário diário de saída. Ao ser deferido, gera automaticamente o Cartão de Saída Semestral — válido ±5 min do horário aprovado.',
+        requer_motivos = true,
+        requer_data_hora = true
     WHERE tipo_id = v_tipo_id
       AND nome = 'Pedido de Saída Antecipada'
       AND slug IS NULL;
+
+    -- Garante requer_data_hora=true no saida-semestral já existente
+    UPDATE requerimento_assuntos
+    SET requer_data_hora = true,
+        descricao = 'Autorização de saída antecipada válida por todo o semestre (do deferimento ao último dia letivo). Informe o horário diário de saída. Ao ser deferido, gera automaticamente o Cartão de Saída Semestral — válido ±5 min do horário aprovado.'
+    WHERE slug = 'saida-semestral' AND requer_data_hora = false;
 
     -- Insere variante Eventual se ainda não existir
     IF NOT EXISTS (SELECT 1 FROM requerimento_assuntos WHERE slug = 'saida-eventual') THEN

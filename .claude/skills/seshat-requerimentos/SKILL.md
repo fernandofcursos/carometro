@@ -36,7 +36,7 @@ requerimento_assinaturas → assinaturas (UNIQUE requerimento_id, usuario_id, pa
 | 2 | Trancamento de Curso | — | Não | Não | — |
 | 3 | Troca de Curso | — | Sim | Não | — |
 | 4 | Aproveitamento de Estudos | — | Sim | Não | — |
-| 5 | Pedido de Saída Antecipada (Semestral) | `saida-semestral` | Sim | Não | Gera Cartão de Saída Semestral |
+| 5 | Pedido de Saída Antecipada (Semestral) | `saida-semestral` | Sim | **Sim** | Gera Cartão de Saída Semestral (horário armazenado em `carteiras.horario_saida`) |
 | 6 | Pedido de Saída Antecipada (Eventual) | `saida-eventual` | Sim | **Sim** | Gera Cartão de Saída Diário |
 | 7 | Outros | — | Sim | Não | — |
 

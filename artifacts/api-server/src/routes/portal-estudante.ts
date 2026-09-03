@@ -233,13 +233,14 @@ router.get("/carteiras", async (req: Request, res: Response) => {
 
     const rows = await db
       .select({
-        id:        carteirasTable.id,
-        tipo:      carteirasTable.tipo,
-        ano:       carteirasTable.ano,
-        semestre:  carteirasTable.semestre,
-        status:    carteirasTable.status,
-        token:     carteirasTable.token,
-        criadoEm:  carteirasTable.criadoEm,
+        id:           carteirasTable.id,
+        tipo:         carteirasTable.tipo,
+        ano:          carteirasTable.ano,
+        semestre:     carteirasTable.semestre,
+        horarioSaida: carteirasTable.horarioSaida,
+        status:       carteirasTable.status,
+        token:        carteirasTable.token,
+        criadoEm:     carteirasTable.criadoEm,
       })
       .from(carteirasTable)
       .where(eq(carteirasTable.usuarioId, usuarioId))

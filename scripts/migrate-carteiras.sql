@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS carteiras (
   atualizado_em   timestamptz NOT NULL DEFAULT now()
 );
 
+-- Adiciona horario_saida (cartao-semestral precisa do horário autorizado)
+ALTER TABLE carteiras ADD COLUMN IF NOT EXISTS horario_saida time;
+
 -- Índice para busca rápida por token (verificação pública de QR code)
 CREATE INDEX IF NOT EXISTS ix_carteiras_token    ON carteiras(token);
 -- Índice para listar carteiras de um estudante

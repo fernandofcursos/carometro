@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, smallint, text, timestamp, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, integer, smallint, text, time, timestamp, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { usuariosTable } from "./usuarios";
 import { matriculasTable } from "./matriculas";
@@ -11,6 +11,8 @@ export const carteirasTable = pgTable("carteiras", {
   tipo:           varchar("tipo", { length: 20 }).notNull().default("carteira"),
   ano:            integer("ano").notNull(),
   semestre:       smallint("semestre").notNull(),
+  // Horário de saída autorizado (obrigatório para cartao-semestral, null para carteira)
+  horarioSaida:   time("horario_saida"),
   // 'ativa' | 'cancelada' | 'revogada'
   status:         varchar("status", { length: 20 }).notNull().default("ativa"),
   // Token HMAC-SHA256 armazenado para permitir revogação real
