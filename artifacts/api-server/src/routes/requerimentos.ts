@@ -559,8 +559,11 @@ const analisarSchema = z.object({
   parecer: z.string().max(10000).optional().nullable(),
 });
 
-router.put("/:id/analisar", requirePermissao("requerimentos:manage"), async (req, res) => {
+router.put("/:id/analisar", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
+  const roles = await buscarRoles(usuarioId);
+  const podeAnalisar = roles.some((r) => ["secretaria", "supervisao_pedagogica"].includes(r));
+  if (!podeAnalisar) return res.status(403).json({ error: "Permissão negada." });
 
   const parsed = analisarSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
@@ -691,8 +694,11 @@ async function processarDeferimento(req_: {
 }
 
 // ── POST /api/requerimentos/:id/assinar-analise ───────────────────────────────
-router.post("/:id/assinar-analise", requirePermissao("requerimentos:manage"), async (req, res) => {
+router.post("/:id/assinar-analise", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
+  const roles = await buscarRoles(usuarioId);
+  const podeAnalisar = roles.some((r) => ["secretaria", "supervisao_pedagogica"].includes(r));
+  if (!podeAnalisar) return res.status(403).json({ error: "Permissão negada." });
 
   const parsed = assinarSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
