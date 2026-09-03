@@ -195,7 +195,7 @@ function DetalheModal({ req, onClose, onAssinar }: {
             <p className="text-xs text-muted-foreground uppercase tracking-wider">
               Secretaria Escolar
             </p>
-            <h2 className="text-lg font-bold uppercase mt-1">Requerimento Geral</h2>
+            <h2 className="text-lg font-bold uppercase mt-1">Requerimentos</h2>
             <p className="text-xs text-muted-foreground mt-1">{req.numero}</p>
           </div>
 
@@ -376,12 +376,11 @@ function NovoRequerimentoModal({
     }
     setLoading(true);
     try {
-      const r = await api("/api/requerimentos", {
+      const criado = await fetchJson<{ id: string; numero: string }>("/api/requerimentos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estudanteId, assuntoId, exposicaoMotivos: motivos || null }),
       });
-      const criado = await r.json();
       toast({ title: `Requerimento ${criado.numero} criado com sucesso.` });
       onClose(criado);
     } catch (err: any) {
@@ -396,7 +395,7 @@ function NovoRequerimentoModal({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" /> Novo Requerimento Geral
+            <FileText className="h-5 w-5" /> Novo Requerimentos
           </DialogTitle>
           {/* Stepper */}
           <div className="flex items-center gap-1 pt-2">
@@ -625,7 +624,7 @@ export default function RequerimentosPage() {
             <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
             <h2 className="text-lg font-semibold">Formulário indisponível</h2>
             <p className="text-muted-foreground text-sm">
-              {elegibilidade?.motivo ?? "Você não possui acesso ao Requerimento Geral."}
+              {elegibilidade?.motivo ?? "Você não possui acesso ao Requerimentos."}
             </p>
           </CardContent>
         </Card>
@@ -639,7 +638,7 @@ export default function RequerimentosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="h-6 w-6" /> Requerimento Geral
+            <FileText className="h-6 w-6" /> Requerimentos
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Solicite documentos, transferências, aproveitamentos e outros serviços da Secretaria.

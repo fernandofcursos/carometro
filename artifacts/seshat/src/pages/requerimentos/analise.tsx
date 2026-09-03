@@ -166,7 +166,7 @@ function AnalisarModal({
           <div className="border rounded-lg p-5 bg-muted/20 space-y-4">
             <div className="text-center border-b pb-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Secretaria Escolar</p>
-              <h2 className="text-base font-bold uppercase mt-1">Requerimento Geral</h2>
+              <h2 className="text-base font-bold uppercase mt-1">Requerimentos</h2>
               <p className="text-xs text-muted-foreground font-mono">{req.numero}</p>
             </div>
 

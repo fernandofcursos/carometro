@@ -92,7 +92,7 @@ export function AppSidebar() {
       bgColor: "#f0f9ff",
       items: [
         nav("Meu Perfil", "/portal", GraduationCap),
-        ...(canCreateRequerimentos ? [nav("Requerimento Geral", "/requerimentos", FileText)] : []),
+        ...(canCreateRequerimentos ? [nav("Requerimentos", "/requerimentos", FileText)] : []),
       ],
     }] : []),
     // Portal do Professor — role 'professor' ou admin (para ajuste/teste)
@@ -143,7 +143,7 @@ export function AppSidebar() {
       bgColor: "#fffbeb",
       items: [
         nav("Meus Filhos", "/portal-responsavel", GraduationCap),
-        ...(canCreateRequerimentos ? [nav("Requerimento Geral", "/requerimentos", FileText)] : []),
+        ...(canCreateRequerimentos ? [nav("Requerimentos", "/requerimentos", FileText)] : []),
       ],
     }] : []),
     ...(canViewCarometro ? [{
