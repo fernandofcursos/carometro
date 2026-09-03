@@ -541,4 +541,52 @@ router.post("/:id/assinar-analise", requirePermissao("requerimentos:manage"), as
   res.json({ ok: true, tokenHash });
 });
 
+// ── ADMIN: GET /api/requerimentos/admin/tipos ─────────────────────────────────
+router.get("/admin/tipos", requirePermissao("roles:manage"), async (_req, res) => {
+  const tipos = await db.select().from(requerimentoTiposTable).orderBy(requerimentoTiposTable.ordem);
+  const assuntos = await db.select().from(requerimentoAssuntosTable).orderBy(requerimentoAssuntosTable.ordem);
+  res.json(tipos.map(t => ({ ...t, assuntos: assuntos.filter(a => a.tipoId === t.id) })));
+});
+
+router.post("/admin/tipos", requirePermissao("roles:manage"), async (req, res) => {
+  const { nome, ordem } = req.body;
+  if (!nome) return res.status(400).json({ error: "Nome obrigatório." });
+  const [novo] = await db.insert(requerimentoTiposTable).values({ nome, ordem: ordem ?? 99, ativo: true }).returning();
+  res.status(201).json(novo);
+});
+
+router.put("/admin/tipos/:id", requirePermissao("roles:manage"), async (req, res) => {
+  const { nome, ordem, ativo } = req.body;
+  const [atualizado] = await db.update(requerimentoTiposTable)
+    .set({ nome, ordem, ativo })
+    .where(eq(requerimentoTiposTable.id, req.params.id))
+    .returning();
+  if (!atualizado) return res.status(404).json({ error: "Tipo não encontrado." });
+  res.json(atualizado);
+});
+
+router.post("/admin/assuntos", requirePermissao("roles:manage"), async (req, res) => {
+  const { tipoId, nome, descricao, requerMotivos, ordem } = req.body;
+  if (!tipoId || !nome) return res.status(400).json({ error: "tipoId e nome obrigatórios." });
+  const [novo] = await db.insert(requerimentoAssuntosTable)
+    .values({ tipoId, nome, descricao: descricao ?? null, requerMotivos: !!requerMotivos, ordem: ordem ?? 99, ativo: true })
+    .returning();
+  res.status(201).json(novo);
+});
+
+router.put("/admin/assuntos/:id", requirePermissao("roles:manage"), async (req, res) => {
+  const { nome, descricao, requerMotivos, ordem, ativo } = req.body;
+  const [atualizado] = await db.update(requerimentoAssuntosTable)
+    .set({ nome, descricao, requerMotivos, ordem, ativo })
+    .where(eq(requerimentoAssuntosTable.id, req.params.id))
+    .returning();
+  if (!atualizado) return res.status(404).json({ error: "Assunto não encontrado." });
+  res.json(atualizado);
+});
+
+router.delete("/admin/assuntos/:id", requirePermissao("roles:manage"), async (req, res) => {
+  await db.delete(requerimentoAssuntosTable).where(eq(requerimentoAssuntosTable.id, req.params.id));
+  res.json({ ok: true });
+});
+
 export default router;

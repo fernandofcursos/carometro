@@ -76,8 +76,9 @@ export function AppSidebar() {
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
   const canManageAvisos = hasAny("avisos:manage");
-  const canCreateRequerimentos = hasAny("requerimentos:create");
-  const canManageRequerimentos = hasAny("requerimentos:manage");
+  const canCreateRequerimentos = hasAny("requerimentos:create") || isPaiResponsavel || isEstudante;
+  const canManageRequerimentos = hasAny("requerimentos:manage") || (user?.roles ?? []).some(r => ["secretaria", "supervisao_pedagogica"].includes(r));
+  const canManageTiposRequerimentos = hasAny("roles:manage");
 
   const isActive = (href: string) =>
     href === "/" ? location === "/" : location.startsWith(href);
@@ -149,13 +150,14 @@ export function AppSidebar() {
         nav("Apoio / Operacional", "/carometro/apoio-operacional", Wrench),
       ],
     }] : []),
-    ...(canManageRequerimentos ? [{
+    ...((canManageRequerimentos || canManageTiposRequerimentos) ? [{
       label: "Requerimentos",
       icon: FileText,
       color: "#0891b2",
       bgColor: "#ecfeff",
       items: [
-        nav("Análise de Requerimentos", "/requerimentos/analise", FileText),
+        ...(canManageTiposRequerimentos ? [nav("Tipos de Solicitação", "/requerimentos/tipos", Tag)] : []),
+        ...(canManageRequerimentos ? [nav("Análise de Requerimentos", "/requerimentos/analise", FileText)] : []),
       ],
     }] : []),
     ...(canManageAvisos ? [{

@@ -58,6 +58,7 @@ import InformesPage from "@/pages/informes/index";
 import TiposAvisosPage from "@/pages/tipos-avisos/index";
 import RequerimentosPage from "@/pages/requerimentos/index";
 import RequerimentoAnalisePage from "@/pages/requerimentos/analise";
+import TiposRequerimentosPage from "@/pages/requerimentos/tipos";
 
 const queryClient = new QueryClient();
 
@@ -128,6 +129,7 @@ function AppRoutes() {
           <Route path="/tipos-avisos" component={TiposAvisosPage} />
           <Route path="/requerimentos" component={RequerimentosPage} />
           <Route path="/requerimentos/analise" component={RequerimentoAnalisePage} />
+          <Route path="/requerimentos/tipos" component={TiposRequerimentosPage} />
           <Route path="/iso27001" component={Iso27001Page} />
           <Route component={NotFound} />
         </Switch>
