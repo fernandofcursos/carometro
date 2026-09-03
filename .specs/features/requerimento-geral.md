@@ -20,9 +20,11 @@ A análise (deferimento/indeferimento) é feita exclusivamente por **Supervisor 
 | Perfil | Acesso | Condição |
 |---|---|---|
 | `estudante` | ✅ | **Obrigatório:** maior de 18 anos (`estudantes.dataNascimento`) |
-| `pai_responsavel` | ✅ | Sem restrição de idade — seleciona qual filho |
-| `estudante` menor | ❌ | Bloqueado — formulário não disponível |
+| `pai_responsavel` | ✅ | Sem restrição de idade — seleciona qual filho vinculado |
+| `estudante` menor | ❌ | Bloqueado — formulário indisponível |
 | Outros perfis | ❌ | Sem acesso |
+
+> **Implementação:** roles são verificadas via banco (`usuarios_roles JOIN roles`), nunca pelo JWT. `req.user?.roles` **não existe** neste sistema — usar `buscarRoles(usuarioId)` na rota.
 
 - Pai/Responsável deve selecionar qual estudante vinculado (`responsaveis_estudantes`) antes de preencher
 - Cada requerimento é individual por estudante

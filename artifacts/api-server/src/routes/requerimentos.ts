@@ -7,7 +7,7 @@ import {
   requerimentosTable, requerimentoTiposTable, requerimentoAssuntosTable,
   requerimentoAssinaturasTable, estudantesTable, usuariosTable,
   responsaveisEstudantesTable, turmasTable, cursosTable, turnosTable,
-  turmaTurnosTable,
+  turmaTurnosTable, usuariosRolesTable, rolesTable,
   eq, and, or, inArray, isNull, sql, count, desc,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
@@ -18,6 +18,15 @@ const router = Router();
 router.use(requireAuth);
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
+
+async function buscarRoles(usuarioId: string): Promise<string[]> {
+  const rows = await db
+    .select({ nome: rolesTable.nome })
+    .from(usuariosRolesTable)
+    .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
+    .where(eq(usuariosRolesTable.usuarioId, usuarioId));
+  return rows.map(r => r.nome);
+}
 
 function contarPalavras(texto: string): number {
   return texto.trim().split(/\s+/).filter(Boolean).length;
@@ -98,7 +107,7 @@ router.get("/tipos", async (_req, res) => {
 // Verifica se o usuário pode usar o formulário e lista estudantes disponíveis.
 router.get("/elegibilidade", async (req, res) => {
   const usuarioId = req.usuarioId!;
-  const roles     = (req.user?.roles ?? []) as string[];
+  const roles = await buscarRoles(usuarioId);
 
   const isEstudante     = roles.includes("estudante");
   const isPaiResponsavel = roles.includes("pai_responsavel");
@@ -159,7 +168,7 @@ router.get("/elegibilidade", async (req, res) => {
 // Secretaria/Supervisor: lista todos (com filtro de status).
 router.get("/", requirePermissao("requerimentos:view"), async (req, res) => {
   const usuarioId = req.usuarioId!;
-  const roles     = (req.user?.roles ?? []) as string[];
+  const roles = await buscarRoles(usuarioId);
   const { status } = req.query;
 
   const isAnalisador = roles.some((r) => ["secretaria", "supervisao_pedagogica"].includes(r));
@@ -231,7 +240,7 @@ const criarSchema = z.object({
 
 router.post("/", requirePermissao("requerimentos:create"), async (req, res) => {
   const usuarioId = req.usuarioId!;
-  const roles     = (req.user?.roles ?? []) as string[];
+  const roles = await buscarRoles(usuarioId);
 
   const parsed = criarSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
@@ -310,7 +319,7 @@ router.post("/", requirePermissao("requerimentos:create"), async (req, res) => {
 // ── GET /api/requerimentos/:id ────────────────────────────────────────────────
 router.get("/:id", requirePermissao("requerimentos:view"), async (req, res) => {
   const usuarioId = req.usuarioId!;
-  const roles     = (req.user?.roles ?? []) as string[];
+  const roles = await buscarRoles(usuarioId);
 
   const [row] = await db
     .select({
@@ -388,7 +397,7 @@ const assinarSchema = z.object({
 
 router.post("/:id/assinar", requirePermissao("requerimentos:create"), async (req, res) => {
   const usuarioId = req.usuarioId!;
-  const roles     = (req.user?.roles ?? []) as string[];
+  const roles = await buscarRoles(usuarioId);
 
   const parsed = assinarSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });

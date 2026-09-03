@@ -98,6 +98,18 @@ function contarPalavras(texto: string): number {
 // Retorna: { elegivel: boolean, motivo?: string, estudantes?: [] }
 ```
 
+> **ATENÇÃO:** roles NÃO estão no JWT (`req.user?.roles` não existe).
+> Sempre buscar via banco com `buscarRoles(usuarioId)`:
+> ```typescript
+> async function buscarRoles(usuarioId: string): Promise<string[]> {
+>   const rows = await db.select({ nome: rolesTable.nome })
+>     .from(usuariosRolesTable)
+>     .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
+>     .where(eq(usuariosRolesTable.usuarioId, usuarioId));
+>   return rows.map(r => r.nome);
+> }
+> ```
+
 ```typescript
 function calcularIdade(dataNasc: Date | null): number {
   if (!dataNasc) return 99; // assume adulto se sem data
