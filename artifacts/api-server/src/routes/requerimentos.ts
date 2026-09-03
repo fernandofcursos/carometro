@@ -137,10 +137,17 @@ router.get("/elegibilidade", async (req, res) => {
 
   if (isEstudante) {
     const [est] = await db
-      .select({ id: estudantesTable.id, nome: estudantesTable.nome,
-                dataNascimento: estudantesTable.dataNascimento,
-                usuarioId: estudantesTable.usuarioId })
+      .select({
+        id:             estudantesTable.id,
+        nome:           estudantesTable.nome,
+        dataNascimento: estudantesTable.dataNascimento,
+        usuarioId:      estudantesTable.usuarioId,
+        turmaSigla:     turmasTable.sigla,
+        cursoNome:      cursosTable.nome,
+      })
       .from(estudantesTable)
+      .leftJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+      .leftJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
       .where(and(eq(estudantesTable.usuarioId, usuarioId), isNull(estudantesTable.deletadoEm)))
       .limit(1);
 
@@ -153,39 +160,58 @@ router.get("/elegibilidade", async (req, res) => {
         motivo:   "Formulário disponível somente para estudantes maiores de 18 anos.",
       });
     }
-    const mat = await buscarMatriculasAtivas([est.usuarioId]);
-    const m = mat.get(est.usuarioId);
+    const mat = await buscarMatriculasAtivas([est.usuarioId!]);
+    const m = mat.get(est.usuarioId!);
     return res.json({
       elegivel: true, tipoRequerente: "estudante",
-      estudantes: [{ ...est, cursoNome: m?.cursoNome ?? null, turnos: m?.turnos ?? [] }],
+      estudantes: [{
+        ...est,
+        cursoNome:  m?.cursoNome ?? est.cursoNome ?? null,
+        turmaSigla: est.turmaSigla ?? null,
+        turnos:     m?.turnos ?? [],
+      }],
     });
   }
 
-  // pai_responsavel — um registro por estudante, sem duplicatas por turno
+  // pai_responsavel — um card por estudantes.id, sem duplicatas por turno
+  // JOIN inclui turma + curso para estudantes sem conta (usuarioId = null)
   const estRows = await db
     .select({
       id:             estudantesTable.id,
       nome:           estudantesTable.nome,
       dataNascimento: estudantesTable.dataNascimento,
       usuarioId:      estudantesTable.usuarioId,
+      turmaId:        estudantesTable.turmaId,
+      turmaSigla:     turmasTable.sigla,
+      cursoNome:      cursosTable.nome,
     })
     .from(responsaveisEstudantesTable)
     .innerJoin(estudantesTable, and(
       eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId),
       isNull(estudantesTable.deletadoEm),
     ))
-    .where(eq(responsaveisEstudantesTable.usuarioId, usuarioId));
+    .leftJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
+    .leftJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+    .where(eq(responsaveisEstudantesTable.usuarioId, usuarioId))
+    .orderBy(estudantesTable.nome);
 
   if (!estRows.length) {
     return res.status(403).json({ elegivel: false, motivo: "Nenhum estudante vinculado." });
   }
 
-  const usuarioIds = [...new Set(estRows.map(e => e.usuarioId))];
-  const mat = await buscarMatriculasAtivas(usuarioIds);
+  // Para estudantes com conta: buscar turnos reais das matrículas ativas
+  const comConta = estRows.filter(e => e.usuarioId != null).map(e => e.usuarioId!);
+  const mat = comConta.length ? await buscarMatriculasAtivas(comConta) : new Map();
+
   const vinculados = estRows.map(e => ({
-    ...e,
-    cursoNome: mat.get(e.usuarioId)?.cursoNome ?? null,
-    turnos:    mat.get(e.usuarioId)?.turnos    ?? [],
+    id:             e.id,
+    nome:           e.nome,
+    dataNascimento: e.dataNascimento,
+    usuarioId:      e.usuarioId,
+    cursoNome:      e.cursoNome ?? null,
+    turmaSigla:     e.turmaSigla ?? null,
+    // Turnos: das matrículas ativas (se tem conta) ou vazio
+    turnos: e.usuarioId ? (mat.get(e.usuarioId)?.turnos ?? []) : [],
   }));
 
   return res.json({ elegivel: true, tipoRequerente: "pai_responsavel", estudantes: vinculados });

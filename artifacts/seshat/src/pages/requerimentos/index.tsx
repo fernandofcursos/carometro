@@ -29,9 +29,10 @@ interface Assunto { id: string; nome: string; descricao: string | null; requerMo
 interface Tipo    { id: string; nome: string; assuntos: Assunto[] }
 interface EstudanteInfo {
   id: string; nome: string; dataNascimento: string | null;
-  usuarioId: string;
+  usuarioId?: string | null;
   cursoNome?: string | null;
-  turnos?: string[]; // apenas os turnos em que o estudante está matriculado
+  turmaSigla?: string | null;
+  turnos?: string[]; // apenas os turnos das matrículas ativas
 }
 interface ElegibilidadeResp {
   elegivel: boolean; motivo?: string;
@@ -436,7 +437,11 @@ function NovoRequerimentoModal({
                         <div>
                           <p className="font-medium text-sm">{est.nome}</p>
                           <p className="text-xs text-muted-foreground">
-                            {est.cursoNome ?? "Sem curso"}{est.turnos?.length ? ` · ${est.turnos.join(" / ")}` : ""}
+                            {[
+                              est.cursoNome ?? "Sem curso",
+                              est.turmaSigla,
+                              est.turnos?.length ? est.turnos.join(" / ") : null,
+                            ].filter(Boolean).join(" · ")}
                           </p>
                         </div>
                       </label>
@@ -449,7 +454,11 @@ function NovoRequerimentoModal({
                   <div>
                     <p className="font-semibold">{estudante?.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {estudante?.cursoNome ?? "Sem curso"}{estudante?.turnos?.length ? ` · ${estudante.turnos.join(" / ")}` : ""}
+                      {[
+                        estudante?.cursoNome ?? "Sem curso",
+                        estudante?.turmaSigla,
+                        estudante?.turnos?.length ? estudante.turnos.join(" / ") : null,
+                      ].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                 </div>
