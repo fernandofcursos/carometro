@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createHash } from "crypto";
-import { compare } from "bcrypt";
+import { compare } from "bcryptjs";
 import { z } from "zod";
 import {
   db,
