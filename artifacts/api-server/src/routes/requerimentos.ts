@@ -8,8 +8,10 @@ import {
   requerimentoAssinaturasTable, estudantesTable, usuariosTable,
   responsaveisEstudantesTable, turmasTable, cursosTable, turnosTable,
   turmaTurnosTable, matriculasTable, usuariosRolesTable, rolesTable,
+  cartoesSaidaTable, carteirasTable,
   eq, and, or, inArray, isNull, sql, count, desc,
 } from "@workspace/db";
+import { gerarTokenCarteira } from "./carteiras.js";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao, buscarRoles } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
@@ -233,14 +235,16 @@ router.get("/", requireAuth, async (req, res) => {
       numero:          requerimentosTable.numero,
       status:          requerimentosTable.status,
       tipoRequerente:  requerimentosTable.tipoRequerente,
-      exposicaoMotivos: requerimentosTable.exposicaoMotivos,
-      parecer:         requerimentosTable.parecer,
-      analisadoEm:     requerimentosTable.analisadoEm,
-      criadoEm:        requerimentosTable.criadoEm,
-      estudanteNome:   estudantesTable.nome,
-      estudanteId:     estudantesTable.id,
-      assuntoNome:     requerimentoAssuntosTable.nome,
-      requerenteNome:  usuariosTable.nome,
+      exposicaoMotivos:  requerimentosTable.exposicaoMotivos,
+      dataSolicitacao:   requerimentosTable.dataSolicitacao,
+      horaSolicitacao:   requerimentosTable.horaSolicitacao,
+      parecer:           requerimentosTable.parecer,
+      analisadoEm:       requerimentosTable.analisadoEm,
+      criadoEm:          requerimentosTable.criadoEm,
+      estudanteNome:     estudantesTable.nome,
+      estudanteId:       estudantesTable.id,
+      assuntoNome:       requerimentoAssuntosTable.nome,
+      requerenteNome:    usuariosTable.nome,
     })
     .from(requerimentosTable)
     .innerJoin(estudantesTable,             eq(estudantesTable.id, requerimentosTable.estudanteId))
@@ -287,9 +291,11 @@ router.get("/", requireAuth, async (req, res) => {
 
 // ── POST /api/requerimentos ───────────────────────────────────────────────────
 const criarSchema = z.object({
-  estudanteId:      z.string().uuid(),
-  assuntoId:        z.string().uuid(),
-  exposicaoMotivos: z.string().max(10000).optional().nullable(),
+  estudanteId:       z.string().uuid(),
+  assuntoId:         z.string().uuid(),
+  exposicaoMotivos:  z.string().max(10000).optional().nullable(),
+  dataSolicitacao:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  horaSolicitacao:   z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
 });
 
 router.post("/", requireAuth, async (req, res) => {
@@ -298,7 +304,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const parsed = criarSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-  const { estudanteId, assuntoId, exposicaoMotivos } = parsed.data;
+  const { estudanteId, assuntoId, exposicaoMotivos, dataSolicitacao, horaSolicitacao } = parsed.data;
 
   // Validação: contagem de palavras
   if (exposicaoMotivos && contarPalavras(exposicaoMotivos) > 1000) {
@@ -338,7 +344,11 @@ router.post("/", requireAuth, async (req, res) => {
 
   // Verificar se assunto existe e está ativo
   const [assunto] = await db
-    .select({ id: requerimentoAssuntosTable.id, requerMotivos: requerimentoAssuntosTable.requerMotivos })
+    .select({
+      id: requerimentoAssuntosTable.id,
+      requerMotivos: requerimentoAssuntosTable.requerMotivos,
+      requerDataHora: requerimentoAssuntosTable.requerDataHora,
+    })
     .from(requerimentoAssuntosTable)
     .where(and(eq(requerimentoAssuntosTable.id, assuntoId), eq(requerimentoAssuntosTable.ativo, true)))
     .limit(1);
@@ -346,6 +356,14 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (assunto.requerMotivos && !exposicaoMotivos?.trim()) {
     return res.status(422).json({ error: "Este assunto requer a exposição de motivos." });
+  }
+
+  // Data/hora: obrigatória para assuntos que exigem; se data for informada, hora é obrigatória
+  if (assunto.requerDataHora && !dataSolicitacao) {
+    return res.status(422).json({ error: "Este assunto requer a data da solicitação." });
+  }
+  if (dataSolicitacao && !horaSolicitacao) {
+    return res.status(422).json({ error: "Ao informar a data, o horário é obrigatório." });
   }
 
   const numero = await gerarNumero();
@@ -356,7 +374,9 @@ router.post("/", requireAuth, async (req, res) => {
     .values({
       numero, estudanteId, requerenteId: usuarioId,
       tipoRequerente, assuntoId,
-      exposicaoMotivos: exposicaoMotivos?.trim() || null,
+      exposicaoMotivos:  exposicaoMotivos?.trim() || null,
+      dataSolicitacao:   dataSolicitacao  || null,
+      horaSolicitacao:   horaSolicitacao  || null,
       status: "pendente",
     })
     .returning();
@@ -554,8 +574,18 @@ router.put("/:id/analisar", requirePermissao("requerimentos:manage"), async (req
   }
 
   const [existente] = await db
-    .select({ id: requerimentosTable.id })
+    .select({
+      id:               requerimentosTable.id,
+      estudanteId:      requerimentosTable.estudanteId,
+      requerenteId:     requerimentosTable.requerenteId,
+      dataSolicitacao:  requerimentosTable.dataSolicitacao,
+      horaSolicitacao:  requerimentosTable.horaSolicitacao,
+      exposicaoMotivos: requerimentosTable.exposicaoMotivos,
+      assuntoId:        requerimentosTable.assuntoId,
+      assuntoSlug:      requerimentoAssuntosTable.slug,
+    })
     .from(requerimentosTable)
+    .innerJoin(requerimentoAssuntosTable, eq(requerimentoAssuntosTable.id, requerimentosTable.assuntoId))
     .where(eq(requerimentosTable.id, req.params.id))
     .limit(1);
   if (!existente) return res.status(404).json({ error: "Requerimento não encontrado." });
@@ -572,6 +602,16 @@ router.put("/:id/analisar", requirePermissao("requerimentos:manage"), async (req
     .where(eq(requerimentosTable.id, req.params.id))
     .returning();
 
+  // ── Efeitos do Deferimento ─────────────────────────────────────────────────
+  if (status === "deferido") {
+    try {
+      await processarDeferimento(existente, usuarioId);
+    } catch (errDef) {
+      // Log mas não falha a análise — cartão pode ser emitido manualmente
+      console.error("[deferimento] Erro ao gerar cartão:", errDef);
+    }
+  }
+
   await registrarAuditoria({
     usuarioId, acao: "update", recurso: "requerimentos", recursoId: req.params.id,
     detalhes: { status, parecer: parecer ?? null },
@@ -580,6 +620,75 @@ router.put("/:id/analisar", requirePermissao("requerimentos:manage"), async (req
 
   res.json(atualizado);
 });
+
+// ── Processamento de Deferimento — geração de cartões ─────────────────────────
+async function processarDeferimento(req_: {
+  id: string; estudanteId: string; requerenteId: string;
+  dataSolicitacao: string | null; horaSolicitacao: string | null;
+  exposicaoMotivos: string | null; assuntoSlug: string | null;
+}, analisadoPorId: string): Promise<void> {
+  const slug = req_.assuntoSlug;
+  if (!slug || !["saida-semestral", "saida-eventual"].includes(slug)) return;
+
+  // Buscar usuarioId do estudante
+  const [est] = await db
+    .select({ usuarioId: estudantesTable.usuarioId })
+    .from(estudantesTable)
+    .where(eq(estudantesTable.id, req_.estudanteId))
+    .limit(1);
+  if (!est?.usuarioId) return; // estudante sem conta — não é possível gerar cartão
+
+  if (slug === "saida-semestral") {
+    // Buscar matrícula ativa para obter ano/semestre
+    const [mat] = await db
+      .select({ id: matriculasTable.id, ano: matriculasTable.ano, semestre: matriculasTable.semestre })
+      .from(matriculasTable)
+      .where(and(eq(matriculasTable.usuarioId, est.usuarioId), eq(matriculasTable.ativo, true)))
+      .limit(1);
+    if (!mat) return;
+
+    const tipo = "cartao-semestral" as const;
+    const jaExiste = await db
+      .select({ id: carteirasTable.id })
+      .from(carteirasTable)
+      .where(and(
+        eq(carteirasTable.usuarioId, est.usuarioId),
+        eq(carteirasTable.tipo, tipo),
+        eq(carteirasTable.ano, mat.ano),
+        eq(carteirasTable.semestre, mat.semestre),
+        eq(carteirasTable.status, "ativa"),
+      ))
+      .limit(1);
+    if (jaExiste.length) return; // idempotente
+
+    const token = gerarTokenCarteira(est.usuarioId, tipo, mat.ano, mat.semestre);
+    await db.insert(carteirasTable).values({
+      usuarioId: est.usuarioId,
+      matriculaId: mat.id,
+      tipo, ano: mat.ano, semestre: mat.semestre,
+      status: "ativa", token,
+    });
+
+  } else if (slug === "saida-eventual") {
+    // Exige data e horário informados no requerimento
+    if (!req_.dataSolicitacao || !req_.horaSolicitacao) return;
+
+    const token = gerarTokenCarteira(est.usuarioId, "cartao-saida-eventual",
+      new Date().getFullYear(), new Date().getMonth() < 6 ? 1 : 2);
+
+    await db.insert(cartoesSaidaTable).values({
+      estudanteId:         req_.estudanteId,
+      responsavelId:       req_.requerenteId,
+      dataSaida:           req_.dataSolicitacao,
+      horarioSaida:        req_.horaSolicitacao,
+      motivo:              req_.exposicaoMotivos?.slice(0, 300) ?? null,
+      status:              "aprovado",
+      aprovadoPorId:       analisadoPorId,
+      aprovadoEm:          new Date(),
+      token,
+    });
+  }
+}
 
 // ── POST /api/requerimentos/:id/assinar-analise ───────────────────────────────
 router.post("/:id/assinar-analise", requirePermissao("requerimentos:manage"), async (req, res) => {

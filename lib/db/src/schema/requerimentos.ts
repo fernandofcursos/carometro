@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, varchar, text, smallint, timestamp,
-  boolean, integer, primaryKey, index, uniqueIndex,
+  boolean, integer, primaryKey, index, uniqueIndex, date, time,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -25,9 +25,11 @@ export const requerimentoAssuntosTable = pgTable("requerimento_assuntos", {
   tipoId:         uuid("tipo_id").notNull().references(() => requerimentoTiposTable.id, { onDelete: "cascade" }),
   nome:           varchar("nome", { length: 200 }).notNull(),
   descricao:      text("descricao"),
-  requerMotivos:  boolean("requer_motivos").default(false).notNull(),
-  ordem:          smallint("ordem").default(0).notNull(),
-  ativo:          boolean("ativo").default(true).notNull(),
+  slug:            varchar("slug", { length: 50 }),   // 'saida-semestral' | 'saida-eventual' | null
+  requerMotivos:   boolean("requer_motivos").default(false).notNull(),
+  requerDataHora:  boolean("requer_data_hora").default(false).notNull(), // data+hora obrigatórios
+  ordem:           smallint("ordem").default(0).notNull(),
+  ativo:           boolean("ativo").default(true).notNull(),
 }, (t) => [
   index("idx_req_assuntos_tipo").on(t.tipoId),
 ]);
@@ -43,14 +45,16 @@ export const requerimentosTable = pgTable("requerimentos", {
   requerenteId:     uuid("requerente_id").notNull().references(() => usuariosTable.id, { onDelete: "restrict" }),
   tipoRequerente:   varchar("tipo_requerente", { length: 20 }).notNull(), // 'estudante' | 'pai_responsavel'
   assuntoId:        uuid("assunto_id").notNull().references(() => requerimentoAssuntosTable.id, { onDelete: "restrict" }),
-  exposicaoMotivos: text("exposicao_motivos"),    // max 1000 palavras — validado na app
-  status:           varchar("status", { length: 20 }).default("pendente").notNull(),
+  exposicaoMotivos:  text("exposicao_motivos"),   // max 1000 palavras — validado na app
+  dataSolicitacao:   date("data_solicitacao"),    // data desejada (obrigatório quando assunto.requerDataHora)
+  horaSolicitacao:   time("hora_solicitacao"),    // horário desejado (obrigatório se dataSolicitacao preenchida)
+  status:            varchar("status", { length: 20 }).default("pendente").notNull(),
   // pendente | em_analise | deferido | indeferido
-  parecer:          text("parecer"),              // motivo do indeferimento — max 1000 palavras
-  analisadoPorId:   uuid("analisado_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
-  analisadoEm:      timestamp("analisado_em", { withTimezone: true }),
-  criadoEm:         timestamp("criado_em",    { withTimezone: true }).defaultNow().notNull(),
-  atualizadoEm:     timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+  parecer:           text("parecer"),             // motivo do indeferimento — max 1000 palavras
+  analisadoPorId:    uuid("analisado_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
+  analisadoEm:       timestamp("analisado_em", { withTimezone: true }),
+  criadoEm:          timestamp("criado_em",    { withTimezone: true }).defaultNow().notNull(),
+  atualizadoEm:      timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
   index("idx_requerimentos_estudante").on(t.estudanteId),
   index("idx_requerimentos_requerente").on(t.requerenteId),

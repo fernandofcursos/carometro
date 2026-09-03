@@ -33,20 +33,38 @@ A análise (deferimento/indeferimento) é feita exclusivamente por **Supervisor 
 
 ### Assuntos disponíveis (seed — modelo físico)
 
-| Ordem | Assunto | Requer Motivos |
-|---|---|---|
-| 1 | Cancelamento de Matrícula | Não |
-| 2 | Trancamento de Curso | Não |
-| 3 | Troca de Curso | Sim |
-| 4 | Aproveitamento de Estudos | Sim |
-| 5 | Pedido de Saída Antecipada | Sim |
-| 6 | Outros | Sim |
+| Ordem | Assunto | Slug | Requer Motivos | Requer Data/Hora | Efeito ao Deferir |
+|---|---|---|---|---|---|
+| 1 | Cancelamento de Matrícula | — | Não | Não | — |
+| 2 | Trancamento de Curso | — | Não | Não | — |
+| 3 | Troca de Curso | — | Sim | Não | — |
+| 4 | Aproveitamento de Estudos | — | Sim | Não | — |
+| 5 | Pedido de Saída Antecipada (Semestral) | `saida-semestral` | Sim | Não | Gera Cartão de Saída Semestral |
+| 6 | Pedido de Saída Antecipada (Eventual) | `saida-eventual` | Sim | **Sim** | Gera Cartão de Saída Diário (±5 min) |
+| 7 | Outros | — | Sim | Não | — |
 
 ### Exposição de Motivos
 
 - Campo texto livre, exibido quando `requer_motivos = true` ou sempre opcional
 - Limite: **1000 palavras** (validado na API e UI com contador em tempo real)
 - Quando o assunto `requer_motivos = true`: campo obrigatório
+
+### Data e Hora da Solicitação
+
+- `requerimento_assuntos.requer_data_hora` — sinaliza assuntos que exigem data/hora
+- `requerimentos.data_solicitacao` (date) — obrigatório quando `requer_data_hora = true`
+- `requerimentos.hora_solicitacao` (time) — obrigatório quando `data_solicitacao` preenchida
+- A UI exibe campos de data/hora realçados em âmbar com preview da validade do cartão
+
+### Efeitos automáticos do Deferimento
+
+| Assunto | Efeito |
+|---|---|
+| Pedido de Saída Antecipada (Semestral) | INSERT em `carteiras` (tipo=`cartao-semestral`) para o período da matrícula ativa |
+| Pedido de Saída Antecipada (Eventual)  | INSERT em `cartoes_saida` (status=`aprovado`) com `data_saida` e `horario_saida` do requerimento |
+
+- Geração é **idempotente** e **tolerante a falhas** (try/catch — não falha a análise)
+- Cancelamento automático do Eventual: detectado pelo frontend (refetchInterval: 30s, janela ±5 min)
 
 ### Status do requerimento
 
@@ -112,7 +130,9 @@ id, nome varchar(100), ordem smallint, ativo boolean
 
 ```sql
 id, tipo_id FK→requerimento_tipos, nome varchar(200), descricao text,
-requer_motivos boolean, ordem smallint, ativo boolean
+slug varchar(50),          -- 'saida-semestral' | 'saida-eventual' | NULL
+requer_motivos boolean, requer_data_hora boolean,
+ordem smallint, ativo boolean
 ```
 
 ### `requerimentos`
@@ -125,6 +145,8 @@ requerente_id FK→usuarios (RESTRICT)        -- quem submete
 tipo_requerente varchar(20)                 -- 'estudante' | 'pai_responsavel'
 assunto_id FK→requerimento_assuntos (RESTRICT)
 exposicao_motivos text                      -- max 1000 palavras
+data_solicitacao date                       -- obrigatório se assunto.requer_data_hora
+hora_solicitacao time                       -- obrigatório se data_solicitacao preenchida
 status varchar(20) DEFAULT 'pendente'       -- pendente|em_analise|deferido|indeferido
 parecer text                                -- motivo do indeferimento
 analisado_por_id FK→usuarios (SET NULL)

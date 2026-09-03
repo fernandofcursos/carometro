@@ -23,21 +23,47 @@ Permite ao estudante adulto (≥18 anos) ou ao Pai/Responsável solicitar servi�
 
 ```
 requerimento_tipos       → tipos de formulário
-requerimento_assuntos    → assuntos por tipo (requer_motivos boolean)
-requerimentos            → cada pedido
+requerimento_assuntos    → assuntos por tipo (requer_motivos, requer_data_hora, slug)
+requerimentos            → cada pedido (+ data_solicitacao, hora_solicitacao)
 requerimento_assinaturas → assinaturas (UNIQUE requerimento_id, usuario_id, papel)
 ```
 
 ## Assuntos (seed — modelo físico)
 
-| # | Assunto | Requer Motivos |
-|---|---|---|
-| 1 | Cancelamento de Matrícula | Não |
-| 2 | Trancamento de Curso | Não |
-| 3 | Troca de Curso | Sim |
-| 4 | Aproveitamento de Estudos | Sim |
-| 5 | Pedido de Saída Antecipada | Sim |
-| 6 | Outros | Sim |
+| # | Assunto | Slug | Requer Motivos | Requer Data/Hora | Efeito ao Deferir |
+|---|---|---|---|---|---|
+| 1 | Cancelamento de Matrícula | — | Não | Não | — |
+| 2 | Trancamento de Curso | — | Não | Não | — |
+| 3 | Troca de Curso | — | Sim | Não | — |
+| 4 | Aproveitamento de Estudos | — | Sim | Não | — |
+| 5 | Pedido de Saída Antecipada (Semestral) | `saida-semestral` | Sim | Não | Gera Cartão de Saída Semestral |
+| 6 | Pedido de Saída Antecipada (Eventual) | `saida-eventual` | Sim | **Sim** | Gera Cartão de Saída Diário |
+| 7 | Outros | — | Sim | Não | — |
+
+## Data e Hora nos Requerimentos
+
+- `requerimento_assuntos.requer_data_hora = true` → formulário exige data + hora
+- `requerimentos.data_solicitacao` (date) — data desejada
+- `requerimentos.hora_solicitacao` (time) — horário (obrigatório se data informada)
+- Regra UI: se o assunto exige data, campo data é obrigatório; ao preencher data, hora é obrigatória
+
+## Efeitos do Deferimento
+
+```typescript
+// Função processarDeferimento() em requerimentos.ts
+// Chamada automaticamente após status = 'deferido'
+
+slug === 'saida-semestral':
+  → INSERT carteiras (tipo='cartao-semestral', ano/semestre da matrícula ativa)
+  → Idempotente: não duplica se já existir ativa no período
+
+slug === 'saida-eventual':
+  → INSERT cartoes_saida (status='aprovado', dataSaida, horarioSaida do requerimento)
+  → Válido ±5 min do horário (regra já existente no portal do estudante)
+  → Cancelamento automático: detectado pelo frontend (refetchInterval: 30s)
+```
+
+> **CRÍTICO:** A função `processarDeferimento` é envolvida em try/catch — erro na geração do cartão NÃO falha a análise. Cartão pode ser emitido manualmente via `/api/carteiras/emitir-liberacao/:usuarioId`.
 
 ## API Endpoints
 

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-interface Assunto { id: string; nome: string; descricao: string | null; requerMotivos: boolean; ordem: number }
+interface Assunto { id: string; nome: string; descricao: string | null; slug?: string | null; requerMotivos: boolean; requerDataHora?: boolean; ordem: number }
 interface Tipo    { id: string; nome: string; assuntos: Assunto[] }
 interface EstudanteInfo {
   id: string; nome: string; dataNascimento: string | null;
@@ -44,6 +44,7 @@ interface Requerimento {
   id: string; numero: string; status: string; assuntoNome: string; tipoNome: string;
   estudanteNome: string; requerenteNome: string | null; criadoEm: string;
   exposicaoMotivos: string | null; parecer: string | null; analisadoEm: string | null;
+  dataSolicitacao?: string | null; horaSolicitacao?: string | null;
   assinaturas: Assinatura[];
 }
 
@@ -240,6 +241,22 @@ function DetalheModal({ req, onClose, onAssinar }: {
             </div>
           </div>
 
+          {/* Data/Hora solicitada */}
+          {req.dataSolicitacao && (
+            <div className="grid grid-cols-2 gap-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div>
+                <p className="text-xs text-muted-foreground">Data solicitada</p>
+                <p className="font-medium">{new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
+              </div>
+              {req.horaSolicitacao && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Horário</p>
+                  <p className="font-medium">{req.horaSolicitacao.substring(0, 5)}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Exposição de Motivos */}
           {req.exposicaoMotivos && (
             <div>
@@ -368,6 +385,8 @@ function NovoRequerimentoModal({
   );
   const [assuntoId, setAssuntoId] = useState("");
   const [motivos, setMotivos] = useState("");
+  const [dataSolicitacao, setDataSolicitacao] = useState("");
+  const [horaSolicitacao, setHoraSolicitacao] = useState("");
   const [loading, setLoading] = useState(false);
 
   const allAssuntos = tipos.flatMap((t) => t.assuntos);
@@ -384,12 +403,23 @@ function NovoRequerimentoModal({
     if (palavras > 1000) {
       return toast({ title: "A exposição de motivos deve ter no máximo 1000 palavras.", variant: "destructive" });
     }
+    if (assunto?.requerDataHora && !dataSolicitacao) {
+      return toast({ title: "Informe a data da solicitação.", variant: "destructive" });
+    }
+    if (dataSolicitacao && !horaSolicitacao) {
+      return toast({ title: "Ao informar a data, o horário é obrigatório.", variant: "destructive" });
+    }
     setLoading(true);
     try {
       const criado = await fetchJson<{ id: string; numero: string }>("/api/requerimentos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estudanteId, assuntoId, exposicaoMotivos: motivos || null }),
+        body: JSON.stringify({
+          estudanteId, assuntoId,
+          exposicaoMotivos:  motivos || null,
+          dataSolicitacao:   dataSolicitacao  || null,
+          horaSolicitacao:   horaSolicitacao  || null,
+        }),
       });
       toast({ title: `Requerimento ${criado.numero} criado com sucesso.` });
       onClose(criado);
@@ -509,13 +539,50 @@ function NovoRequerimentoModal({
             </div>
           )}
 
-          {/* Step 3 — Motivos */}
+          {/* Step 3 — Data/Hora + Motivos */}
           {step === 3 && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="p-3 bg-muted/30 rounded-lg text-sm">
                 <p className="text-xs text-muted-foreground">Assunto selecionado</p>
                 <p className="font-semibold">{assunto?.nome}</p>
               </div>
+
+              {/* Data e Hora — somente se o assunto exige ou se o usuário quiser informar */}
+              {assunto?.requerDataHora && (
+                <div className="border rounded-lg p-3 space-y-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                    Informe a data e o horário de saída desejados *
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="data-sol">Data *</Label>
+                      <Input
+                        id="data-sol"
+                        type="date"
+                        value={dataSolicitacao}
+                        min={new Date().toISOString().substring(0, 10)}
+                        onChange={(e) => setDataSolicitacao(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="hora-sol">Horário *</Label>
+                      <Input
+                        id="hora-sol"
+                        type="time"
+                        value={horaSolicitacao}
+                        onChange={(e) => setHoraSolicitacao(e.target.value)}
+                        disabled={!dataSolicitacao}
+                      />
+                    </div>
+                  </div>
+                  {dataSolicitacao && horaSolicitacao && (
+                    <p className="text-xs text-muted-foreground">
+                      O cartão de saída será válido em <strong>{new Date(dataSolicitacao + "T00:00").toLocaleDateString("pt-BR")}</strong> das <strong>{horaSolicitacao}</strong> (±5 min).
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1">
                 <Label htmlFor="motivos">
                   Exposição de Motivos
@@ -526,7 +593,7 @@ function NovoRequerimentoModal({
                   placeholder="Descreva os motivos do seu requerimento..."
                   value={motivos}
                   onChange={(e) => setMotivos(e.target.value)}
-                  rows={7}
+                  rows={6}
                   className="resize-none"
                 />
                 <div className={`text-xs text-right ${palavras > 1000 ? "text-destructive" : "text-muted-foreground"}`}>
