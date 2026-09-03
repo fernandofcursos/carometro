@@ -417,11 +417,14 @@ function CartaoLiberacaoCard({
         <div className="relative h-full flex flex-col" style={{ padding: "14px 28px 14px 18px" }}>
           {/* Cabeçalho */}
           <div className="flex items-center justify-between mb-2">
-            <div>
-              <p style={{ fontSize: 8, color: cor.strip, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Cartão de</p>
-              <p style={{ fontSize: 10, color: cor.text, fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1.2 }}>Liberação {cor.label}</p>
+            <div className="flex items-center gap-2">
+              <img src={LOGO_GDF} alt="Brasão GDF" style={{ width: 44, height: 44, objectFit: "contain" }} />
+              <div>
+                <p style={{ fontSize: 8, color: cor.strip, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.2 }}>Cartão de</p>
+                <p style={{ fontSize: 10, color: cor.text, fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1.2 }}>Liberação {cor.label}</p>
+              </div>
             </div>
-            <p style={{ fontSize: 9, color: cor.strip, fontWeight: 600 }}>Sec. Est. de Educação do DF</p>
+            <img src={LOGO_CEP} alt="Logo CEP" style={{ width: 44, height: 44, objectFit: "contain" }} />
           </div>
 
           {/* Nome */}

@@ -78,8 +78,9 @@ const COR_DIA: Record<number, Paleta> = {
 ```
 
 ### Logos
-- `LOGO_GDF` e `LOGO_CEP` — constantes base64 declaradas no topo de `portal/index.tsx`
+- `LOGO_GDF` e `LOGO_CEP` — constantes base64 declaradas no topo de cada arquivo de página (`portal/index.tsx` e `portal-responsavel/index.tsx`)
 - **Nunca usar URL externa** — a carteira/cartão deve renderizar offline e em impressão
+- O `CartaoLiberacaoCard` em **ambos os portais** exibe LOGO_GDF (esquerda) + título central + LOGO_CEP (direita) no cabeçalho — idêntico à `CarteiraEstudante`
 
 ---
 
