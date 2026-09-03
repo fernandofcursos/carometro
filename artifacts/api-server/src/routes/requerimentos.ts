@@ -9,7 +9,7 @@ import {
   responsaveisEstudantesTable, turmasTable, cursosTable, turnosTable,
   turmaTurnosTable, matriculasTable, usuariosRolesTable, rolesTable,
   cartoesSaidaTable, carteirasTable,
-  eq, and, or, inArray, isNull, sql, count, desc,
+  eq, and, or, inArray, isNull, sql, count, desc, alias,
 } from "@workspace/db";
 import { gerarTokenCarteira } from "./carteiras.js";
 import { requireAuth } from "../lib/auth.js";
@@ -41,15 +41,18 @@ async function gerarNumero(): Promise<string> {
   return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
-// Busca matrículas ativas de um conjunto de usuárioIds, agrupando por estudante.
-// Retorna Map<usuarioId, { cursoNome, turnos: string[] }>
+// Busca matrículas ativas de um conjunto de usuárioIds, retornando lista por usuário.
+// Retorna Map<usuarioId, Matricula[]> onde cada matricula tem id, cursoNome, turmaSigla, turnoNome.
+interface MatriculaInfo { id: string; cursoNome: string | null; turmaSigla: string | null; turnoNome: string | null }
 async function buscarMatriculasAtivas(usuarioIds: string[]) {
-  if (!usuarioIds.length) return new Map<string, { cursoNome: string | null; turnos: string[] }>();
+  if (!usuarioIds.length) return new Map<string, MatriculaInfo[]>();
   const rows = await db
     .select({
-      usuarioId: matriculasTable.usuarioId,
-      cursoNome: cursosTable.nome,
-      turnoNome: turnosTable.nome,
+      id:         matriculasTable.id,
+      usuarioId:  matriculasTable.usuarioId,
+      cursoNome:  cursosTable.nome,
+      turmaSigla: turmasTable.sigla,
+      turnoNome:  turnosTable.nome,
     })
     .from(matriculasTable)
     .leftJoin(turmasTable, eq(turmasTable.id, matriculasTable.turmaId))
@@ -61,12 +64,11 @@ async function buscarMatriculasAtivas(usuarioIds: string[]) {
       isNull(matriculasTable.deletadoEm),
     ));
 
-  const map = new Map<string, { cursoNome: string | null; turnos: string[] }>();
+  const map = new Map<string, MatriculaInfo[]>();
   for (const r of rows) {
-    const entry = map.get(r.usuarioId) ?? { cursoNome: r.cursoNome ?? null, turnos: [] };
-    if (r.turnoNome && !entry.turnos.includes(r.turnoNome)) entry.turnos.push(r.turnoNome);
-    if (!entry.cursoNome && r.cursoNome) entry.cursoNome = r.cursoNome;
-    map.set(r.usuarioId, entry);
+    const list = map.get(r.usuarioId) ?? [];
+    list.push({ id: r.id, cursoNome: r.cursoNome ?? null, turmaSigla: r.turmaSigla ?? null, turnoNome: r.turnoNome ?? null });
+    map.set(r.usuarioId, list);
   }
   return map;
 }
@@ -87,8 +89,8 @@ async function buscarEstudanteCompleto(estudanteId: string) {
   if (!est) return null;
 
   const mat = await buscarMatriculasAtivas([est.usuarioId]);
-  const m = mat.get(est.usuarioId);
-  return { ...est, cursoNome: m?.cursoNome ?? null, turnos: m?.turnos ?? [] };
+  const matriculas = mat.get(est.usuarioId) ?? [];
+  return { ...est, matriculas };
 }
 
 function calcularIdade(dataNasc: string | null): number {
@@ -163,37 +165,26 @@ router.get("/elegibilidade", async (req, res) => {
       });
     }
     const mat = await buscarMatriculasAtivas([est.usuarioId!]);
-    const m = mat.get(est.usuarioId!);
+    const matriculas = mat.get(est.usuarioId!) ?? [];
     return res.json({
       elegivel: true, tipoRequerente: "estudante",
-      estudantes: [{
-        ...est,
-        cursoNome:  m?.cursoNome ?? est.cursoNome ?? null,
-        turmaSigla: est.turmaSigla ?? null,
-        turnos:     m?.turnos ?? [],
-      }],
+      estudantes: [{ id: est.id, nome: est.nome, dataNascimento: est.dataNascimento, usuarioId: est.usuarioId, matriculas }],
     });
   }
 
-  // pai_responsavel — um card por estudantes.id, sem duplicatas por turno
-  // JOIN inclui turma + curso para estudantes sem conta (usuarioId = null)
+  // pai_responsavel — um objeto por estudantes.id
   const estRows = await db
     .select({
       id:             estudantesTable.id,
       nome:           estudantesTable.nome,
       dataNascimento: estudantesTable.dataNascimento,
       usuarioId:      estudantesTable.usuarioId,
-      turmaId:        estudantesTable.turmaId,
-      turmaSigla:     turmasTable.sigla,
-      cursoNome:      cursosTable.nome,
     })
     .from(responsaveisEstudantesTable)
     .innerJoin(estudantesTable, and(
       eq(estudantesTable.id, responsaveisEstudantesTable.estudanteId),
       isNull(estudantesTable.deletadoEm),
     ))
-    .leftJoin(turmasTable, eq(turmasTable.id, estudantesTable.turmaId))
-    .leftJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
     .where(eq(responsaveisEstudantesTable.usuarioId, usuarioId))
     .orderBy(estudantesTable.nome);
 
@@ -201,19 +192,16 @@ router.get("/elegibilidade", async (req, res) => {
     return res.status(403).json({ elegivel: false, motivo: "Nenhum estudante vinculado." });
   }
 
-  // Para estudantes com conta: buscar turnos reais das matrículas ativas
+  // Busca matrículas ativas para estudantes com conta no sistema
   const comConta = estRows.filter(e => e.usuarioId != null).map(e => e.usuarioId!);
-  const mat = comConta.length ? await buscarMatriculasAtivas(comConta) : new Map();
+  const mat = comConta.length ? await buscarMatriculasAtivas(comConta) : new Map<string, MatriculaInfo[]>();
 
   const vinculados = estRows.map(e => ({
     id:             e.id,
     nome:           e.nome,
     dataNascimento: e.dataNascimento,
     usuarioId:      e.usuarioId,
-    cursoNome:      e.cursoNome ?? null,
-    turmaSigla:     e.turmaSigla ?? null,
-    // Turnos: das matrículas ativas (se tem conta) ou vazio
-    turnos: e.usuarioId ? (mat.get(e.usuarioId)?.turnos ?? []) : [],
+    matriculas:     e.usuarioId ? (mat.get(e.usuarioId) ?? []) : [],
   }));
 
   return res.json({ elegivel: true, tipoRequerente: "pai_responsavel", estudantes: vinculados });
@@ -315,6 +303,7 @@ router.get("/", requireAuth, async (req, res) => {
 const criarSchema = z.object({
   estudanteId:       z.string().uuid(),
   assuntoId:         z.string().uuid(),
+  matriculaId:       z.string().uuid().optional().nullable(), // enturmação escolhida
   exposicaoMotivos:  z.string().max(10000).optional().nullable(),
   dataSolicitacao:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   horaSolicitacao:   z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
@@ -326,7 +315,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const parsed = criarSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-  const { estudanteId, assuntoId, exposicaoMotivos, dataSolicitacao, horaSolicitacao } = parsed.data;
+  const { estudanteId, assuntoId, matriculaId, exposicaoMotivos, dataSolicitacao, horaSolicitacao } = parsed.data;
 
   // Validação: contagem de palavras
   if (exposicaoMotivos && contarPalavras(exposicaoMotivos) > 1000) {
@@ -396,6 +385,7 @@ router.post("/", requireAuth, async (req, res) => {
     .values({
       numero, estudanteId, requerenteId: usuarioId,
       tipoRequerente, assuntoId,
+      matriculaId:       matriculaId || null,
       exposicaoMotivos:  exposicaoMotivos?.trim() || null,
       dataSolicitacao:   dataSolicitacao  || null,
       horaSolicitacao:   horaSolicitacao  || null,
@@ -417,37 +407,48 @@ router.get("/:id", requireAuth, async (req, res) => {
   const usuarioId = req.usuarioId!;
   const roles = await buscarRoles(usuarioId);
 
+  // Alias para turmas/cursos/turnos da matricula escolhida (evita conflito de nomes)
+  const turmasMat  = alias(turmasTable,  "turmas_mat");
+  const cursosMat  = alias(cursosTable,  "cursos_mat");
+  const turnosMat  = alias(turnosTable,  "turnos_mat");
+
   const [row] = await db
     .select({
-      id:              requerimentosTable.id,
-      numero:          requerimentosTable.numero,
-      status:          requerimentosTable.status,
-      tipoRequerente:  requerimentosTable.tipoRequerente,
+      id:               requerimentosTable.id,
+      numero:           requerimentosTable.numero,
+      status:           requerimentosTable.status,
+      tipoRequerente:   requerimentosTable.tipoRequerente,
       exposicaoMotivos: requerimentosTable.exposicaoMotivos,
-      parecer:         requerimentosTable.parecer,
-      analisadoEm:     requerimentosTable.analisadoEm,
-      criadoEm:        requerimentosTable.criadoEm,
-      estudanteId:     estudantesTable.id,
-      estudanteNome:   estudantesTable.nome,
+      dataSolicitacao:  requerimentosTable.dataSolicitacao,
+      horaSolicitacao:  requerimentosTable.horaSolicitacao,
+      parecer:          requerimentosTable.parecer,
+      analisadoEm:      requerimentosTable.analisadoEm,
+      criadoEm:         requerimentosTable.criadoEm,
+      matriculaId:      requerimentosTable.matriculaId,
+      estudanteId:      estudantesTable.id,
+      estudanteNome:    estudantesTable.nome,
       estudanteRegistro: estudantesTable.registro,
-      dataNascimento:  estudantesTable.dataNascimento,
-      requerenteId:    usuariosTable.id,
-      requerenteNome:  usuariosTable.nome,
-      assuntoId:       requerimentoAssuntosTable.id,
-      assuntoNome:     requerimentoAssuntosTable.nome,
-      tipoNome:        requerimentoTiposTable.nome,
-      cursoNome:       cursosTable.nome,
-      turnoNome:       turnosTable.nome,
+      dataNascimento:   estudantesTable.dataNascimento,
+      requerenteId:     usuariosTable.id,
+      requerenteNome:   usuariosTable.nome,
+      assuntoId:        requerimentoAssuntosTable.id,
+      assuntoNome:      requerimentoAssuntosTable.nome,
+      assuntoSlug:      requerimentoAssuntosTable.slug,
+      tipoNome:         requerimentoTiposTable.nome,
+      // Curso/Turno: da matricula escolhida (matriculaId) quando disponível
+      cursoNome:        cursosMat.nome,
+      turmaSigla:       turmasMat.sigla,
+      turnoNome:        turnosMat.nome,
     })
     .from(requerimentosTable)
     .innerJoin(estudantesTable,           eq(estudantesTable.id, requerimentosTable.estudanteId))
     .innerJoin(usuariosTable,             eq(usuariosTable.id, requerimentosTable.requerenteId))
     .innerJoin(requerimentoAssuntosTable, eq(requerimentoAssuntosTable.id, requerimentosTable.assuntoId))
     .innerJoin(requerimentoTiposTable,    eq(requerimentoTiposTable.id, requerimentoAssuntosTable.tipoId))
-    .leftJoin(turmasTable,                eq(turmasTable.id, estudantesTable.turmaId))
-    .leftJoin(cursosTable,                eq(cursosTable.id, turmasTable.cursoId))
-    .leftJoin(turmaTurnosTable,          eq(turmaTurnosTable.turmaId, turmasTable.id))
-    .leftJoin(turnosTable,                eq(turnosTable.id, turmaTurnosTable.turnoId))
+    .leftJoin(matriculasTable,            eq(matriculasTable.id, requerimentosTable.matriculaId))
+    .leftJoin(turmasMat,                  eq(turmasMat.id, matriculasTable.turmaId))
+    .leftJoin(cursosMat,                  eq(cursosMat.id, turmasMat.cursoId))
+    .leftJoin(turnosMat,                  eq(turnosMat.id, matriculasTable.turnoId))
     .where(eq(requerimentosTable.id, req.params.id))
     .limit(1);
 
@@ -603,6 +604,7 @@ router.put("/:id/analisar", requireAuth, async (req, res) => {
       id:               requerimentosTable.id,
       estudanteId:      requerimentosTable.estudanteId,
       requerenteId:     requerimentosTable.requerenteId,
+      matriculaId:      requerimentosTable.matriculaId,
       dataSolicitacao:  requerimentosTable.dataSolicitacao,
       horaSolicitacao:  requerimentosTable.horaSolicitacao,
       exposicaoMotivos: requerimentosTable.exposicaoMotivos,
@@ -648,7 +650,7 @@ router.put("/:id/analisar", requireAuth, async (req, res) => {
 
 // ── Processamento de Deferimento — geração de cartões ─────────────────────────
 async function processarDeferimento(req_: {
-  id: string; estudanteId: string; requerenteId: string;
+  id: string; estudanteId: string; requerenteId: string; matriculaId: string | null;
   dataSolicitacao: string | null; horaSolicitacao: string | null;
   exposicaoMotivos: string | null; assuntoSlug: string | null;
 }, analisadoPorId: string): Promise<void> {
@@ -664,11 +666,14 @@ async function processarDeferimento(req_: {
   if (!est?.usuarioId) return; // estudante sem conta — não é possível gerar cartão
 
   if (slug === "saida-semestral") {
-    // Buscar matrícula ativa para obter ano/semestre
+    // Prefere a matriculaId armazenada no requerimento; fallback: qualquer matrícula ativa
+    const matWhere = req_.matriculaId
+      ? eq(matriculasTable.id, req_.matriculaId)
+      : and(eq(matriculasTable.usuarioId, est.usuarioId), eq(matriculasTable.ativo, true));
     const [mat] = await db
       .select({ id: matriculasTable.id, ano: matriculasTable.ano, semestre: matriculasTable.semestre })
       .from(matriculasTable)
-      .where(and(eq(matriculasTable.usuarioId, est.usuarioId), eq(matriculasTable.ativo, true)))
+      .where(matWhere)
       .limit(1);
     if (!mat) return;
 

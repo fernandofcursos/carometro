@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS requerimentos (
 -- Adicionar colunas novas caso a tabela já exista (idempotente)
 ALTER TABLE requerimentos ADD COLUMN IF NOT EXISTS data_solicitacao date;
 ALTER TABLE requerimentos ADD COLUMN IF NOT EXISTS hora_solicitacao time;
+ALTER TABLE requerimentos ADD COLUMN IF NOT EXISTS matricula_id uuid REFERENCES matriculas(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_requerimentos_estudante  ON requerimentos(estudante_id);
 CREATE INDEX IF NOT EXISTS idx_requerimentos_requerente ON requerimentos(requerente_id);

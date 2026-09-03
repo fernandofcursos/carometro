@@ -168,22 +168,28 @@ function calcularIdade(dataNasc: Date | null): number {
 }
 ```
 
-## Estudantes no modal — sem duplicatas por turno
+## Enturmação por Requerimento — matriculaId
 
-`/elegibilidade` retorna **um objeto por estudante** com `turnos: string[]` (apenas os turnos das matrículas ativas). Nunca usar JOIN direto em `turma_turnos` — gera linhas duplicadas.
+`requerimentos.matricula_id` (FK → `matriculas`) registra a enturmação específica escolhida ao criar o requerimento.
+
+- `/elegibilidade` retorna `matriculas: MatriculaInfo[]` por estudante (cada matrícula tem `id`, `cursoNome`, `turmaSigla`, `turnoNome`)
+- `buscarMatriculasAtivas()` retorna `Map<usuarioId, MatriculaInfo[]>` — lista por matrícula (não agregada)
+- `POST /`: recebe `matriculaId` opcional; salva em `requerimentos.matricula_id`
+- `GET /:id`: faz LEFT JOIN via `matriculaId → matriculas → turmas_mat → cursos_mat → turnosMat` (Drizzle `alias()`) para retornar `cursoNome`, `turmaSigla`, `turnoNome`
+- `processarDeferimento`: prefere `matriculaId` do requerimento; fallback para qualquer matrícula ativa
 
 ```typescript
-// Padrão correto: buscar matriculas separado e agrupar em JS
-const mat = await buscarMatriculasAtivas(usuarioIds); // Map<usuarioId, {cursoNome, turnos[]}>
-const estudantes = estRows.map(e => ({ ...e, ...mat.get(e.usuarioId) }));
+interface MatriculaInfo { id: string; cursoNome: string | null; turmaSigla: string | null; turnoNome: string | null }
+async function buscarMatriculasAtivas(usuarioIds: string[]): Promise<Map<string, MatriculaInfo[]>>
 ```
-
-Na UI: `est.turnos.join(" / ")` → "Matutino / Noturno"
 
 ## UI — Fluxo de Criação (3 steps)
 
 ```
 Step 1 → Selecionar estudante (responsável com múltiplos filhos: radio list)
+         Se estudante tem 1 matrícula → exibe curso/turma/turno diretamente
+         Se estudante tem N matrículas → sub-seleção de enturmação (radio list obrigatório)
+         Se estudante tem 0 matrículas → exibe "Sem enturmação" (matriculaId = null)
 Step 2 → Selecionar assunto (radio list com descrição)
 Step 3 → Exposição de motivos (textarea + contador de palavras em tempo real)
 ```

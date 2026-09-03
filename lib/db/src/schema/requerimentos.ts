@@ -6,6 +6,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { estudantesTable } from "./estudantes";
 import { usuariosTable } from "./usuarios";
+import { matriculasTable } from "./matriculas";
 
 // =============================================================================
 // requerimento_tipos — categorias de requerimento (2NF: sem grupos repetidos)
@@ -45,6 +46,8 @@ export const requerimentosTable = pgTable("requerimentos", {
   requerenteId:     uuid("requerente_id").notNull().references(() => usuariosTable.id, { onDelete: "restrict" }),
   tipoRequerente:   varchar("tipo_requerente", { length: 20 }).notNull(), // 'estudante' | 'pai_responsavel'
   assuntoId:        uuid("assunto_id").notNull().references(() => requerimentoAssuntosTable.id, { onDelete: "restrict" }),
+  matriculaId:       uuid("matricula_id").references(() => matriculasTable.id, { onDelete: "set null" }),
+  // enturmação do estudante no momento do requerimento (escolhida quando há múltiplas)
   exposicaoMotivos:  text("exposicao_motivos"),   // max 1000 palavras — validado na app
   dataSolicitacao:   date("data_solicitacao"),    // data desejada (obrigatório quando assunto.requerDataHora)
   horaSolicitacao:   time("hora_solicitacao"),    // horário desejado (obrigatório se dataSolicitacao preenchida)

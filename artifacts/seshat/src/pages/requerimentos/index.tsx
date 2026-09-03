@@ -27,12 +27,11 @@ import {
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 interface Assunto { id: string; nome: string; descricao: string | null; slug?: string | null; requerMotivos: boolean; requerDataHora?: boolean; ordem: number }
 interface Tipo    { id: string; nome: string; assuntos: Assunto[] }
+interface MatriculaInfo { id: string; cursoNome: string | null; turmaSigla: string | null; turnoNome: string | null }
 interface EstudanteInfo {
   id: string; nome: string; dataNascimento: string | null;
   usuarioId?: string | null;
-  cursoNome?: string | null;
-  turmaSigla?: string | null;
-  turnos?: string[]; // apenas os turnos das matrículas ativas
+  matriculas: MatriculaInfo[];
 }
 interface ElegibilidadeResp {
   elegivel: boolean; motivo?: string;
@@ -383,6 +382,12 @@ function NovoRequerimentoModal({
   const [estudanteId, setEstudanteId] = useState(
     elegibilidade.estudantes?.length === 1 ? elegibilidade.estudantes[0].id : ""
   );
+  const [matriculaId, setMatriculaId] = useState<string>(() => {
+    // auto-seleciona quando há exatamente 1 estudante com 1 matrícula
+    const ests = elegibilidade.estudantes;
+    if (ests?.length === 1 && ests[0].matriculas?.length === 1) return ests[0].matriculas[0].id;
+    return "";
+  });
   const [assuntoId, setAssuntoId] = useState("");
   const [motivos, setMotivos] = useState("");
   const [dataSolicitacao, setDataSolicitacao] = useState("");
@@ -393,6 +398,7 @@ function NovoRequerimentoModal({
   const assunto = allAssuntos.find((a) => a.id === assuntoId);
   const palavras = contarPalavras(motivos);
   const estudante = elegibilidade.estudantes?.find((e) => e.id === estudanteId);
+  const matriculasDoEstudante = estudante?.matriculas ?? [];
 
   async function handleSalvar() {
     if (!estudanteId) return toast({ title: "Selecione o estudante.", variant: "destructive" });
@@ -416,6 +422,7 @@ function NovoRequerimentoModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           estudanteId, assuntoId,
+          matriculaId:       matriculaId || null,
           exposicaoMotivos:  motivos || null,
           dataSolicitacao:   dataSolicitacao  || null,
           horaSolicitacao:   horaSolicitacao  || null,
@@ -468,7 +475,11 @@ function NovoRequerimentoModal({
                       <label key={est.id}
                         className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors
                           ${estudanteId === est.id ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`}
-                        onClick={() => setEstudanteId(est.id)}>
+                        onClick={() => {
+                          setEstudanteId(est.id);
+                          // auto-seleciona matrícula se só há uma
+                          setMatriculaId(est.matriculas?.length === 1 ? est.matriculas[0].id : "");
+                        }}>
                         <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center
                           ${estudanteId === est.id ? "border-primary" : "border-muted-foreground/40"}`}>
                           {estudanteId === est.id && <div className="w-2 h-2 rounded-full bg-primary" />}
@@ -476,11 +487,9 @@ function NovoRequerimentoModal({
                         <div>
                           <p className="font-medium text-sm">{est.nome}</p>
                           <p className="text-xs text-muted-foreground">
-                            {[
-                              est.cursoNome ?? "Sem curso",
-                              est.turmaSigla,
-                              est.turnos?.length ? est.turnos.join(" / ") : null,
-                            ].filter(Boolean).join(" · ")}
+                            {est.matriculas?.length
+                              ? est.matriculas.map((m) => [m.cursoNome, m.turmaSigla, m.turnoNome].filter(Boolean).join(" · ")).join(" | ")
+                              : "Sem enturmação"}
                           </p>
                         </div>
                       </label>
@@ -493,12 +502,33 @@ function NovoRequerimentoModal({
                   <div>
                     <p className="font-semibold">{estudante?.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {[
-                        estudante?.cursoNome ?? "Sem curso",
-                        estudante?.turmaSigla,
-                        estudante?.turnos?.length ? estudante.turnos.join(" / ") : null,
-                      ].filter(Boolean).join(" · ")}
+                      {matriculasDoEstudante.length
+                        ? matriculasDoEstudante.map((m) => [m.cursoNome, m.turmaSigla, m.turnoNome].filter(Boolean).join(" · ")).join(" | ")
+                        : "Sem enturmação"}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Seleção de enturmação quando o estudante tem múltiplas matrículas */}
+              {matriculasDoEstudante.length > 1 && (
+                <div className="space-y-2 border-t pt-3">
+                  <Label>Para qual enturmação é o requerimento?</Label>
+                  <div className="space-y-2">
+                    {matriculasDoEstudante.map((m) => (
+                      <label key={m.id}
+                        className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors
+                          ${matriculaId === m.id ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`}
+                        onClick={() => setMatriculaId(m.id)}>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center
+                          ${matriculaId === m.id ? "border-primary" : "border-muted-foreground/40"}`}>
+                          {matriculaId === m.id && <div className="w-2 h-2 rounded-full bg-primary" />}
+                        </div>
+                        <p className="text-sm">
+                          {[m.cursoNome, m.turmaSigla, m.turnoNome].filter(Boolean).join(" · ")}
+                        </p>
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}
@@ -615,6 +645,10 @@ function NovoRequerimentoModal({
               onClick={() => {
                 if (step === 1 && !estudanteId) {
                   toast({ title: "Selecione o estudante.", variant: "destructive" });
+                  return;
+                }
+                if (step === 1 && matriculasDoEstudante.length > 1 && !matriculaId) {
+                  toast({ title: "Selecione a enturmação para este requerimento.", variant: "destructive" });
                   return;
                 }
                 if (step === 2 && !assuntoId) {
