@@ -508,9 +508,22 @@ function CartaoLiberacaoTab({ est }: { est: EstudanteInfo }) {
   ) ?? null;
 
   const hoje = new Date().toISOString().substring(0, 10);
-  const proximoCartao = cartoesDiarios
-    .filter((c) => c.status === "aprovado" && c.dataSaida >= hoje)
+
+  function horarioJaPassou(dataSaida: string, horarioSaida: string | null): boolean {
+    if (!horarioSaida || dataSaida !== hoje) return false;
+    const [hh, mm] = horarioSaida.split(":").map(Number);
+    const agora = new Date();
+    const totalMin = agora.getHours() * 60 + agora.getMinutes();
+    return totalMin > hh * 60 + mm + 5;
+  }
+
+  const cartoesFuturos = cartoesDiarios.filter(
+    (c) => c.status === "aprovado" && (c.dataSaida > hoje || (c.dataSaida === hoje && !horarioJaPassou(c.dataSaida, c.horarioSaida)))
+  );
+  const proximoCartao = cartoesFuturos
     .sort((a, b) => a.dataSaida.localeCompare(b.dataSaida))[0] ?? null;
+  const cartaoExpiradoHoje = !cartaoDiarioAtivo && !proximoCartao &&
+    cartoesDiarios.some((c) => c.status === "aprovado" && c.dataSaida === hoje && horarioJaPassou(c.dataSaida, c.horarioSaida));
 
   return (
     <div className="flex flex-col gap-4">
@@ -576,6 +589,15 @@ function CartaoLiberacaoTab({ est }: { est: EstudanteInfo }) {
             </p>
             <p className="text-xs text-muted-foreground">
               O cartão ficará disponível 5 minutos antes do horário solicitado e expira 5 minutos após.
+            </p>
+          </div>
+        ) : cartaoExpiradoHoje ? (
+          <div className="rounded-xl border border-dashed border-muted p-6 text-center flex flex-col gap-2 items-center">
+            <Fingerprint className="w-8 h-8 text-muted-foreground" />
+            <p className="text-sm font-medium">Nenhum cartão de liberação diário aprovado</p>
+            <p className="text-xs text-muted-foreground">
+              Solicite a liberação antecipada através do formulário de Requerimentos.
+              O cartão será exibido na janela de ±5 minutos do horário aprovado.
             </p>
           </div>
         ) : (
