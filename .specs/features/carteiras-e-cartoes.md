@@ -19,9 +19,12 @@ O sistema gera dois tipos de documentos para estudantes, com fluxos de emissão 
 ## Regra Central
 
 > **A Carteira do Estudante é emitida automaticamente na enturmação.**
-> O Cartão de Liberação **nunca é emitido automaticamente** — exige pedido formal:
-> - **Permanente (Semestral)**: responsável faz pedido formal (presencial ou digital); coordenador emite manualmente no sistema.
-> - **Avulso (Diário)**: responsável solicita pelo Portal do Responsável; coordenador aprova → token HMAC gerado.
+> O Cartão de Liberação **nunca é emitido automaticamente** — exige pedido formal via Requerimento:
+> - **Semestral**: requerimento "Pedido de Saída Antecipada (Semestral)" → deferido → `processarDeferimento()` insere carteira (`tipo='cartao-semestral'`) OU coordenador emite manualmente via `POST /api/carteiras/emitir-liberacao/:usuarioId`.
+> - **Diário (menor de idade)**: pai/responsável preenche requerimento "Pedido de Saída Antecipada (Eventual)" em `/requerimentos` → deferido → `processarDeferimento()` insere `cartoes_saida (status='aprovado')`.
+> - **Diário (maior de idade)**: estudante preenche requerimento próprio → mesmo fluxo de deferimento.
+
+> **REGRA:** O Portal do Responsável **não tem formulário de "Nova Solicitação"** para cartão diário. O requerimento (em `/requerimentos`) é o único canal de solicitação.
 
 ---
 
@@ -178,13 +181,16 @@ Solicitação avulsa pelo responsável (Portal do Responsável)
 
 Layout horizontal CIE 2026 (560×320px):
 - Fundo lavanda `#eaecf8`, faixa azul `#1a2f7a`, curvas decorativas roxas
-- Logo GDF/SEEDF (esq.) + Logo CEP ETSM (dir.) embutidas em base64
-- Foto do estudante via `me.usuario.fotoUrl`
+- Logo GDF/SEEDF (esq.) + Logo CEP ETSM (dir.) embutidas em base64 — **nunca URL externa**
+- Foto do estudante via `me.usuario.fotoUrl` (Portal Estudante) ou `est.fotoUrl` (Portal Responsável)
 - QR Code: `{origin}/verificar/{token}` — COD CIE: últimos 12 chars do token
+- Botão "Imprimir carteira" exibido apenas quando `status === 'ativa'`
+
+**Portal do Responsável:** componente `CarteiraEstudanteCIE({ est, carteira })` — mesmo layout, adaptado para `EstudanteInfo`. Exibido na aba "Dados" de "Meus Filhos".
 
 ### Aba "Cartão de Liberação" — sub-abas Semestral / Diário
 
-Mesmo layout CIE; paleta de cor diferente por tipo/dia:
+Mesmo layout CIE 560×320px; paleta de cor diferente por tipo/dia. **Ambos os portais (estudante e responsável)** exibem LOGO_GDF (esquerda) + LOGO_CEP (direita) no cabeçalho — constantes base64 no topo de cada arquivo de página. Nunca usar URL externa.
 
 | Sub-tipo | Condição de exibição | Fundo | Faixa |
 |---|---|---|---|
@@ -200,6 +206,16 @@ Mesmo layout CIE; paleta de cor diferente por tipo/dia:
 **Revalidação automática:** `refetchInterval: 30_000` ms — sem reload manual.
 
 **QR Code validado pelo app Seshat:** registra automaticamente ocorrência de saída antecipada.
+
+#### Estados da aba Diário
+
+| Estado | Condição | Exibição |
+|---|---|---|
+| **Ativo** | `dentroJanelaHorario` = true | CartaoLiberacaoCard + aviso verde "Cartão válido agora" |
+| **Próximo aprovado** | cartão futuro (hoje ainda não chegou ou dia futuro) | aviso com data/hora + "disponível 5 min antes…" |
+| **Expirado / sem cartão** | cartão de hoje já passou `horario + 5min` OU nenhum cartão aprovado | "Nenhum cartão de liberação diário aprovado" + instrução de requerimento |
+
+> `horarioJaPassou(dataSaida, horarioSaida)`: retorna `true` quando `totalMin > alvoMin + 5`. Cartões expirados são excluídos de `cartoesFuturos` e não aparecem como "próximo aprovado".
 
 ---
 
@@ -217,31 +233,51 @@ Retorna cartões de saída **aprovados** do estudante logado (via `estudantes.us
 
 ### Cartão de Liberação Semestral
 ```
-Estudante/Responsável → Requerimento presencial/digital
-  → Coordenação/Supervisão/Direção aprova
-  → POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }
+Estudante adulto ou Pai/Responsável
+  → Requerimento "Pedido de Saída Antecipada (Semestral)" em /requerimentos
+  → Secretaria/Supervisão defere
+  → processarDeferimento() → INSERT carteiras (tipo='cartao-semestral', status='aprovado')
+     OU coordenador emite manualmente: POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }
   → token HMAC gerado → status 'ativa'
-  → Visível na aba "Cartão de Liberação > Semestral" do Portal
+  → Visível na aba "Cartão de Liberação > Semestral" em ambos os portais
 ```
 
 ### Cartão de Saída Diário — Menor de Idade
 ```
-Pai/Responsável → POST /api/portal-responsavel/cartao-saida
-  { estudanteId, dataSaida, horarioSaida, motivo }  → status 'pendente'
-  → Coordenação/Supervisão/Direção: POST /api/cartoes-saida/:id/aprovar
-  → token HMAC gerado
-  → Exibido no Portal do Estudante na janela ±5 min do horário
+Pai/Responsável
+  → Requerimento "Pedido de Saída Antecipada (Eventual)" em /requerimentos
+    (preenche data + horário da saída)
+  → Secretaria/Supervisão defere
+  → processarDeferimento() → INSERT cartoes_saida (status='aprovado', dataSaida, horarioSaida)
+  → Exibido nos portais do Estudante e do Responsável na janela ±5 min do horário
 ```
 
 ### Cartão de Saída Diário — Maior de Idade
 ```
-Estudante → Requerimento próprio (presencial ou via coordenação)
-  → Coordenação/Supervisão/Direção: POST /api/cartoes-saida/:id/aprovar
-  → token HMAC gerado
+Estudante (≥18 anos)
+  → Requerimento "Pedido de Saída Antecipada (Eventual)" em /requerimentos
+    (preenche data + horário da saída)
+  → Secretaria/Supervisão defere
+  → processarDeferimento() → INSERT cartoes_saida (status='aprovado', dataSaida, horarioSaida)
   → Exibido no Portal do Estudante na janela ±5 min do horário
 ```
 
+> **IMPORTANTE:** O endpoint `POST /api/portal-responsavel/cartao-saida` ainda existe para uso interno/legado, mas **não é exposto via UI**. O requerimento é o único canal de solicitação para o usuário final.
+
 ---
+
+## Regra: Modelo CIE em todos os perfis
+
+Tanto a **Carteira de Estudante** quanto o **Cartão de Liberação** usam o layout CIE 560×320px em ambos os portais. **Nunca usar cartão azul simples** (`bg-gradient-to-br from-blue-700`).
+
+| Componente | Portal | Arquivo | Fonte de dados |
+|---|---|---|---|
+| `CarteiraEstudante` | Estudante | `portal/index.tsx` | `PortalMe` (me.usuario, me.matriculas[0]) |
+| `CarteiraEstudanteCIE` | Responsável | `portal-responsavel/index.tsx` | `EstudanteInfo` (est.nome, est.registro, est.turmaSigla, est.cursoNome, est.turnos[0]) |
+| `CartaoLiberacaoCard` | Estudante | `portal/index.tsx` | `PortalMe` + `CarteiraDB | CartaoSaidaDB` |
+| `CartaoLiberacaoCard` | Responsável | `portal-responsavel/index.tsx` | `EstudanteInfo` + `CarteiraDB | CartaoSaidaDB` |
+
+Todos os quatro componentes incluem **LOGO_GDF (esquerda) + LOGO_CEP (direita)** no cabeçalho — constantes base64 declaradas no topo de cada arquivo.
 
 ## Arquivos-chave
 
@@ -251,8 +287,10 @@ Estudante → Requerimento próprio (presencial ou via coordenação)
 | `lib/db/src/schema/cartoes-saida.ts` | Schema tabela cartoes_saida |
 | `artifacts/api-server/src/routes/carteiras.ts` | CRUD carteiras + emitirCarteirasParaMatricula |
 | `artifacts/api-server/src/routes/gestao-responsaveis.ts` | Gestão cartões de saída (aprovar/recusar) |
-| `artifacts/api-server/src/routes/portal-responsavel.ts` | Solicitar cartão de saída avulso |
+| `artifacts/api-server/src/routes/portal-responsavel.ts` | Endpoint legado cartão de saída avulso |
 | `artifacts/api-server/src/routes/portal-estudante.ts` | GET /portal/carteiras + GET /portal/cartoes-saida |
-| `artifacts/seshat/src/pages/portal/index.tsx` | CarteiraEstudante + CartaoLiberacao + CartaoLiberacaoCard |
+| `artifacts/api-server/src/routes/requerimentos.ts` | processarDeferimento → gera carteiras e cartões ao deferir |
+| `artifacts/seshat/src/pages/portal/index.tsx` | CarteiraEstudante + CartaoLiberacao + CartaoLiberacaoCard + horarioJaPassou |
+| `artifacts/seshat/src/pages/portal-responsavel/index.tsx` | CarteiraEstudanteCIE + CartaoLiberacaoTab + CartaoLiberacaoCard + horarioJaPassou |
 | `artifacts/seshat/src/pages/carteiras/index.tsx` | UI de gestão (coordenador) |
 | `scripts/migrate-carteiras.sql` | DDL das tabelas |

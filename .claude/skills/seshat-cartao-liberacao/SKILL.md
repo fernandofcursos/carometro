@@ -97,6 +97,14 @@ function dentroJanelaHorario(dataSaida: string, horarioSaida: string | null): bo
   const alvoMin  = hh * 60 + mm;
   return Math.abs(totalMin - alvoMin) <= 5;      // ±5 min
 }
+
+function horarioJaPassou(dataSaida: string, horarioSaida: string | null): boolean {
+  if (!horarioSaida || dataSaida !== hoje) return false;
+  const [hh, mm] = horarioSaida.split(":").map(Number);
+  const agora = new Date();
+  const totalMin = agora.getHours() * 60 + agora.getMinutes();
+  return totalMin > hh * 60 + mm + 5; // passou a janela +5 min
+}
 ```
 
 ### Comportamento do componente `CartaoLiberacao`
@@ -108,13 +116,25 @@ SE cartaoDiarioAtivo:
   → exibe CartaoLiberacaoCard + botão imprimir
   → exibe aviso verde "Cartão válido agora"
 
-SENÃO proximoCartao (data >= hoje, ordenado por data):
-  → exibe aviso com data/hora do próximo aprovado
-  → NÃO exibe o cartão
-
 SENÃO:
-  → mensagem informativa sem cartão aprovado
+  cartoesFuturos = cartoesDiarios onde dataSaida > hoje
+                   OU (dataSaida == hoje E NÃO horarioJaPassou)
+  proximoCartao = cartoesFuturos ordenado por data [0]
+
+  SE proximoCartao:
+    → exibe aviso com data/hora do próximo aprovado
+    → NÃO exibe o cartão
+
+  SENÃO cartaoExpiradoHoje (tem cartão de hoje com horário já ultrapassado):
+    → mesma mensagem do estado "sem cartão" — cartão expirou/foi utilizado
+    → NÃO exibe o cartão
+
+  SENÃO:
+    → mensagem "Nenhum cartão de liberação diário aprovado"
+    → NÃO exibe o cartão
 ```
+
+> **REGRA:** Cartões de hoje cujo horário já ultrapassou os +5 min de tolerância são tratados como **expirados** — excluídos de `cartoesFuturos`, não exibem aviso de "próximo cartão". O estudante deve fazer novo requerimento.
 
 ---
 
