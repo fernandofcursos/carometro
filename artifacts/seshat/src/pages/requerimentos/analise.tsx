@@ -8,13 +8,11 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,7 +22,10 @@ import {
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-interface Assinatura { papel: string; metodo: string; assinadoEm: string; nome: string | null; roleNome?: string | null }
+interface Assinatura {
+  papel: string; metodo: string; assinadoEm: string;
+  nome: string | null; roleNome?: string | null;
+}
 interface Requerimento {
   id: string; numero: string; status: string; assuntoNome: string; tipoNome: string;
   estudanteNome: string; estudanteRegistro?: string; requerenteNome: string | null;
@@ -44,13 +45,12 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 function contarPalavras(t: string) { return t.trim().split(/\s+/).filter(Boolean).length; }
 
-// ── Modal de Assinatura ───────────────────────────────────────────────────────
+// ── Modal de Assinatura (analisador) ──────────────────────────────────────────
 function AssinarModal({
-  requerimentoId, onClose,
-}: { requerimentoId: string; onClose: () => void }) {
+  requerimentoId, numero, onClose,
+}: { requerimentoId: string; numero: string; onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [metodo, setMetodo] = useState<"senha">("senha");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -61,9 +61,9 @@ function AssinarModal({
       await fetchJson(`/api/requerimentos/${requerimentoId}/assinar-analise`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metodo, senha }),
+        body: JSON.stringify({ metodo: "senha", senha }),
       });
-      toast({ title: "Assinatura registrada." });
+      toast({ title: "Assinatura registrada com sucesso." });
       qc.invalidateQueries({ queryKey: ["requerimentos-analise"] });
       onClose();
     } catch (err: any) {
@@ -76,7 +76,7 @@ function AssinarModal({
       <DialogContent className="max-w-sm" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Pen className="h-5 w-5" /> Assinar como Analisador
+            <Pen className="h-5 w-5" /> Assinar — {numero}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -84,13 +84,19 @@ function AssinarModal({
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="text-xs">
               Ao assinar, você confirma a decisão registrada neste requerimento.
+              Supervisor Pedagógico e Chefe de Secretaria devem assinar individualmente.
             </AlertDescription>
           </Alert>
           <div className="space-y-1">
             <Label htmlFor="senha-anal">Senha do sistema</Label>
-            <Input id="senha-anal" type="password" placeholder="Sua senha de acesso"
-              value={senha} onChange={(e) => setSenha(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAssinar()} />
+            <Input
+              id="senha-anal"
+              type="password"
+              placeholder="Sua senha de acesso"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAssinar()}
+            />
           </div>
         </div>
         <DialogFooter>
@@ -107,8 +113,12 @@ function AssinarModal({
 
 // ── Modal de Análise ──────────────────────────────────────────────────────────
 function AnalisarModal({
-  req, onClose,
-}: { req: Requerimento; onClose: () => void }) {
+  req, onClose, onSalvoComDecisao,
+}: {
+  req: Requerimento;
+  onClose: () => void;
+  onSalvoComDecisao: (id: string, numero: string) => void;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [decisao, setDecisao] = useState<"em_analise" | "deferido" | "indeferido">(
@@ -116,7 +126,6 @@ function AnalisarModal({
   );
   const [parecer, setParecer] = useState(req.parecer ?? "");
   const [loading, setLoading] = useState(false);
-  const [showAssinar, setShowAssinar] = useState(false);
 
   const palavras = contarPalavras(parecer);
   const dataFormatada = new Date(req.criadoEm).toLocaleDateString("pt-BR", {
@@ -139,19 +148,24 @@ function AnalisarModal({
       });
       toast({ title: "Requerimento analisado com sucesso." });
       qc.invalidateQueries({ queryKey: ["requerimentos-analise"] });
+      onClose();
+      // Se decisão final, abre modal de assinatura após fechar este
       if (decisao === "deferido" || decisao === "indeferido") {
-        setShowAssinar(true);
-      } else {
-        onClose();
+        // Pequeno delay para garantir que o Dialog anterior seja desmontado
+        setTimeout(() => onSalvoComDecisao(req.id, req.numero), 50);
       }
     } catch (err: any) {
       toast({ title: err?.data?.error ?? "Erro ao analisar.", variant: "destructive" });
     } finally { setLoading(false); }
   }
 
-  if (showAssinar) {
-    return <AssinarModal requerimentoId={req.id} onClose={onClose} />;
-  }
+  // Assinaturas do analisador no requerimento
+  const assinSupervisor = req.assinaturas.find(
+    (a) => a.papel === "analisador" && a.roleNome === "supervisao_pedagogica"
+  );
+  const assinSecretaria = req.assinaturas.find(
+    (a) => a.papel === "analisador" && a.roleNome === "secretaria"
+  );
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -226,7 +240,11 @@ function AnalisarModal({
               <div className="grid grid-cols-2 gap-3 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded">
                 <div>
                   <p className="text-xs text-muted-foreground">Data solicitada</p>
-                  <p className="text-sm font-medium">{new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}</p>
+                  <p className="text-sm font-medium">
+                    {new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", {
+                      weekday: "short", day: "2-digit", month: "short", year: "numeric",
+                    })}
+                  </p>
                 </div>
                 {req.horaSolicitacao && (
                   <div>
@@ -254,8 +272,9 @@ function AnalisarModal({
                 <div className="flex items-center gap-2 text-green-700">
                   <CheckCircle2 className="h-4 w-4" />
                   <span className="text-xs">
-                    Assinado em {new Date(req.assinaturas.find((a) => a.papel === "requerente")!.assinadoEm)
-                      .toLocaleDateString("pt-BR")}
+                    Assinado em {new Date(
+                      req.assinaturas.find((a) => a.papel === "requerente")!.assinadoEm
+                    ).toLocaleDateString("pt-BR")}
                   </span>
                 </div>
               ) : (
@@ -266,7 +285,7 @@ function AnalisarModal({
             </div>
           </div>
 
-          {/* Campo de análise — "Esse campo será preenchido pela secretaria" */}
+          {/* Campo de análise */}
           <div className="space-y-4">
             <h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
               Campo de análise — Secretaria
@@ -280,11 +299,13 @@ function AnalisarModal({
                   { value: "deferido",   label: "Deferido",   icon: CheckCircle2, cls: "text-green-700 border-green-300 bg-green-50" },
                   { value: "indeferido", label: "Indeferido", icon: XCircle,      cls: "text-red-600 border-red-300 bg-red-50" },
                 ].map(({ value, label, icon: Icon, cls }) => (
-                  <button key={value}
+                  <button
+                    key={value}
                     type="button"
                     onClick={() => setDecisao(value as any)}
                     className={`flex flex-col items-center gap-1.5 p-3 border-2 rounded-lg font-medium text-sm transition-all
-                      ${decisao === value ? cls + " border-current" : "border-muted text-muted-foreground hover:border-muted-foreground/40"}`}>
+                      ${decisao === value ? cls + " border-current" : "border-muted text-muted-foreground hover:border-muted-foreground/40"}`}
+                  >
                     <Icon className="h-5 w-5" />
                     {label}
                   </button>
@@ -311,65 +332,84 @@ function AnalisarModal({
               </div>
             )}
 
-            {/* Data da análise */}
             <div className="text-right text-xs text-muted-foreground">
               Santa Maria – DF, {new Date().toLocaleDateString("pt-BR", {
                 day: "2-digit", month: "long", year: "numeric",
               })}
             </div>
 
-            {/* Assinaturas lado a lado */}
-            {(() => {
-              const assinsSupervisor = req.assinaturas.find(
-                (a) => a.papel === "analisador" && a.roleNome === "supervisao_pedagogica"
-              );
-              const assinsSecretaria = req.assinaturas.find(
-                (a) => a.papel === "analisador" && a.roleNome === "secretaria"
-              );
-              return (
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className={`border rounded p-3 text-center ${assinsSupervisor ? "border-green-300 bg-green-50 dark:bg-green-950/20" : ""}`}>
-                    {assinsSupervisor ? (
-                      <>
-                        <div className="flex justify-center mb-1">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        </div>
-                        <p className="text-xs font-medium text-green-700">{assinsSupervisor.nome ?? "Supervisor"}</p>
-                        <p className="text-xs text-green-600">{new Date(assinsSupervisor.assinadoEm).toLocaleDateString("pt-BR")}</p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
-                      </>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">Supervisor Pedagógico</p>
-                  </div>
-                  <div className={`border rounded p-3 text-center ${assinsSecretaria ? "border-green-300 bg-green-50 dark:bg-green-950/20" : ""}`}>
-                    {assinsSecretaria ? (
-                      <>
-                        <div className="flex justify-center mb-1">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        </div>
-                        <p className="text-xs font-medium text-green-700">{assinsSecretaria.nome ?? "Secretaria"}</p>
-                        <p className="text-xs text-green-600">{new Date(assinsSecretaria.assinadoEm).toLocaleDateString("pt-BR")}</p>
-                      </>
-                    ) : (
-                      <>
-                        <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
-                      </>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">Chefe de Secretaria</p>
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Assinaturas lado a lado — Supervisor | Secretaria */}
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className={`border rounded p-3 text-center ${assinSupervisor ? "border-green-300 bg-green-50 dark:bg-green-950/20" : ""}`}>
+                {assinSupervisor ? (
+                  <>
+                    <div className="flex justify-center mb-1">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    </div>
+                    <p className="text-xs font-medium text-green-700">{assinSupervisor.nome ?? "Supervisor"}</p>
+                    <p className="text-xs text-green-600">
+                      {new Date(assinSupervisor.assinadoEm).toLocaleDateString("pt-BR")}
+                    </p>
+                  </>
+                ) : (
+                  <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Supervisor Pedagógico</p>
+              </div>
+              <div className={`border rounded p-3 text-center ${assinSecretaria ? "border-green-300 bg-green-50 dark:bg-green-950/20" : ""}`}>
+                {assinSecretaria ? (
+                  <>
+                    <div className="flex justify-center mb-1">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    </div>
+                    <p className="text-xs font-medium text-green-700">{assinSecretaria.nome ?? "Secretaria"}</p>
+                    <p className="text-xs text-green-600">
+                      {new Date(assinSecretaria.assinadoEm).toLocaleDateString("pt-BR")}
+                    </p>
+                  </>
+                ) : (
+                  <div className="h-8 border-b-2 border-dashed border-muted-foreground/30 mb-2" />
+                )}
+                <p className="text-xs text-muted-foreground mt-1">Chefe de Secretaria</p>
+              </div>
+            </div>
+
+            {/* Aviso quando já deferido/indeferido mas faltam assinaturas */}
+            {(req.status === "deferido" || req.status === "indeferido") &&
+              (!assinSupervisor || !assinSecretaria) && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    {!assinSupervisor && !assinSecretaria
+                      ? "Aguardando assinatura do Supervisor Pedagógico e da Secretaria."
+                      : !assinSupervisor
+                      ? "Aguardando assinatura do Supervisor Pedagógico."
+                      : "Aguardando assinatura da Secretaria."}
+                    {" "}Use o botão "Assinar" abaixo para registrar sua assinatura.
+                  </AlertDescription>
+                </Alert>
+              )}
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-wrap">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSalvar} disabled={loading}
-            variant={decisao === "indeferido" ? "destructive" : "default"}>
+
+          {/* Botão Assinar — disponível quando já há decisão final */}
+          {(req.status === "deferido" || req.status === "indeferido") && (
+            <Button
+              variant="secondary"
+              onClick={() => { onClose(); setTimeout(() => onSalvoComDecisao(req.id, req.numero), 50); }}
+            >
+              <Pen className="h-4 w-4 mr-2" /> Assinar
+            </Button>
+          )}
+
+          <Button
+            onClick={handleSalvar}
+            disabled={loading}
+            variant={decisao === "indeferido" ? "destructive" : "default"}
+          >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {decisao === "deferido"   && <CheckCircle2 className="h-4 w-4 mr-2" />}
             {decisao === "indeferido" && <XCircle      className="h-4 w-4 mr-2" />}
@@ -384,9 +424,13 @@ function AnalisarModal({
 
 // ── Card de requerimento ──────────────────────────────────────────────────────
 function RequerimentoCard({
-  req, onClick,
-}: { req: Requerimento; onClick: () => void }) {
-  const s = STATUS_LABEL[req.status];
+  req, onClick, onAssinar,
+}: { req: Requerimento; onClick: () => void; onAssinar: (id: string, numero: string) => void }) {
+  const s = STATUS_LABEL[req.status] ?? STATUS_LABEL.pendente;
+  const temDecisaoFinal = req.status === "deferido" || req.status === "indeferido";
+  const semAssinaturaAnalisador = temDecisaoFinal &&
+    !req.assinaturas.find((a) => a.papel === "analisador");
+
   return (
     <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
       <CardContent className="p-4">
@@ -405,6 +449,16 @@ function RequerimentoCard({
                 <span className="text-xs text-amber-500 flex items-center gap-0.5">
                   <Clock className="h-3 w-3" /> Sem assinatura
                 </span>
+              )}
+              {/* Badge de assinatura pendente do analisador */}
+              {semAssinaturaAnalisador && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onAssinar(req.id, req.numero); }}
+                  className="text-xs text-blue-600 border border-blue-300 bg-blue-50 px-2 py-0.5 rounded flex items-center gap-0.5 hover:bg-blue-100 transition-colors"
+                >
+                  <Pen className="h-3 w-3" /> Assinar
+                </button>
               )}
             </div>
             <p className="font-semibold text-sm">{req.assuntoNome}</p>
@@ -425,16 +479,21 @@ function RequerimentoCard({
 
 // ── Página principal de análise ───────────────────────────────────────────────
 export default function RequerimentoAnalisePage() {
-  const { toast } = useToast();
   const [busca, setBusca] = useState("");
   const [tab, setTab] = useState("pendente");
   const [analisando, setAnalisando] = useState<Requerimento | null>(null);
+  const [assinando, setAssinando] = useState<{ id: string; numero: string } | null>(null);
 
   const { data: lista = [], isLoading } = useQuery<Requerimento[]>({
     queryKey: ["requerimentos-analise"],
     queryFn: () => fetchJson("/api/requerimentos"),
     refetchInterval: 30_000,
   });
+
+  function abrirAssinar(id: string, numero: string) {
+    setAnalisando(null);
+    setAssinando({ id, numero });
+  }
 
   const filtrado = lista.filter((r) => {
     const matchStatus = tab === "todos" || r.status === tab ||
@@ -447,10 +506,10 @@ export default function RequerimentoAnalisePage() {
   });
 
   const counts = {
-    pendente:  lista.filter((r) => ["pendente", "em_analise"].includes(r.status)).length,
-    deferido:  lista.filter((r) => r.status === "deferido").length,
+    pendente:   lista.filter((r) => ["pendente", "em_analise"].includes(r.status)).length,
+    deferido:   lista.filter((r) => r.status === "deferido").length,
     indeferido: lista.filter((r) => r.status === "indeferido").length,
-    todos:     lista.length,
+    todos:      lista.length,
   };
 
   return (
@@ -497,7 +556,8 @@ export default function RequerimentoAnalisePage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full">
           <TabsTrigger value="pendente" className="flex-1">
-            Pendentes <span className="ml-1.5 text-xs bg-muted px-1.5 rounded">{counts.pendente}</span>
+            Pendentes{" "}
+            <span className="ml-1.5 text-xs bg-muted px-1.5 rounded">{counts.pendente}</span>
           </TabsTrigger>
           <TabsTrigger value="deferido"   className="flex-1">Deferidos</TabsTrigger>
           <TabsTrigger value="indeferido" className="flex-1">Indeferidos</TabsTrigger>
@@ -518,7 +578,12 @@ export default function RequerimentoAnalisePage() {
             ) : (
               <div className="space-y-3">
                 {filtrado.map((r) => (
-                  <RequerimentoCard key={r.id} req={r} onClick={() => setAnalisando(r)} />
+                  <RequerimentoCard
+                    key={r.id}
+                    req={r}
+                    onClick={() => setAnalisando(r)}
+                    onAssinar={abrirAssinar}
+                  />
                 ))}
               </div>
             )}
@@ -526,10 +591,20 @@ export default function RequerimentoAnalisePage() {
         ))}
       </Tabs>
 
+      {/* Modais gerenciados pela página — sem nesting de Dialog */}
       {analisando && (
         <AnalisarModal
           req={analisando}
           onClose={() => setAnalisando(null)}
+          onSalvoComDecisao={abrirAssinar}
+        />
+      )}
+
+      {assinando && (
+        <AssinarModal
+          requerimentoId={assinando.id}
+          numero={assinando.numero}
+          onClose={() => setAssinando(null)}
         />
       )}
     </div>

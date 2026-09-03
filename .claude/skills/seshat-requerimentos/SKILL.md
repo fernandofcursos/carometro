@@ -203,9 +203,32 @@ Fiel ao formulário físico:
 - KPIs: Pendentes / Deferidos / Indeferidos / Total
 - Busca por número, estudante, assunto
 - Tabs: Pendentes | Deferidos | Indeferidos | Todos
+- Card de requerimento: badge "Assinar" aparece em deferidos/indeferidos sem assinatura do analisador
 - Modal de análise: visualização completa + botões decisão + parecer
-- Campos de assinatura lado a lado: Supervisor Pedagógico | Chefe de Secretaria
+- Campos de assinatura lado a lado: Supervisor Pedagógico | Chefe de Secretaria (mostram assinatura real do DB)
 - Após salvar deferido/indeferido: abre automaticamente modal de assinatura
+- Botão "Assinar" no footer do modal também disponível para requerimentos já com decisão final
+- **Arquitetura:** `analisando` e `assinando` são estados separados na página pai — sem Dialog aninhado
+
+### Fluxo de Assinatura do Analisador
+
+```
+1. Analisador abre o modal e salva decisão (Deferido | Indeferido)
+   → handleSalvar() chama PUT /analisar
+   → Em caso de sucesso: fecha AnalisarModal, abre AssinarModal (via onSalvoComDecisao)
+
+2. Se o modal de assinatura não abrir automaticamente (ex: sessão reiniciada):
+   → Badge "Assinar" no card do requerimento → clique abre AssinarModal diretamente
+   → Botão "Assinar" no footer do AnalisarModal
+
+3. Cada analisador (Supervisor E Secretaria) deve assinar individualmente:
+   → UNIQUE (requerimento_id, usuario_id, papel) — cada um registra uma linha
+   → Modal exibe quais já assinaram e quais faltam
+```
+
+> **IMPORTANTE — sem Dialog aninhado:** `AssinarModal` é renderizado pelo componente pai
+> `RequerimentoAnalisePage`, não dentro de `AnalisarModal`. Isso evita conflito de portais
+> do shadcn/ui. O fluxo usa `setTimeout(..., 50)` para garantir desmontagem do Dialog anterior.
 
 ## Permissões
 
