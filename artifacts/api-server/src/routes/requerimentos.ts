@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createHash } from "crypto";
-import { compare } from "bcryptjs";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import {
   db,
@@ -426,7 +426,7 @@ router.post("/:id/assinar", requirePermissao("requerimentos:create"), async (req
       .select({ senhaHash: usuariosTable.senhaHash })
       .from(usuariosTable).where(eq(usuariosTable.id, usuarioId)).limit(1);
     if (!usuario?.senhaHash) return res.status(400).json({ error: "Usuário sem senha cadastrada." });
-    const ok = await compare(senha, usuario.senhaHash);
+    const ok = await bcrypt.compare(senha, usuario.senhaHash);
     if (!ok) return res.status(401).json({ error: "Senha incorreta." });
   }
 
@@ -520,7 +520,7 @@ router.post("/:id/assinar-analise", requirePermissao("requerimentos:manage"), as
       .select({ senhaHash: usuariosTable.senhaHash })
       .from(usuariosTable).where(eq(usuariosTable.id, usuarioId)).limit(1);
     if (!usuario?.senhaHash) return res.status(400).json({ error: "Usuário sem senha cadastrada." });
-    const ok = await compare(senha, usuario.senhaHash);
+    const ok = await bcrypt.compare(senha, usuario.senhaHash);
     if (!ok) return res.status(401).json({ error: "Senha incorreta." });
   }
 
