@@ -195,7 +195,7 @@ router.put("/dias/:id", requirePermissao("calendario:manage"), async (req, res) 
     const [row] = await db
       .update(calendarioDiasTable)
       .set({ ...body, atualizadoEm: new Date() })
-      .where(eq(calendarioDiasTable.id, req.params.id))
+      .where(eq(calendarioDiasTable.id, String(req.params.id)))
       .returning();
 
     if (!row) return res.status(404).json({ error: "Evento não encontrado." });
@@ -212,7 +212,7 @@ router.delete("/dias/:id", requirePermissao("calendario:manage"), async (req, re
   try {
     const [row] = await db
       .delete(calendarioDiasTable)
-      .where(eq(calendarioDiasTable.id, req.params.id))
+      .where(eq(calendarioDiasTable.id, String(req.params.id)))
       .returning({ id: calendarioDiasTable.id });
     if (!row) return res.status(404).json({ error: "Evento não encontrado." });
     res.json({ ok: true });

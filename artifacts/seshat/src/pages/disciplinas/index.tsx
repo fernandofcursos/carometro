@@ -150,7 +150,7 @@ function EditarDiscDialog({ disc, onClose }: { disc: Disc; onClose: () => void }
     e.preventDefault();
     if (!nome.trim() || !sigla.trim() || !codigoModulacao.trim()) return;
     update.mutate(
-      { id: disc.id, data: { nome: nome.trim(), sigla: sigla.trim().toUpperCase(), codigoModulacao: codigoModulacao.trim() } },
+      { id: disc.id, data: { nome: nome.trim(), sigla: sigla.trim().toUpperCase(), codigoModulacao: codigoModulacao.trim() } as import("@workspace/api-client-react").DisciplinaInput },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListDisciplinasQueryKey() });
@@ -331,7 +331,7 @@ export default function DisciplinasPage() {
     e.preventDefault();
     if (!nome.trim() || !sigla.trim() || !codigoModulacao.trim()) return;
     create.mutate(
-      { data: { nome: nome.trim(), sigla: sigla.trim().toUpperCase(), codigoModulacao: codigoModulacao.trim() } },
+      { data: { nome: nome.trim(), sigla: sigla.trim().toUpperCase(), codigoModulacao: codigoModulacao.trim() } as import("@workspace/api-client-react").DisciplinaInput },
       {
         onSuccess: () => {
           setNome(""); setSigla(""); setCodigoModulacao("");

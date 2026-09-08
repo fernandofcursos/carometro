@@ -409,25 +409,25 @@ function NovoRequerimentoModal({
   const matriculasDoEstudante = estudante?.matriculas ?? [];
 
   async function handleSalvar() {
-    if (!estudanteId) return toast({ title: "Selecione o estudante.", variant: "destructive" });
-    if (!assuntoId)   return toast({ title: "Selecione o assunto.", variant: "destructive" });
+    if (!estudanteId) { toast({ title: "Selecione o estudante.", variant: "destructive" }); return; }
+    if (!assuntoId)   { toast({ title: "Selecione o assunto.", variant: "destructive" }); return; }
     if (assunto?.requerMotivos && !motivos.trim()) {
-      return toast({ title: "Este assunto requer a exposição de motivos.", variant: "destructive" });
+      toast({ title: "Este assunto requer a exposição de motivos.", variant: "destructive" }); return;
     }
     if (palavras > 1000) {
-      return toast({ title: "A exposição de motivos deve ter no máximo 1000 palavras.", variant: "destructive" });
+      toast({ title: "A exposição de motivos deve ter no máximo 1000 palavras.", variant: "destructive" }); return;
     }
     if (assunto?.requerDataHora) {
       if (assunto.slug === "saida-semestral") {
         if (!horaSolicitacao) {
-          return toast({ title: "Informe o horário de saída.", variant: "destructive" });
+          toast({ title: "Informe o horário de saída.", variant: "destructive" }); return;
         }
       } else {
         if (!dataSolicitacao) {
-          return toast({ title: "Informe a data da solicitação.", variant: "destructive" });
+          toast({ title: "Informe a data da solicitação.", variant: "destructive" }); return;
         }
         if (dataSolicitacao && !horaSolicitacao) {
-          return toast({ title: "Ao informar a data, o horário é obrigatório.", variant: "destructive" });
+          toast({ title: "Ao informar a data, o horário é obrigatório.", variant: "destructive" }); return;
         }
       }
     }

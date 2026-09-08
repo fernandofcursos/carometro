@@ -38,7 +38,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Rich
   // Sync external value changes (e.g. when dialog opens with editTarget)
   const editorContent = editor?.getHTML();
   if (editor && value !== editorContent && !editor.isFocused) {
-    editor.commands.setContent(value, false);
+    editor.commands.setContent(value, { emitUpdate: false });
   }
 
   if (!editor) return null;

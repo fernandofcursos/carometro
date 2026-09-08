@@ -107,8 +107,8 @@ router.get("/me", async (req: Request, res: Response) => {
       .where(eq(usuarioDisciplinasTable.usuarioId, usuarioId));
 
     const dnStr = usuario.dataNascimento
-      ? (usuario.dataNascimento instanceof Date
-          ? usuario.dataNascimento.toISOString().substring(0, 10)
+      ? ((usuario.dataNascimento as unknown) instanceof Date
+          ? (usuario.dataNascimento as unknown as Date).toISOString().substring(0, 10)
           : String(usuario.dataNascimento))
       : null;
 
@@ -189,8 +189,8 @@ router.post("/ocorrencias/:id/ciencia", async (req: Request, res: Response) => {
       .where(eq(usuariosTable.id, usuarioId));
 
     const dnStr = usuario?.dataNascimento
-      ? (usuario.dataNascimento instanceof Date
-          ? usuario.dataNascimento.toISOString().substring(0, 10)
+      ? ((usuario.dataNascimento as unknown) instanceof Date
+          ? (usuario.dataNascimento as unknown as Date).toISOString().substring(0, 10)
           : String(usuario.dataNascimento))
       : null;
 
@@ -210,7 +210,7 @@ router.post("/ocorrencias/:id/ciencia", async (req: Request, res: Response) => {
     const [ocr] = await db
       .select({ id: ocorrenciasTable.id, cienteEm: ocorrenciasTable.cienteEm })
       .from(ocorrenciasTable)
-      .where(and(eq(ocorrenciasTable.id, req.params.id), eq(ocorrenciasTable.estudanteId, est.id)));
+      .where(and(eq(ocorrenciasTable.id, String(req.params.id)), eq(ocorrenciasTable.estudanteId, est.id)));
 
     if (!ocr) return res.status(404).json({ error: "Ocorrência não encontrada." });
     if (ocr.cienteEm) return res.status(409).json({ error: "Ciência já registrada nesta ocorrência." });

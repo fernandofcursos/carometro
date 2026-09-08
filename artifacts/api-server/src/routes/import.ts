@@ -174,10 +174,12 @@ router.post("/disciplinas", requirePermissao("import:execute"), async (req: Requ
     const turnoMap = new Map(turnos.map((t) => [t.nome.toLowerCase(), t.id]));
 
     for (const row of rows) {
-      const nome      = norm(row.data["nome"] ?? row.data["Nome"]);
-      const cursoNome = norm(row.data["cursoNome"] ?? row.data["curso"] ?? row.data["Curso"]);
-      const turnoNome = norm(row.data["turnoNome"] ?? row.data["turno"] ?? row.data["Turno"]);
-      const ativo     = row.data["ativo"] !== undefined ? normBool(row.data["ativo"]) : true;
+      const nome             = norm(row.data["nome"] ?? row.data["Nome"]);
+      const sigla            = norm(row.data["sigla"] ?? row.data["Sigla"]) || nome.substring(0, 20);
+      const codigoModulacao  = norm(row.data["codigoModulacao"] ?? row.data["codigo"] ?? row.data["Codigo"]) || nome.substring(0, 50);
+      const cursoNome        = norm(row.data["cursoNome"] ?? row.data["curso"] ?? row.data["Curso"]);
+      const turnoNome        = norm(row.data["turnoNome"] ?? row.data["turno"] ?? row.data["Turno"]);
+      const ativo            = row.data["ativo"] !== undefined ? normBool(row.data["ativo"]) : true;
 
       if (!nome) { errors.push("Nome da disciplina é obrigatório"); continue; }
 
@@ -189,7 +191,7 @@ router.post("/disciplinas", requirePermissao("import:execute"), async (req: Requ
 
       try {
         // 1. Upsert disciplina por nome
-        await db.insert(disciplinasTable).values({ nome }).onConflictDoNothing();
+        await db.insert(disciplinasTable).values({ nome, sigla, codigoModulacao }).onConflictDoNothing();
         const [disciplina] = await db
           .select({ id: disciplinasTable.id })
           .from(disciplinasTable)

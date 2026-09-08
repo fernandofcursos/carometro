@@ -101,6 +101,7 @@ router.get("/me", async (req: Request, res: Response) => {
         registro:       estudantesTable.registro,
         fotoId:         estudantesTable.fotoId,
         turmaId:        estudantesTable.turmaId,
+        usuarioId:      estudantesTable.usuarioId,
         turmaSigla:     turmasTable.sigla,
         turmaDescricao: turmasTable.descricao,
         cursoNome:      cursosTable.nome,
@@ -159,7 +160,7 @@ router.get("/me", async (req: Request, res: Response) => {
 router.get("/ocorrencias/:estudanteId", async (req: Request, res: Response) => {
   try {
     const usuarioId   = req.usuarioId!;
-    const estudanteId = req.params.estudanteId;
+    const estudanteId = String(req.params.estudanteId);
 
     // Verificar vínculo
     const [vinculo] = await db
@@ -200,7 +201,7 @@ router.post("/ocorrencias/:id/ciencia", async (req: Request, res: Response) => {
     const [ocr] = await db
       .select({ id: ocorrenciasTable.id, estudanteId: ocorrenciasTable.estudanteId, cienteEm: ocorrenciasTable.cienteEm })
       .from(ocorrenciasTable)
-      .where(eq(ocorrenciasTable.id, req.params.id));
+      .where(eq(ocorrenciasTable.id, String(req.params.id)));
 
     if (!ocr) return res.status(404).json({ error: "Ocorrência não encontrada." });
 
@@ -231,7 +232,7 @@ router.post("/ocorrencias/:id/ciencia", async (req: Request, res: Response) => {
 router.get("/carteiras/:estudanteId", async (req: Request, res: Response) => {
   try {
     const usuarioId   = req.usuarioId!;
-    const estudanteId = req.params.estudanteId;
+    const estudanteId = String(req.params.estudanteId);
 
     const [vinculo] = await db
       .select({ id: responsaveisEstudantesTable.id })
@@ -301,7 +302,7 @@ router.post("/cartao-saida", async (req: Request, res: Response) => {
 router.get("/cartoes-saida/:estudanteId", async (req: Request, res: Response) => {
   try {
     const usuarioId   = req.usuarioId!;
-    const estudanteId = req.params.estudanteId;
+    const estudanteId = String(req.params.estudanteId);
 
     const [vinculo] = await db
       .select({ id: responsaveisEstudantesTable.id })
@@ -376,7 +377,7 @@ router.post("/atestado", async (req: Request, res: Response) => {
 router.get("/atestados/:estudanteId", async (req: Request, res: Response) => {
   try {
     const usuarioId   = req.usuarioId!;
-    const estudanteId = req.params.estudanteId;
+    const estudanteId = String(req.params.estudanteId);
 
     const [vinculo] = await db
       .select({ id: responsaveisEstudantesTable.id })
@@ -411,7 +412,7 @@ router.get("/atestados/:estudanteId", async (req: Request, res: Response) => {
 router.get("/atestados/:estudanteId/:id/download", async (req: Request, res: Response) => {
   try {
     const usuarioId   = req.usuarioId!;
-    const estudanteId = req.params.estudanteId;
+    const estudanteId = String(req.params.estudanteId);
 
     const [vinculo] = await db
       .select({ id: responsaveisEstudantesTable.id })
@@ -425,7 +426,7 @@ router.get("/atestados/:estudanteId/:id/download", async (req: Request, res: Res
     const [atestado] = await db
       .select()
       .from(atestadosMedicosTable)
-      .where(and(eq(atestadosMedicosTable.id, req.params.id), eq(atestadosMedicosTable.estudanteId, estudanteId)));
+      .where(and(eq(atestadosMedicosTable.id, String(req.params.id)), eq(atestadosMedicosTable.estudanteId, estudanteId)));
 
     if (!atestado) return res.status(404).json({ error: "Atestado não encontrado." });
 
@@ -590,7 +591,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       const byDia = agendaMap.get(e.id) ?? new Map();
       const agenda = [1, 2, 3, 4, 5].map((d) => ({
         dia: d, diaNome: DIA_NOME[d],
-        aulas: (byDia.get(d) ?? []).sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
+        aulas: (byDia.get(d) ?? []).sort((a: any, b: any) => a.horaInicio.localeCompare(b.horaInicio)),
       }));
       return {
         id:       e.id,

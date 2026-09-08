@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   UserCircle, GraduationCap, AlertTriangle, CheckCircle2, CreditCard,
-  FileText, Upload, Download, Users, Fingerprint,
+  FileText, Upload, Download, Users, Fingerprint, X,
 } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
 import { CardapioWidget } from "@/components/cardapio-widget";

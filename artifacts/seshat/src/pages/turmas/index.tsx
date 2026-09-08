@@ -74,7 +74,7 @@ function TurmaRow({ turma, onDelete }: { turma: Turma; onDelete: (id: string) =>
   const save = () => {
     if (!sigla.trim() || !descricao.trim() || !cursoId || !modulo || turnoIds.length === 0) return;
     updateTurma.mutate(
-      { id: turma.id, data: { sigla: sigla.trim(), descricao: descricao.trim(), cursoId, modulo, turnoIds } },
+      { id: turma.id, data: ({ sigla: sigla.trim(), descricao: descricao.trim(), cursoId, modulo, turnoIds } as unknown) as import("@workspace/api-client-react").TurmaInput },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListTurmasQueryKey() });
@@ -201,7 +201,7 @@ export default function TurmasList() {
     e.preventDefault();
     if (!sigla.trim() || !descricao.trim() || !selectedCursoId || !selectedModulo || selectedTurnoIds.length === 0) return;
     createTurma.mutate(
-      { data: { sigla: sigla.trim(), descricao: descricao.trim(), cursoId: selectedCursoId, modulo: selectedModulo, turnoIds: selectedTurnoIds } },
+      { data: ({ sigla: sigla.trim(), descricao: descricao.trim(), cursoId: selectedCursoId, modulo: selectedModulo, turnoIds: selectedTurnoIds } as unknown) as import("@workspace/api-client-react").TurmaInput },
       {
         onSuccess: () => {
           setSigla(""); setDescricao(""); setSelectedCursoId(""); setSelectedModulo(""); setSelectedTurnoIds([]);
@@ -296,7 +296,7 @@ export default function TurmasList() {
                 <span className="text-sm text-muted-foreground font-normal ml-1">({tList.length} turma{tList.length !== 1 && "s"})</span>
               </h2>
               <div className="space-y-2">
-                {tList.map((t) => <TurmaRow key={t.id} turma={t} onDelete={handleDelete} />)}
+                {(tList as unknown as Turma[]).map((t) => <TurmaRow key={t.id} turma={t} onDelete={handleDelete} />)}
               </div>
             </div>
           ))

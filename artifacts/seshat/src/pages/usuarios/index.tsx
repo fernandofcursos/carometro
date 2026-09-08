@@ -40,7 +40,7 @@ function ResponsaveisSelector({
   const [resultados, setResultados] = useState<ResponsavelSummary[]>([]);
   const [carregando, setCarregando] = useState(false);
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     clearTimeout(timerRef.current);
@@ -790,7 +790,7 @@ function NovoUsuarioModal({
           disciplinaOfertaIds: [...disciplinaOfertaIds],
           cursoIds: temCoordenador ? [...cursoIds] : [],
           responsavelIds: temEstudante ? responsaveisSelecionados.map((r) => r.id) : [],
-        },
+        } as import("@workspace/api-client-react").UsuarioInput,
       },
       {
         onSuccess: (data) => {

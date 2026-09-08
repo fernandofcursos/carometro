@@ -134,10 +134,10 @@ function AnalisarModal({
 
   async function handleSalvar() {
     if (decisao === "indeferido" && !parecer.trim()) {
-      return toast({ title: "Informe a motivação do indeferimento.", variant: "destructive" });
+      toast({ title: "Informe a motivação do indeferimento.", variant: "destructive" }); return;
     }
     if (palavras > 1000) {
-      return toast({ title: "O parecer deve ter no máximo 1000 palavras.", variant: "destructive" });
+      toast({ title: "O parecer deve ter no máximo 1000 palavras.", variant: "destructive" }); return;
     }
     setLoading(true);
     try {

@@ -174,7 +174,7 @@ router.put("/:id", requirePermissao("horarios:manage"), async (req, res) => {
     const [row] = await db
       .update(horariosAulasTable)
       .set({ ...body, horaInicio: hi, horaFim: hf, atualizadoEm: new Date() })
-      .where(eq(horariosAulasTable.id, req.params.id))
+      .where(eq(horariosAulasTable.id, String(req.params.id)))
       .returning();
 
     if (!row) return res.status(404).json({ error: "Slot não encontrado." });
@@ -191,7 +191,7 @@ router.delete("/:id", requirePermissao("horarios:manage"), async (req, res) => {
   try {
     const [row] = await db
       .delete(horariosAulasTable)
-      .where(eq(horariosAulasTable.id, req.params.id))
+      .where(eq(horariosAulasTable.id, String(req.params.id)))
       .returning({ id: horariosAulasTable.id });
     if (!row) return res.status(404).json({ error: "Slot não encontrado." });
     res.json({ ok: true });

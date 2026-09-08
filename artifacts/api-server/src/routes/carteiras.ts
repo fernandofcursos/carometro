@@ -103,7 +103,7 @@ router.get("/:id", requirePermissao("estudantes:manage"), async (req: Request, r
     const [row] = await db
       .select()
       .from(carteirasTable)
-      .where(eq(carteirasTable.id, req.params.id));
+      .where(eq(carteirasTable.id, String(req.params.id)));
 
     if (!row) return res.status(404).json({ error: "Carteira não encontrada." });
     res.json(row);
@@ -121,7 +121,7 @@ router.post("/:id/cancelar", requirePermissao("estudantes:manage"), async (req: 
     const [carteira] = await db
       .select({ id: carteirasTable.id, status: carteirasTable.status })
       .from(carteirasTable)
-      .where(eq(carteirasTable.id, req.params.id));
+      .where(eq(carteirasTable.id, String(req.params.id)));
 
     if (!carteira) return res.status(404).json({ error: "Carteira não encontrada." });
     if (carteira.status !== "ativa") {
@@ -147,7 +147,7 @@ router.post("/:id/revogar", requirePermissao("estudantes:manage"), async (req: R
     const [carteira] = await db
       .select({ id: carteirasTable.id, status: carteirasTable.status })
       .from(carteirasTable)
-      .where(eq(carteirasTable.id, req.params.id));
+      .where(eq(carteirasTable.id, String(req.params.id)));
 
     if (!carteira) return res.status(404).json({ error: "Carteira não encontrada." });
     if (carteira.status === "revogada") {
@@ -175,7 +175,7 @@ router.post("/emitir-liberacao/:usuarioId", requirePermissao("estudantes:manage"
       return res.status(400).json({ error: "Informe ano e semestre (1 ou 2)." });
     }
 
-    const { usuarioId } = req.params;
+    const usuarioId = String(req.params.usuarioId);
     const tipo = "cartao-semestral" as const;
 
     // Idempotente: não emite duplicata para o mesmo período
@@ -226,7 +226,7 @@ router.post("/renovar/:usuarioId", requirePermissao("estudantes:manage"), async 
       return res.status(400).json({ error: "Informe ano e semestre (1 ou 2)." });
     }
 
-    const { usuarioId } = req.params;
+    const usuarioId = String(req.params.usuarioId);
 
     // Buscar matrícula ativa do estudante para o novo período
     const [mat] = await db
@@ -248,7 +248,7 @@ export function criarRotaVerificacaoCarteira() {
   const pub = Router();
 
   pub.get("/:token", async (req: Request, res: Response) => {
-    const dados = verificarTokenCarteira(req.params.token);
+    const dados = verificarTokenCarteira(String(req.params.token));
     if (!dados) return res.status(400).json({ valido: false, erro: "Token inválido ou adulterado." });
 
     try {
@@ -256,7 +256,7 @@ export function criarRotaVerificacaoCarteira() {
       const [carteira] = await db
         .select({ status: carteirasTable.status, tipo: carteirasTable.tipo, ano: carteirasTable.ano, semestre: carteirasTable.semestre })
         .from(carteirasTable)
-        .where(eq(carteirasTable.token, req.params.token));
+        .where(eq(carteirasTable.token, String(req.params.token)));
 
       if (!carteira) return res.status(404).json({ valido: false, erro: "Documento não encontrado." });
       if (carteira.status !== "ativa") {

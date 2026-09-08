@@ -99,7 +99,7 @@ router.get("/tipo/:tipoOcorrenciaId", requireAuth, async (req, res) => {
       .from(textosPadraoOcorrenciasTable)
       .where(
         and(
-          eq(textosPadraoOcorrenciasTable.tipoOcorrenciaId, req.params.tipoOcorrenciaId),
+          eq(textosPadraoOcorrenciasTable.tipoOcorrenciaId, String(req.params.tipoOcorrenciaId)),
           eq(textosPadraoOcorrenciasTable.ativo, true),
           isNull(textosPadraoOcorrenciasTable.deletadoEm)
         )
@@ -121,7 +121,7 @@ router.get("/:id/render", requireAuth, async (req, res) => {
       .from(textosPadraoOcorrenciasTable)
       .where(
         and(
-          eq(textosPadraoOcorrenciasTable.id, req.params.id),
+          eq(textosPadraoOcorrenciasTable.id, String(req.params.id)),
           isNull(textosPadraoOcorrenciasTable.deletadoEm)
         )
       )
@@ -227,7 +227,7 @@ router.put(
         .from(textosPadraoOcorrenciasTable)
         .where(
           and(
-            eq(textosPadraoOcorrenciasTable.id, req.params.id),
+            eq(textosPadraoOcorrenciasTable.id, String(req.params.id)),
             isNull(textosPadraoOcorrenciasTable.deletadoEm)
           )
         )
@@ -258,7 +258,7 @@ router.put(
       const [atualizado] = await db
         .update(textosPadraoOcorrenciasTable)
         .set({ ...parsed.data, atualizadoEm: new Date() })
-        .where(eq(textosPadraoOcorrenciasTable.id, req.params.id))
+        .where(eq(textosPadraoOcorrenciasTable.id, String(req.params.id)))
         .returning();
       res.json(atualizado);
     } catch (err) {
@@ -280,7 +280,7 @@ router.delete(
         .from(textosPadraoOcorrenciasTable)
         .where(
           and(
-            eq(textosPadraoOcorrenciasTable.id, req.params.id),
+            eq(textosPadraoOcorrenciasTable.id, String(req.params.id)),
             isNull(textosPadraoOcorrenciasTable.deletadoEm)
           )
         )
@@ -290,7 +290,7 @@ router.delete(
       await db
         .update(textosPadraoOcorrenciasTable)
         .set({ deletadoEm: new Date(), ativo: false, atualizadoEm: new Date() })
-        .where(eq(textosPadraoOcorrenciasTable.id, req.params.id));
+        .where(eq(textosPadraoOcorrenciasTable.id, String(req.params.id)));
       res.status(204).send();
     } catch (err) {
       req.log?.error(err);

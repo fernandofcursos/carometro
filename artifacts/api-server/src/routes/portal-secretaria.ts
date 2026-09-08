@@ -201,7 +201,7 @@ router.post("/avisos", async (req: Request, res: Response) => {
     const data = avisoSchema.parse(req.body);
     const { avisosTable } = await import("@workspace/db/schema") as any;
     if (!avisosTable) return res.status(503).json({ error: "Funcionalidade de avisos não disponível ainda." });
-    const [aviso] = await db.insert(avisosTable).values({ ...data, autorId: usuarioId }).returning();
+    const [aviso] = (await db.insert(avisosTable).values({ ...data, autorId: usuarioId }).returning()) as any[];
     res.status(201).json(aviso);
   } catch (err) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? "Dados inválidos." });

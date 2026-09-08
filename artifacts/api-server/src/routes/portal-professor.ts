@@ -330,7 +330,7 @@ router.post("/ocorrencias", async (req: Request, res: Response) => {
 router.put("/ocorrencias/:id", async (req: Request, res: Response) => {
   try {
     const usuarioId = req.usuarioId!;
-    const id = req.params.id!;
+    const id = String(req.params.id!);
     const data = ocorrenciaSchema.partial().parse(req.body);
 
     // Verificar que a ocorrência pertence ao professor
@@ -359,7 +359,7 @@ router.put("/ocorrencias/:id", async (req: Request, res: Response) => {
 router.delete("/ocorrencias/:id", async (req: Request, res: Response) => {
   try {
     const usuarioId = req.usuarioId!;
-    const id = req.params.id!;
+    const id = String(req.params.id!);
 
     const [existente] = await db
       .select({ registradoPorId: ocorrenciasTable.registradoPorId })
@@ -425,7 +425,7 @@ router.post("/avisos", async (req: Request, res: Response) => {
     const data = avisoSchema.parse(req.body);
     const { avisosTable } = await import("@workspace/db/schema") as any;
     if (!avisosTable) return res.status(503).json({ error: "Funcionalidade de avisos não disponível ainda." });
-    const [aviso] = await db.insert(avisosTable).values({ ...data, autorId: usuarioId }).returning();
+    const [aviso] = (await db.insert(avisosTable).values({ ...data, autorId: usuarioId }).returning()) as any[];
     res.status(201).json(aviso);
   } catch (err) {
     if (err instanceof ZodError) return res.status(400).json({ error: err.errors[0]?.message ?? "Dados inválidos." });
@@ -438,7 +438,7 @@ router.post("/avisos", async (req: Request, res: Response) => {
 router.put("/avisos/:id", async (req: Request, res: Response) => {
   try {
     const usuarioId = req.usuarioId!;
-    const id = req.params.id!;
+    const id = String(req.params.id!);
     const data = avisoSchema.partial().parse(req.body);
     const { avisosTable } = await import("@workspace/db/schema") as any;
     if (!avisosTable) return res.status(503).json({ error: "Funcionalidade de avisos não disponível ainda." });
@@ -464,7 +464,7 @@ router.put("/avisos/:id", async (req: Request, res: Response) => {
 router.delete("/avisos/:id", async (req: Request, res: Response) => {
   try {
     const usuarioId = req.usuarioId!;
-    const id = req.params.id!;
+    const id = String(req.params.id!);
     const { avisosTable } = await import("@workspace/db/schema") as any;
     if (!avisosTable) return res.status(503).json({ error: "Funcionalidade de avisos não disponível ainda." });
 

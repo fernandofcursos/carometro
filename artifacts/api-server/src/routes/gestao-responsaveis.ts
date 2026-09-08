@@ -69,7 +69,7 @@ router.post("/", requirePermissao("estudantes:manage"), async (req: Request, res
 // DELETE /api/responsaveis-estudantes/:id — remover vínculo
 router.delete("/:id", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
-    await db.delete(responsaveisEstudantesTable).where(eq(responsaveisEstudantesTable.id, req.params.id));
+    await db.delete(responsaveisEstudantesTable).where(eq(responsaveisEstudantesTable.id, String(req.params.id)));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao remover vínculo" });
@@ -123,7 +123,7 @@ router.post("/cartoes-saida/:id/aprovar", requirePermissao("estudantes:manage"),
     const [cartao] = await db
       .select({ id: cartoesSaidaTable.id, status: cartoesSaidaTable.status, estudanteId: cartoesSaidaTable.estudanteId, dataSaida: cartoesSaidaTable.dataSaida })
       .from(cartoesSaidaTable)
-      .where(eq(cartoesSaidaTable.id, req.params.id));
+      .where(eq(cartoesSaidaTable.id, String(req.params.id)));
 
     if (!cartao) return res.status(404).json({ error: "Cartão não encontrado." });
     if (cartao.status !== "pendente") return res.status(409).json({ error: `Cartão já está ${cartao.status}.` });
@@ -150,7 +150,7 @@ router.post("/cartoes-saida/:id/recusar", requirePermissao("estudantes:manage"),
     const [cartao] = await db
       .select({ id: cartoesSaidaTable.id, status: cartoesSaidaTable.status })
       .from(cartoesSaidaTable)
-      .where(eq(cartoesSaidaTable.id, req.params.id));
+      .where(eq(cartoesSaidaTable.id, String(req.params.id)));
 
     if (!cartao) return res.status(404).json({ error: "Cartão não encontrado." });
     if (cartao.status !== "pendente") return res.status(409).json({ error: `Cartão já está ${cartao.status}.` });
@@ -208,7 +208,7 @@ router.get("/atestados-medicos/:id/download", requirePermissao("estudantes:manag
     const [atestado] = await db
       .select()
       .from(atestadosMedicosTable)
-      .where(eq(atestadosMedicosTable.id, req.params.id));
+      .where(eq(atestadosMedicosTable.id, String(req.params.id)));
 
     if (!atestado) return res.status(404).json({ error: "Atestado não encontrado." });
 

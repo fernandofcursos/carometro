@@ -88,8 +88,8 @@ async function buscarEstudanteCompleto(estudanteId: string) {
     .limit(1);
   if (!est) return null;
 
-  const mat = await buscarMatriculasAtivas([est.usuarioId]);
-  const matriculas = mat.get(est.usuarioId) ?? [];
+  const mat = await buscarMatriculasAtivas(est.usuarioId ? [est.usuarioId] : []);
+  const matriculas = (est.usuarioId ? mat.get(est.usuarioId) : undefined) ?? [];
   return { ...est, matriculas };
 }
 
@@ -405,9 +405,9 @@ router.post("/", requireAuth, async (req, res) => {
     .returning();
 
   await registrarAuditoria({
-    usuarioId, acao: "create", recurso: "requerimentos", recursoId: criado.id,
-    detalhes: { numero, assuntoId, estudanteId },
-    ipReq: req,
+    usuarioId, operacao: "INSERT", tabela: "requerimentos", registroId: criado.id,
+    dadosDepois: { numero, assuntoId, estudanteId },
+    ipOrigem: req.ip,
   });
 
   res.status(201).json(criado);
@@ -460,7 +460,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     .leftJoin(turmasMat,                  eq(turmasMat.id, matriculasTable.turmaId))
     .leftJoin(cursosMat,                  eq(cursosMat.id, turmasMat.cursoId))
     .leftJoin(turnosMat,                  eq(turnosMat.id, matriculasTable.turnoId))
-    .where(eq(requerimentosTable.id, req.params.id))
+    .where(eq(requerimentosTable.id, String(req.params.id)))
     .limit(1);
 
   if (!row) return res.status(404).json({ error: "Requerimento não encontrado." });
@@ -492,7 +492,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     })
     .from(requerimentoAssinaturasTable)
     .innerJoin(usuariosTable, eq(usuariosTable.id, requerimentoAssinaturasTable.usuarioId))
-    .where(eq(requerimentoAssinaturasTable.requerimentoId, req.params.id));
+    .where(eq(requerimentoAssinaturasTable.requerimentoId, String(req.params.id)));
 
   // Para analisadores, busca qual role relevante (secretaria | supervisao_pedagogica) eles têm
   const analisadorIds = [...new Set(
@@ -539,7 +539,7 @@ router.post("/:id/assinar", requireAuth, async (req, res) => {
               requerenteId: requerimentosTable.requerenteId,
               estudanteId: requerimentosTable.estudanteId })
     .from(requerimentosTable)
-    .where(eq(requerimentosTable.id, req.params.id))
+    .where(eq(requerimentosTable.id, String(req.params.id)))
     .limit(1);
   if (!req_) return res.status(404).json({ error: "Requerimento não encontrado." });
 
@@ -624,7 +624,7 @@ router.put("/:id/analisar", requireAuth, async (req, res) => {
     })
     .from(requerimentosTable)
     .innerJoin(requerimentoAssuntosTable, eq(requerimentoAssuntosTable.id, requerimentosTable.assuntoId))
-    .where(eq(requerimentosTable.id, req.params.id))
+    .where(eq(requerimentosTable.id, String(req.params.id)))
     .limit(1);
   if (!existente) return res.status(404).json({ error: "Requerimento não encontrado." });
 
@@ -637,7 +637,7 @@ router.put("/:id/analisar", requireAuth, async (req, res) => {
       analisadoEm:    new Date(),
       atualizadoEm:   new Date(),
     })
-    .where(eq(requerimentosTable.id, req.params.id))
+    .where(eq(requerimentosTable.id, String(req.params.id)))
     .returning();
 
   // ── Efeitos do Deferimento ─────────────────────────────────────────────────
@@ -651,9 +651,9 @@ router.put("/:id/analisar", requireAuth, async (req, res) => {
   }
 
   await registrarAuditoria({
-    usuarioId, acao: "update", recurso: "requerimentos", recursoId: req.params.id,
-    detalhes: { status, parecer: parecer ?? null },
-    ipReq: req,
+    usuarioId, operacao: "UPDATE", tabela: "requerimentos", registroId: String(req.params.id),
+    dadosDepois: { status, parecer: parecer ?? null },
+    ipOrigem: req.ip,
   });
 
   res.json(atualizado);
@@ -746,7 +746,7 @@ router.post("/:id/assinar-analise", requireAuth, async (req, res) => {
   const [req_] = await db
     .select({ id: requerimentosTable.id, status: requerimentosTable.status })
     .from(requerimentosTable)
-    .where(eq(requerimentosTable.id, req.params.id))
+    .where(eq(requerimentosTable.id, String(req.params.id)))
     .limit(1);
   if (!req_) return res.status(404).json({ error: "Requerimento não encontrado." });
 
@@ -799,7 +799,7 @@ router.put("/admin/tipos/:id", requirePermissao("roles:manage"), async (req, res
   const { nome, ordem, ativo } = req.body;
   const [atualizado] = await db.update(requerimentoTiposTable)
     .set({ nome, ordem, ativo })
-    .where(eq(requerimentoTiposTable.id, req.params.id))
+    .where(eq(requerimentoTiposTable.id, String(req.params.id)))
     .returning();
   if (!atualizado) return res.status(404).json({ error: "Tipo não encontrado." });
   res.json(atualizado);
@@ -818,14 +818,14 @@ router.put("/admin/assuntos/:id", requirePermissao("roles:manage"), async (req, 
   const { nome, descricao, requerMotivos, ordem, ativo } = req.body;
   const [atualizado] = await db.update(requerimentoAssuntosTable)
     .set({ nome, descricao, requerMotivos, ordem, ativo })
-    .where(eq(requerimentoAssuntosTable.id, req.params.id))
+    .where(eq(requerimentoAssuntosTable.id, String(req.params.id)))
     .returning();
   if (!atualizado) return res.status(404).json({ error: "Assunto não encontrado." });
   res.json(atualizado);
 });
 
 router.delete("/admin/assuntos/:id", requirePermissao("roles:manage"), async (req, res) => {
-  await db.delete(requerimentoAssuntosTable).where(eq(requerimentoAssuntosTable.id, req.params.id));
+  await db.delete(requerimentoAssuntosTable).where(eq(requerimentoAssuntosTable.id, String(req.params.id)));
   res.json({ ok: true });
 });
 
