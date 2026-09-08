@@ -26,13 +26,11 @@ export const turmasTable = pgTable("turmas", {
 ]);
 
 export const insertTurmaSchema = createInsertSchema(turmasTable, {
-  turnoIds: z.array(z.string().uuid()).min(1, "Ao menos um turno é obrigatório"),
   modulo: z.enum(MODULOS, { required_error: "Selecione o módulo da turma." }),
 }).omit({
   id: true, criadoEm: true, atualizadoEm: true, deletadoEm: true,
 }).extend({
   turnoIds: z.array(z.string().uuid()).min(1, "Ao menos um turno é obrigatório"),
-  modulo: z.enum(MODULOS, { required_error: "Selecione o módulo da turma." }),
 });
 export type InsertTurma = z.infer<typeof insertTurmaSchema>;
 export type Turma = typeof turmasTable.$inferSelect;
