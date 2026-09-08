@@ -75,7 +75,7 @@ Ao abrir um PR, o autor deve garantir:
 ## Checklist
 - [ ] `pnpm --filter @workspace/api-server run test` passou (53+ testes)
 - [ ] `pnpm --filter @workspace/api-server run typecheck` sem erros
-- [ ] `pnpm --filter @workspace/carometro run typecheck` sem erros
+- [ ] `pnpm --filter @workspace/seshat run typecheck` sem erros
 - [ ] Spec atualizada em `.specs/features/` se necessário
 - [ ] `.env.example` atualizado se nova variável foi adicionada
 - [ ] Auditoria implementada nas operações de escrita

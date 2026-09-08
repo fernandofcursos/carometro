@@ -8,7 +8,7 @@
 
 ## Contexto
 
-O Carômetro já usa Docker para desenvolvimento (docker-compose.yml) e tem infraestrutura básica de produção com nginx. Com a premissa de hospedagem em nuvem, é necessário definir como os containers serão orquestrados em produção.
+O Seshat já usa Docker para desenvolvimento (docker-compose.yml) e tem infraestrutura básica de produção com nginx. Com a premissa de hospedagem em nuvem, é necessário definir como os containers serão orquestrados em produção.
 
 ---
 
@@ -74,7 +74,7 @@ O Carômetro já usa Docker para desenvolvimento (docker-compose.yml) e tem infr
 
 ## Recomendação
 
-**Para o estágio atual do Carômetro: Opção B (PaaS) → evoluir para Opção C quando necessário.**
+**Para o estágio atual do Seshat: Opção B (PaaS) → evoluir para Opção C quando necessário.**
 
 ### Justificativa
 

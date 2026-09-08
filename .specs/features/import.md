@@ -1,60 +1,44 @@
-# Feature: Importação em Massa via XLSX
+# Feature: Importação em Massa
 
-> Athena aprovado | Status: implementado
+> Módulo de importação em lote do Seshat via CSV
 
-## Objetivo
+## Visão Geral
 
-Permitir importação em lote de cursos, turmas e estudantes a partir de planilhas XLSX exportadas de sistemas de gestão escolar externos.
+Permite importação em lote de dados a partir de arquivos CSV enviados pelo frontend.
 
-## Endpoints
+**Ordem de importação recomendada:**
+1. Cursos
+2. Disciplinas
+3. Professores
+4. Turmas
+5. Estudantes
 
-| Método | Rota | Permissão | Descrição |
-|--------|------|-----------|-----------|
-| `POST` | `/api/import/cursos` | `import:execute` | Importar cursos |
-| `POST` | `/api/import/turmas` | `import:execute` | Importar turmas |
-| `POST` | `/api/import/estudantes` | `import:execute` | Importar estudantes |
+## Specs por Entidade
 
-## Formato de Entrada
+| Entidade | Spec | Endpoint |
+|----------|------|----------|
+| Cursos | [import-cursos.md](./import-cursos.md) | `POST /api/import/cursos` |
+| Disciplinas | [import-disciplinas.md](./import-disciplinas.md) | `POST /api/import/disciplinas` |
+| Professores | [import-professores.md](./import-professores.md) | `POST /api/import/professores` |
+| Turmas | [import-turmas.md](./import-turmas.md) | `POST /api/import/turmas` |
+| Estudantes | [import-estudantes.md](./import-estudantes.md) | `POST /api/import/estudantes` |
+
+## Formato de Entrada Comum
 
 ```json
 {
   "rows": [
-    { "data": { "nome": "Técnico em Informática", "descricao": "...", "ativo": true } }
+    { "data": { "campo1": "valor1", "campo2": "valor2" } }
   ]
 }
 ```
 
-- O campo `data` contém os dados de uma linha da planilha.
-- O frontend converte o XLSX para este formato antes de enviar.
-
-## Formato de Saída
+## Formato de Saída Comum
 
 ```json
-{ "imported": 3, "errors": ["linha 2: turma 'ADM1' não encontrada"] }
+{ "imported": 3, "errors": ["linha 2: turma 'INF1A' não encontrada"] }
 ```
 
-## Regras de Negócio
+## Permissão
 
-### Cursos
-- Campo obrigatório: `nome`
-- Campos opcionais: `descricao`, `ativo`
-- Upsert por `nome` (atualiza se já existir)
-
-### Turmas
-- Campos obrigatórios: `descricao`, `sigla`, `curso` (nome), `turno` (nome)
-- Lookup por nome de curso e turno — retorna erro de linha se não encontrado
-- Upsert por `sigla`
-
-### Estudantes
-- Campos obrigatórios: `nome`, `registro`
-- Campos opcionais: `turma` (sigla), `email`, `observacao`
-- Upsert por `registro` (preserva foto existente)
-- Email criptografado (AES-256-CBC) se fornecido
-
-## Casos de Teste
-
-- POST /api/import/cursos sem auth → 401
-- POST /api/import/cursos sem permissão → 403
-- POST com rows válidas → `{ imported: N, errors: [] }`
-- POST /api/import/turmas com curso inexistente → `{ imported: 0, errors: ["..."] }`
-- POST /api/import/estudantes upsert → não duplica registro existente
+Todos os endpoints exigem: `import:execute`

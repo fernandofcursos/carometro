@@ -44,6 +44,27 @@
 - Variáveis obrigatórias: `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY`
 - Variáveis opcionais: `SMTP_*` (e-mail), `NODE_ENV`, `LOG_LEVEL`, `FRONTEND_URL`
 
+### Separação de Portas — IMPORTANTE
+
+| Serviço | Porta | Variável | Padrão |
+|---------|-------|----------|--------|
+| Frontend (Vite) | 5000 | `VITE_PORT` | 5000 (hardcoded no `vite.config.ts`) |
+| API (Express) | 8080 | `PORT` | 8080 (fallback em `src/index.ts`) |
+| PostgreSQL | 5432 | — | fixo |
+
+**Nunca definir `PORT=8080` no `.env` sem necessidade** — o Vite antigo lia `PORT` e
+subia na porta da API. Hoje o `vite.config.ts` usa `VITE_PORT ?? 5000` e ignora `PORT`.
+A API usa `process.env.PORT ?? 8080` como fallback; não é necessário definir no `.env`.
+
+Para subir os serviços em desenvolvimento:
+```bash
+# API — porta 8080 (fallback no código, sem PORT= necessário)
+pnpm --filter @workspace/api-server run dev
+
+# Frontend — porta 5000 (fallback no vite.config.ts)
+pnpm --filter @workspace/seshat run dev
+```
+
 ### Banco de Dados (Neon)
 - `DATABASE_URL` deve sempre apontar para o Neon em desenvolvimento e produção
 - SSL obrigatório: `?sslmode=require` na connection string
@@ -108,10 +129,10 @@ docker compose --profile tools up -d
    a. git pull origin claude/wonderful-feynman-Klc3C
    b. pnpm install          (só se houve mudança em package.json)
    c. pnpm --filter @workspace/db run push-force   (só se schema mudou)
-5. Cmd+Shift+B → "🚀 Carômetro: subir tudo"
+5. Cmd+Shift+B → "🚀 Seshat: subir tudo"
    OU:
-   Terminal 1: PORT=8080 pnpm --filter @workspace/api-server run dev
-   Terminal 2: pnpm --filter @workspace/carometro run dev
+   Terminal 1: pnpm --filter @workspace/api-server run dev
+   Terminal 2: pnpm --filter @workspace/seshat run dev
 ```
 
 ---

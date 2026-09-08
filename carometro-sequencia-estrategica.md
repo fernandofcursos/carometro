@@ -601,7 +601,7 @@ router.get("/:id/foto", requireAuth, async (req, res) => {
 
 ### 2.5 Compressão no frontend antes do upload
 
-Em `artifacts/carometro/src/components/camera-capture.tsx`, antes de chamar `onCapture`:
+Em `artifacts/seshat/src/components/camera-capture.tsx`, antes de chamar `onCapture`:
 
 ```typescript
 async function comprimirImagem(base64: string, maxKB = 150): Promise<string> {
@@ -741,7 +741,7 @@ router.post("/consentimentos", requireAuth, async (req, res) => {
 
 ### 3.3 Conectar o frontend
 
-Em `artifacts/carometro/src/hooks/use-lgpd.ts`, substituir o `console.log` por:
+Em `artifacts/seshat/src/hooks/use-lgpd.ts`, substituir o `console.log` por:
 
 ```typescript
 async function syncConsentToAPI({
@@ -1102,7 +1102,7 @@ Criar `.env` copiando de `.env.example` e preenchendo os valores reais. Adiciona
 ### 7.2 `Dockerfile` do frontend
 
 ```dockerfile
-# artifacts/carometro/Dockerfile
+# artifacts/seshat/Dockerfile
 
 # Etapa 1: build
 FROM node:24-alpine AS builder
@@ -1112,7 +1112,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY tsconfig.base.json ./
 COPY lib/ ./lib/
-COPY artifacts/carometro/ ./artifacts/carometro/
+COPY artifacts/seshat/ ./artifacts/seshat/
 
 # Instalar pnpm e dependências
 RUN npm install -g pnpm@10 && pnpm install --frozen-lockfile
@@ -1120,12 +1120,12 @@ RUN npm install -g pnpm@10 && pnpm install --frozen-lockfile
 # Build do frontend
 ENV NODE_ENV=production
 ENV BASE_PATH=/
-RUN pnpm --filter @workspace/carometro run build
+RUN pnpm --filter @workspace/seshat run build
 
 # Etapa 2: servir com nginx
 FROM nginx:alpine AS runtime
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
-COPY --from=builder /app/artifacts/carometro/dist/public /usr/share/nginx/html
+COPY --from=builder /app/artifacts/seshat/dist/public /usr/share/nginx/html
 COPY nginx/ssl/ /etc/nginx/ssl/
 
 EXPOSE 80 443
@@ -1218,7 +1218,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: artifacts/carometro/Dockerfile
+      dockerfile: artifacts/seshat/Dockerfile
     restart: unless-stopped
     ports:
       - "80:80"
@@ -1327,14 +1327,14 @@ Rápida mas necessária — dois manifests com configurações diferentes causam
 ### 8.1 Remover `public/manifest.json`
 
 ```bash
-rm artifacts/carometro/public/manifest.json
+rm artifacts/seshat/public/manifest.json
 ```
 
 O `vite-plugin-pwa` já gera o manifest automaticamente durante o build com as configurações em `vite.config.ts`.
 
 ### 8.2 Atualizar `index.html`
 
-Remover a tag manual de manifest do `artifacts/carometro/index.html` se existir:
+Remover a tag manual de manifest do `artifacts/seshat/index.html` se existir:
 
 ```html
 <!-- Remover esta linha se existir: -->
@@ -1459,7 +1459,7 @@ router.get("/", requireAuth, requirePermissao("auditoria:view"), async (req, res
 });
 ```
 
-### 9.4 Atualizar `artifacts/carometro/src/pages/auditoria.tsx`
+### 9.4 Atualizar `artifacts/seshat/src/pages/auditoria.tsx`
 
 Substituir os dados hardcoded por uma query real usando o hook gerado pelo Orval após o codegen.
 

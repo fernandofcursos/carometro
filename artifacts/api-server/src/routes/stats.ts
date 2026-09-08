@@ -9,7 +9,7 @@ router.use(requireAuth);
 router.get("/", async (req: Request, res: Response) => {
   try {
     const [[estudantes], [turmas], [cursos], [turnos]] = await Promise.all([
-      db.select({ total: sql<number>`count(*)::int`, comFoto: sql<number>`count(*) filter (where foto_storage_key is not null)::int` })
+      db.select({ total: sql<number>`count(*)::int`, comFoto: sql<number>`count(*) filter (where foto_id is not null or foto_storage_key is not null)::int` })
         .from(estudantesTable)
         .where(isNull(estudantesTable.deletadoEm)),
       db.select({ total: sql<number>`count(*)::int` }).from(turmasTable),

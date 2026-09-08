@@ -60,12 +60,15 @@
 | Autenticação | `features/auth.md` | ✅ Aprovado e implementado |
 | RBAC | `features/rbac.md` | ✅ Aprovado / parcialmente implementado |
 | Estudantes | `features/estudantes.md` | ✅ Aprovado e implementado |
-| Carômetro | `features/carometro.md` | ✅ Aprovado e implementado |
+| Carômetro | `features/seshat.md` | ✅ Aprovado e implementado |
 | Turmas | `features/turmas.md` | ✅ Aprovado e implementado |
 | Ocorrências | `features/ocorrencias.md` | ✅ Aprovado e implementado |
 | Importação XLSX | `features/import.md` | ✅ Aprovado e implementado |
 | LGPD | `features/lgpd.md` | ✅ Aprovado e implementado |
 | Auditoria | `features/auditoria.md` | ✅ Aprovado e implementado |
+| Mailer | `features/mailer.md` | ✅ Aprovado e implementado |
+| Textos Padrão de Ocorrências | `features/textos-padrao-ocorrencias.md` | ✅ Aprovado e implementado |
+| Carômetro — Estudantes | `features/carometro-estudantes.md` | ✅ Aprovado e implementado |
 
 ---
 

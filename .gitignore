@@ -7,6 +7,7 @@ dist
 dist-ssr
 
 # Variáveis de ambiente (NUNCA commitar credenciais)
+.env
 .env.local
 .env.*.local
 .env.production
@@ -45,3 +46,4 @@ tmp/
 nginx/ssl/*.pem
 lib/db/dist
 lib/api-client-react/dist
+*.tsbuildinfo

@@ -28,7 +28,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     // Verificar assinatura do JWT e prazo de expiração
     // issuer valida que o token foi gerado por esta aplicação
     const payload = jwt.verify(token, process.env.SESSION_SECRET!, {
-      issuer: "carometro",
+      issuer: "seshat",
     }) as { sub: string };
 
     // Salvar usuarioId no request para uso nas rotas
@@ -52,7 +52,7 @@ export function signToken(userId: string, roles: string[]): string {
     // Secret key — DEVE ser aleatório em produção (mínimo 64 chars)
     process.env.SESSION_SECRET!,
     // Opções de assinatura
-    { expiresIn: "8h", issuer: "carometro" }
+    { expiresIn: "8h", issuer: "seshat" }
   );
   return token;
 }

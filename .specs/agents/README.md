@@ -1,4 +1,4 @@
-# Agentes do Carômetro (SDD)
+# Agentes do Seshat (SDD)
 
 > Spec Driven Development — cada agente tem um papel claro, escopo definido e restrições explícitas.
 
@@ -6,7 +6,7 @@
 
 ## Visão Geral
 
-O Carômetro usa um modelo de **agentes especializados** para organizar o desenvolvimento. Cada agente tem autoridade sobre um domínio específico e não pode agir fora dele sem aprovação.
+O Seshat usa um modelo de **agentes especializados** para organizar o desenvolvimento. Cada agente tem autoridade sobre um domínio específico e não pode agir fora dele sem aprovação.
 
 ```
          ┌──────────────────────────────────────────┐

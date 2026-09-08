@@ -5,14 +5,14 @@
 
 ## Contexto
 
-O Carômetro tem três camadas distintas: banco de dados (schemas Drizzle), API (Express) e frontend (React). Precisávamos de uma estrutura que permitisse compartilhar tipos TypeScript entre camadas sem duplicação.
+O Seshat tem três camadas distintas: banco de dados (schemas Drizzle), API (Express) e frontend (React). Precisávamos de uma estrutura que permitisse compartilhar tipos TypeScript entre camadas sem duplicação.
 
 ## Decisão
 
 Usar pnpm workspaces com a seguinte estrutura:
 - `lib/db/` — schemas Drizzle, migrações, tipos compartilhados (`@workspace/db`)
 - `artifacts/api-server/` — Express + rotas (`@workspace/api-server`)
-- `artifacts/carometro/` — React + Vite (`@workspace/carometro`)
+- `artifacts/seshat/` — React + Vite (`@workspace/seshat`)
 - `scripts/` — scripts de seed e utilitários
 
 ## Consequências

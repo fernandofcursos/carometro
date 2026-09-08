@@ -5,5 +5,7 @@ export {
   setAuthTokenGetter,
   setCredentials,
   setAuthErrorCallback,
+  customFetch,
 } from "./custom-fetch";
 export type { AuthTokenGetter } from "./custom-fetch";
+export { ApiError } from "./custom-fetch";

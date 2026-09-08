@@ -1,14 +1,23 @@
 #!/bin/bash
 # =============================================================================
-# entrypoint.sh — ambiente de desenvolvimento Carômetro
+# entrypoint.sh — ambiente de desenvolvimento Seshat
 #
 # Ciclo de vida do banco:
-#   1. Se PGDATA não tiver PG_VERSION → inicializa o cluster (primeiro uso)
-#   2. Inicia PostgreSQL
-#   3. Cria role/banco carometro (idempotente)
+#   1. Se PGDATA não tiver PG_VERSION → inicializa cluster (somente 1ª vez)
+#   2. Inicia PostgreSQL (rápido se já estiver rodando)
+#   3. Cria role/banco seshat idempotente
 #   4. Aplica extensões necessárias
 #   5. Se hash do schema mudou → drizzle-kit push (só quando necessário)
-#   6. Se banco nunca foi inicializado → seed-admin (somente primeira vez)
+#   6. Se banco nunca foi inicializado → seed-admin (somente 1ª vez)
+#
+# Persistência: volume externo seshat-pg-dev
+#   → nunca removido por "docker compose down -v"
+#   → para recriar: bash scripts/recriar-banco.sh --confirmar
+#
+# Migrations ao alterar schema:
+#   bash scripts/gerar-migration.sh "descricao-da-mudanca"
+#   psql $DATABASE_URL -f scripts/migrations/<arquivo>.sql
+#   pnpm --filter @workspace/db run push-force
 # =============================================================================
 
 BOLD='\033[1m'
@@ -36,8 +45,8 @@ fi
 PGDATA=/var/lib/postgresql/16/main
 PGCONF=/etc/postgresql/16/main
 PGLOG=/var/log/postgresql/postgresql-16-main.log
-SCHEMA_HASH_FILE="$PGDATA/.carometro_schema_hash"
-INIT_MARKER="$PGDATA/.carometro_initialized"
+SCHEMA_HASH_FILE="$PGDATA/.seshat_schema_hash"
+INIT_MARKER="$PGDATA/.seshat_initialized"
 
 # ── Helpers de execução como postgres ────────────────────────────────────────
 _run_as_postgres() {
@@ -130,13 +139,13 @@ _iniciar_pg() {
 
 # ── Criar role e banco (idempotente) ─────────────────────────────────────────
 _setup_db() {
-  _psql_admin -c "CREATE USER carometro WITH PASSWORD 'carometro';" 2>/dev/null || true
-  _psql_admin -c "CREATE DATABASE carometro OWNER carometro;" 2>/dev/null || true
-  _psql_admin -c "GRANT ALL PRIVILEGES ON DATABASE carometro TO carometro;" 2>/dev/null || true
+  _psql_admin -c "CREATE USER seshat WITH PASSWORD 'seshat';;" 2>/dev/null || true
+  _psql_admin -c "CREATE DATABASE seshat OWNER seshat;" 2>/dev/null || true
+  _psql_admin -c "GRANT ALL PRIVILEGES ON DATABASE seshat TO seshat;" 2>/dev/null || true
   # Extensões necessárias
-  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
-  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
-  _psql_admin -d carometro -c "CREATE EXTENSION IF NOT EXISTS \"unaccent\";" 2>/dev/null || true
+  _psql_admin -d seshat -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
+  _psql_admin -d seshat -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
+  _psql_admin -d seshat -c "CREATE EXTENSION IF NOT EXISTS \"unaccent\";" 2>/dev/null || true
 }
 
 # ── Hash do schema (detecta mudanças) ────────────────────────────────────────
@@ -144,13 +153,33 @@ _schema_hash() {
   find /workspace/lib/db/src -name "*.ts" 2>/dev/null | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1
 }
 
+# ── Instalar dependências Node se necessário ──────────────────────────────────
+_ensure_deps() {
+  # Verifica se o pacote db está compilado (necessário para drizzle-kit push)
+  if [ ! -d /workspace/node_modules ] || [ ! -d /workspace/lib/db/node_modules 2>/dev/null ] && [ ! -f /workspace/node_modules/.modules.yaml ]; then
+    echo -e "${CYAN}[db] Instalando dependências Node (pnpm install)...${NC}"
+    (cd /workspace && pnpm install --frozen-lockfile 2>&1) || \
+    (cd /workspace && pnpm install 2>&1) || {
+      echo -e "${RED}[db] ERRO: pnpm install falhou. Verifique a conexão e o lockfile.${NC}"
+      return 1
+    }
+    echo -e "${GREEN}[db] Dependências instaladas.${NC}"
+  fi
+
+  # Garantir que @workspace/db está compilado (drizzle-kit precisa dos types)
+  if [ ! -d /workspace/lib/db/dist ]; then
+    echo -e "${CYAN}[db] Compilando @workspace/db...${NC}"
+    (cd /workspace && pnpm --filter @workspace/db run build 2>&1) || true
+  fi
+}
+
 # ── Setup automático: schema push + seed ─────────────────────────────────────
 _auto_setup() {
-  # Só executa se as dependências Node estiverem instaladas
-  if [ ! -d /workspace/node_modules ]; then
-    echo -e "${YELLOW}[db] node_modules não encontrado. Execute 'pnpm install' para continuar.${NC}"
+  # Garantir dependências antes de qualquer operação Node
+  _ensure_deps || {
+    echo -e "${RED}[db] Não foi possível instalar dependências. Schema e seed pulados.${NC}"
     return
-  fi
+  }
 
   local current_hash stored_hash=""
   current_hash=$(_schema_hash)
@@ -214,13 +243,16 @@ CMD_ARG="${1:-shell}"
 case "$CMD_ARG" in
   shell)
     echo ""
-    echo -e "${BOLD}Carômetro Dev — shell interativo${NC}"
-    echo -e "${CYAN}Comandos disponíveis:${NC}"
-    echo -e "  ${YELLOW}pnpm install${NC}                                            instalar dependências"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/db run push-force${NC}              forçar reaplicação do schema"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/api-server run seed-admin${NC}      recriar/verificar admin"
-    echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}   subir API"
-    echo -e "  ${YELLOW}pnpm --filter @workspace/carometro run dev${NC}              subir frontend"
+    echo -e "${BOLD}Seshat Dev — shell interativo${NC}"
+    echo -e "${CYAN}Banco de dados:${NC}"
+    echo -e "  ${YELLOW}db:push${NC}          forçar reaplicação do schema (drizzle-kit push --force)"
+    echo -e "  ${YELLOW}db:migrate DESC${NC}  gerar script SQL de migração para mudanças de schema"
+    echo -e "  ${YELLOW}db:seed${NC}          recriar/verificar usuário administrador"
+    echo -e "  ${YELLOW}db:hash-reset${NC}    forçar re-execução do push-force no próximo start"
+    echo -e "${CYAN}Desenvolvimento:${NC}"
+    echo -e "  ${YELLOW}PORT=8080 pnpm --filter @workspace/api-server run dev${NC}  subir API"
+    echo -e "  ${YELLOW}pnpm --filter @workspace/seshat run dev${NC}                subir frontend"
+    echo -e "  ${YELLOW}pnpm install${NC}                                           instalar dependências"
     echo ""
     exec /bin/bash
     ;;
@@ -233,17 +265,22 @@ case "$CMD_ARG" in
   db:push)
     exec pnpm --filter @workspace/db run push-force
     ;;
+  db:migrate)
+    exec bash /workspace/scripts/gerar-migration.sh "${@:2}"
+    ;;
   db:seed)
     exec pnpm --filter @workspace/api-server run seed-admin "${@:2}"
     ;;
   seed)
-    # Alias legado
     exec pnpm --filter @workspace/api-server run seed-admin "${@:2}"
     ;;
   db:hash-reset)
-    echo -e "${YELLOW}[db] Removendo marcadores de hash e init para forçar re-setup...${NC}"
+    echo -e "${YELLOW}[db] Removendo marcadores — próximo start reaplicará schema e seed...${NC}"
     rm -f "$SCHEMA_HASH_FILE" "$INIT_MARKER"
-    echo -e "${GREEN}[db] Marcadores removidos. Reinicie o container.${NC}"
+    echo -e "${GREEN}[db] Marcadores removidos.${NC}"
+    ;;
+  db:recriar)
+    exec bash /workspace/scripts/recriar-banco.sh "${@:2}"
     ;;
   *)
     exec "$@"

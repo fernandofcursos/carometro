@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80">
+  <!-- Marca: heliê de Seshat -->
+  <!-- Estrela de sete pontas — centro (40,38) R=19 r=8 -->
+  <polygon
+    points="40,19 42.96,27.85 54.56,23.78 47.33,31.44 57.73,38.00 45.86,38.73 47.86,51.27 40,44.00 32.14,51.27 34.14,38.73 22.27,38.00 32.67,31.44 25.44,23.78 37.04,27.85"
+    fill="#C8A84B"/>
+  <!-- Bastão -->
+  <line x1="40" y1="53" x2="40" y2="72" stroke="#C8A84B" stroke-width="3" stroke-linecap="round"/>
+  <!-- Chifre esquerdo -->
+  <path d="M 37.5,53 Q 24,60 18,72" stroke="#C8A84B" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Chifre direito -->
+  <path d="M 42.5,53 Q 56,60 62,72" stroke="#C8A84B" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Separador vertical -->
+  <line x1="84" y1="16" x2="84" y2="64" stroke="#C8A84B" stroke-width="0.75" stroke-opacity="0.4"/>
+
+  <!-- Wordmark: SESHAT -->
+  <text
+    x="100" y="52"
+    font-family="'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif"
+    font-size="32"
+    font-weight="400"
+    letter-spacing="4"
+    fill="#C8A84B">SESHAT</text>
+</svg>
