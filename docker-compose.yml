@@ -210,6 +210,19 @@ services:
       db:
         condition: service_healthy
 
+  # ---------------------------------------------------------------------------
+  # LibreDB Studio — interface web moderna para PostgreSQL
+  # Uso: docker compose --profile tools up
+  # UI: http://localhost:3000
+  # ---------------------------------------------------------------------------
+  libredb:
+    profiles: ["tools"]
+    image: libredb/libredb-studio
+    container_name: seshat-libredb
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+
 # ---------------------------------------------------------------------------
 # Volumes persistentes
 # ---------------------------------------------------------------------------

@@ -241,6 +241,25 @@ services:
       start_period: 60s
 
   # ---------------------------------------------------------------------------
+  # LibreDB Studio — interface web para gerenciamento do banco de dados
+  # Acesso via nginx /libredb/ (rede interna — porta NÃO exposta ao host)
+  # ISO 27001 A.8.20: acesso restrito à rede interna de monitoramento
+  # ---------------------------------------------------------------------------
+  libredb:
+    image: libredb/libredb-studio
+    container_name: seshat-prod-libredb
+    restart: unless-stopped
+    networks:
+      - monitoring_net
+    # ISO 27001: porta NÃO exposta ao host — acesso via nginx /libredb/
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
   # postgres-exporter — expõe métricas do PostgreSQL para o Prometheus
   # Usa usuário dedicado com permissões mínimas (ver init-monitoring-user.sql)
   # ---------------------------------------------------------------------------
