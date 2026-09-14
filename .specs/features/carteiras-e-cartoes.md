@@ -297,3 +297,20 @@ Todos os quatro componentes incluem **LOGO_GDF (esquerda) + LOGO_CEP (direita)**
 | `artifacts/seshat/src/pages/portal-responsavel/index.tsx` | CarteiraEstudanteCIE + CartaoLiberacaoTab + CartaoLiberacaoCard + horarioJaPassou |
 | `artifacts/seshat/src/pages/carteiras/index.tsx` | UI de gestão (coordenador) |
 | `scripts/migrate-carteiras.sql` | DDL das tabelas |
+| `scripts/migrate-leitura-qrcode.sql` | Colunas lido_em/lido_por_id + permissão + seed tipo ocorrência |
+
+## Leitura de QR Code
+
+Spec completa em: `.specs/features/leitura-qrcode.md`
+
+| Canal | Documento | Autenticação | Endpoint |
+|---|---|---|---|
+| Câmera / link externo | Carteira de Estudante | Não | `GET /api/verificar/:token` |
+| UI interna | Carteira de Estudante | Sim (`carteiras:verificar`) | `POST /api/leitura-qr/carteira` |
+| UI interna | Cartão de Liberação | Sim (`carteiras:verificar`) | `POST /api/leitura-qr/cartao-liberacao` |
+
+A leitura do **Cartão de Liberação** registra automaticamente ocorrência `"Saída Antecipada"` e envia e-mail.
+
+Janela válida: `horario_saida ± 5 min`. Fora da janela → HTTP 422.
+
+**Token:** HMAC-SHA256 atual. Caminho para Ed25519 (assinatura digital) documentado na spec.
