@@ -4,7 +4,7 @@ info:
   title: Api
   version: 0.6.0
   description: |
-    Carômetro API — Sistema de registro fotográfico de estudantes por turma e turno.
+    Seshat API — Plataforma de gestão educacional com registro fotográfico, equipes, turmas e ocorrências.
 
     ## Banco de dados
 
@@ -745,6 +745,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportResult"
 
+  /import/disciplinas:
+    post:
+      operationId: importDisciplinas
+      tags: [import]
+      summary: Import disciplinas and their ofertas from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDisciplinasBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /import/professores:
+    post:
+      operationId: importProfessores
+      tags: [import]
+      summary: Import professores and their disciplina links from spreadsheet rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportProfessoresBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
   /tipos-ocorrencias:
     get:
       operationId: listTiposOcorrencias
@@ -1415,23 +1453,44 @@ components:
 
     Curso:
       type: object
-      required: [id, nome, criadoEm]
+      required: [id, sigla, nome, criadoEm]
       properties:
         id:
           type: string
           format: uuid
+        sigla:
+          type: string
+          maxLength: 4
         nome:
           type: string
+        descricao:
+          type: string
+          nullable: true
+        moduloMenor:
+          type: boolean
+        ativo:
+          type: boolean
         criadoEm:
           type: string
 
     CursoInput:
       type: object
-      required: [nome]
+      required: [sigla, nome]
       properties:
+        sigla:
+          type: string
+          maxLength: 4
+          minLength: 1
         nome:
           type: string
           minLength: 1
+        descricao:
+          type: string
+          nullable: true
+        moduloMenor:
+          type: boolean
+        ativo:
+          type: boolean
 
     Turma:
       type: object
@@ -1660,6 +1719,24 @@ components:
             $ref: "#/components/schemas/ImportRow"
 
     ImportEstudantesBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportDisciplinasBody:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRow"
+
+    ImportProfessoresBody:
       type: object
       required: [rows]
       properties:

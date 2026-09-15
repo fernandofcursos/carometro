@@ -13,6 +13,16 @@ Registrar todas as operações de escrita no sistema para rastreabilidade, confo
 | `GET` | `/api/auditoria` | `auditoria:view` | Listar logs (últimos 50, máx 200) |
 | `GET` | `/api/auditoria/:id` | `auditoria:view` | Detalhe de um log |
 
+## Resposta GET /api/auditoria
+
+```json
+{
+  "logs": [ /* AuditoriaLog[] */ ],
+  "limite": 50,
+  "total": 12
+}
+```
+
 ## Query Parameters
 
 - `?limite=N` — quantos logs retornar (padrão 50, máximo 200)
@@ -51,6 +61,6 @@ auditoria_logs
 
 - GET /api/auditoria sem auth → 401
 - GET /api/auditoria sem permissão `auditoria:view` → 403
-- GET /api/auditoria com permissão → array de AuditoriaLog
+- GET /api/auditoria com permissão → `{ logs: AuditoriaLog[], limite: number, total: number }`
 - Após POST /api/estudantes → um log INSERT na tabela "estudantes" deve existir
 - GET /api/auditoria?tabela=usuarios → filtra por tabela

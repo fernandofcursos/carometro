@@ -46,7 +46,7 @@ export default defineConfig({
       },
     },
     {
-      command: "pnpm --filter @workspace/carometro run dev",
+      command: "pnpm --filter @workspace/seshat run dev",
       url: "http://localhost:5000",
       timeout: 30_000,
       reuseExistingServer: true,

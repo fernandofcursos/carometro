@@ -19,7 +19,7 @@
 - ✅ Armazenamento em memória (rotação de últimos 1000 logs)
 - ✅ 12 campos auditados por log
 
-### 4. **artifacts/carometro/src/hooks/use-lgpd.ts** — Sincronização (EXPANDIDO)
+### 4. **artifacts/seshat/src/hooks/use-lgpd.ts** — Sincronização (EXPANDIDO)
 - ✅ `syncConsentToAPI()` — Envia consentimento para `POST /api/consentimentos`
 - ✅ Tratamento de erros (fallback para localStorage)
 - ✅ Suporte para consentimentos offline (Fase 4)
@@ -53,7 +53,7 @@
 - ✅ Log estruturado em modo dev
 - ✅ Tratamento de erro silencioso
 
-### **artifacts/carometro/src/hooks/use-lgpd.ts** (EXPANDIDO com 50 linhas de Fase 3)
+### **artifacts/seshat/src/hooks/use-lgpd.ts** (EXPANDIDO com 50 linhas de Fase 3)
 - ✅ Sincronização real com POST /api/consentimentos
 - ✅ Validação de autenticação
 - ✅ Tratamento de erro com fallback
