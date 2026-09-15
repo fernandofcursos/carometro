@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, sql } from "@workspace/db";
 
 export async function withTenant<T>(escolaId: string, fn: (tx: any) => Promise<T>): Promise<T> {
   return await db.transaction(async (tx) => {

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, integer, timestamptz } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, integer, timestamp } from "drizzle-orm/pg-core";
 import { escolasTable } from "./escolas";
 import { usuariosTable } from "./usuarios";
 
@@ -10,10 +10,10 @@ export const iaDocumentosTable = pgTable("ia_documentos", {
   fonte: varchar("fonte", { length: 500 }),
   conteudoRaw: text("conteudo_raw"),
   status: varchar("status", { length: 20 }).notNull().default("pendente"),
-  indexadoEm: timestamptz("indexado_em"),
+  indexadoEm: timestamp("indexado_em", { withTimezone: true }),
   criadoPorId: uuid("criado_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
-  criadoEm: timestamptz("criado_em").notNull().defaultNow(),
-  atualizadoEm: timestamptz("atualizado_em").notNull().defaultNow(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const iaChunksTable = pgTable("ia_chunks", {
@@ -23,7 +23,7 @@ export const iaChunksTable = pgTable("ia_chunks", {
   conteudo: text("conteudo").notNull(),
   posicao: integer("posicao").notNull(),
   tokens: integer("tokens"),
-  criadoEm: timestamptz("criado_em").notNull().defaultNow(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const iaConversasTable = pgTable("ia_conversas", {
@@ -33,8 +33,8 @@ export const iaConversasTable = pgTable("ia_conversas", {
   titulo: varchar("titulo", { length: 300 }),
   contexto: varchar("contexto", { length: 50 }).notNull().default("geral"),
   tokensTotais: integer("tokens_totais").notNull().default(0),
-  criadoEm: timestamptz("criado_em").notNull().defaultNow(),
-  atualizadoEm: timestamptz("atualizado_em").notNull().defaultNow(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const iaMensagensTable = pgTable("ia_mensagens", {
@@ -46,7 +46,7 @@ export const iaMensagensTable = pgTable("ia_mensagens", {
   tokens: integer("tokens"),
   modelo: varchar("modelo", { length: 100 }),
   latenciaMs: integer("latencia_ms"),
-  criadoEm: timestamptz("criado_em").notNull().defaultNow(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const iaCacheTable = pgTable("ia_cache", {
@@ -55,6 +55,6 @@ export const iaCacheTable = pgTable("ia_cache", {
   hashQuery: varchar("hash_query", { length: 64 }).notNull(),
   resposta: text("resposta").notNull(),
   hits: integer("hits").notNull().default(1),
-  expiraEm: timestamptz("expira_em").notNull(),
-  criadoEm: timestamptz("criado_em").notNull().defaultNow(),
+  expiraEm: timestamp("expira_em", { withTimezone: true }).notNull(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, char, boolean, timestamptz, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, char, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const escolasTable = pgTable("escolas", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -18,8 +18,8 @@ export const escolasTable = pgTable("escolas", {
   site: varchar("site", { length: 300 }),
   plano: varchar("plano", { length: 20 }).notNull().default("basico"),
   ativo: boolean("ativo").notNull().default(true),
-  criadoEm: timestamptz("criado_em").notNull().defaultNow(),
-  atualizadoEm: timestamptz("atualizado_em").notNull().defaultNow(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
   config: jsonb("config").notNull().default({}),
 });
 
