@@ -8,10 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Grid, Eye, EyeOff, AtSign, Mail, KeyRound, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AcessibilidadeWidget } from "@/components/acessibilidade-widget";
+import { EscolaSelectModal } from "@/components/EscolaSelectModal";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Tela = "login" | "solicitar" | "redefinir";
+
+interface EscolaDisponivel {
+  id: string;
+  nome: string;
+  sigla: string;
+}
 
 export default function LoginPage() {
   const [tela, setTela] = useState<Tela>("login");
@@ -34,6 +41,9 @@ export default function LoginPage() {
   const [showConfirmar, setShowConfirmar] = useState(false);
   const [loadingRedefinir, setLoadingRedefinir] = useState(false);
 
+  const [escolasDisponiveis, setEscolasDisponiveis] = useState<EscolaDisponivel[]>([]);
+  const [showEscolaModal, setShowEscolaModal] = useState(false);
+
   const { refetch } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -52,8 +62,17 @@ export default function LoginPage() {
         body: JSON.stringify({ identificador: identificador.trim(), senha }),
       });
       if (res.ok) {
-        await refetch();
-        setLocation("/");
+        const body = await res.json().catch(() => ({})) as {
+          requiresEscolaSelection?: boolean;
+          escolasDisponiveis?: EscolaDisponivel[];
+        };
+        if (body.requiresEscolaSelection && body.escolasDisponiveis?.length) {
+          setEscolasDisponiveis(body.escolasDisponiveis);
+          setShowEscolaModal(true);
+        } else {
+          await refetch();
+          setLocation("/");
+        }
       } else {
         const body = await res.json().catch(() => ({})) as { error?: string };
         toast({ title: body.error ?? "Identificador ou senha inválidos", variant: "destructive" });
@@ -118,9 +137,22 @@ export default function LoginPage() {
     }
   };
 
+  const handleEscolaSelecionada = async () => {
+    setShowEscolaModal(false);
+    await refetch();
+    setLocation("/");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/40 p-4">
       <AcessibilidadeWidget />
+      {showEscolaModal && (
+        <EscolaSelectModal
+          escolas={escolasDisponiveis}
+          onSelect={handleEscolaSelecionada}
+          onError={(msg) => toast({ title: msg, variant: "destructive" })}
+        />
+      )}
       <Card className="w-full max-w-md shadow-xl border-border/50">
 
         {/* ── Tela de Login ── */}
