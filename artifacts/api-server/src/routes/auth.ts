@@ -139,9 +139,21 @@ router.post("/login", async (req: Request, res: Response) => {
       });
     }
 
-    // 0 escolas → super-admin ou usuário sem matrícula → login sem escolaId
-    // 1 escola → auto-selecionar
-    const escolaId = escolasDoUsuario.length === 1 ? escolasDoUsuario[0].id : undefined;
+    // Se usuário não tem matrículas (staff: secretaria, coordenação, etc.)
+    // usa escola_id direto do usuário (setado no cadastro)
+    let escolaFinal: string | undefined;
+    if (escolasDoUsuario.length === 0) {
+      // Buscar escola do próprio usuário (staff sem matrícula)
+      const [usuarioComEscola] = await db
+        .select({ escolaId: usuariosTable.escolaId })
+        .from(usuariosTable)
+        .where(eq(usuariosTable.id, usuario.id));
+      escolaFinal = usuarioComEscola?.escolaId ?? undefined;
+    } else if (escolasDoUsuario.length === 1) {
+      escolaFinal = escolasDoUsuario[0].id;
+    }
+    // else: multiple schools → selection flow (handled below)
+    const escolaId = escolaFinal;
 
     // Buscar roles + permissões
     const { roles, allRoles, activeRoleId, permissions } = await buscarRolesEPermissoes(usuario.id);

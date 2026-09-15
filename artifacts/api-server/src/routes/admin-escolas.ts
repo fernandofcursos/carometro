@@ -83,11 +83,13 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/admin/escolas/:id — desativa (soft delete via ativo=false)
 router.delete("/:id", async (req, res) => {
   try {
-    await withSuperAdmin(async (tx) =>
+    const result = await withSuperAdmin(async (tx) =>
       tx.update(escolasTable)
         .set({ ativo: false, atualizadoEm: new Date() })
         .where(eq(escolasTable.id, req.params.id))
+        .returning({ id: escolasTable.id })
     );
+    if (!result || result.length === 0) return res.status(404).json({ error: "Escola não encontrada" });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "Erro ao desativar escola" });

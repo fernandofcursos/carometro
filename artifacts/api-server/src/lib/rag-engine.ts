@@ -85,12 +85,13 @@ export async function streamChat(opts: {
     const inicio = Date.now();
     let textoCompleto = "";
 
-    // Stream com Claude Opus 5 e thinking adaptativo
+    // Stream com Claude Opus 4.5 e thinking adaptativo
+    // TODO: fetch escola.nome/cidade/uf from DB using escolaId and pass here
     const stream = client.messages.stream({
-      model: "claude-opus-5",
+      model: "claude-opus-4-5",
       max_tokens: 64000,
       thinking: { type: "adaptive", display: "summarized" },
-      system: SYSTEM_BASE("Escola", "Brasília", "DF"),
+      system: SYSTEM_BASE("Seshat", "Brasília", "DF"),
       messages,
     });
 
@@ -117,7 +118,7 @@ export async function streamChat(opts: {
         papel: "assistant",
         conteudo: textoCompleto,
         tokens: tokensUsados,
-        modelo: "claude-opus-5",
+        modelo: "claude-opus-4-5",
         latenciaMs: Date.now() - inicio,
       },
     ]);

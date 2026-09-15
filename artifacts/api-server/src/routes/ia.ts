@@ -99,11 +99,16 @@ router.delete(
     const escolaId = req.escolaId;
     if (!escolaId) return res.status(400).json({ error: "Escola não definida" });
 
-    const conversaId = String(req.params.id);
+    const idSchema = z.string().uuid();
+    const parsedId = idSchema.safeParse(req.params.id);
+    if (!parsedId.success) return res.status(400).json({ error: "ID inválido" });
+    const conversaId = parsedId.data;
 
     await db
       .delete(iaMensagensTable)
-      .where(eq(iaMensagensTable.conversaId, conversaId));
+      .where(
+        and(eq(iaMensagensTable.conversaId, conversaId), eq(iaMensagensTable.escolaId, escolaId))
+      );
 
     await db
       .delete(iaConversasTable)
