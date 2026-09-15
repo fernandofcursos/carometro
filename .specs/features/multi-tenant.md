@@ -180,6 +180,22 @@ interface JWTPayload {
 
 ---
 
+## Fluxo Multi-Escola (usuário em mais de uma escola)
+
+### Login com escola única
+1. `POST /api/auth/login { identificador, senha }` → JWT com `escolaId` incluído
+2. Sistema detecta escola automaticamente (única matrícula ativa)
+
+### Login com múltiplas escolas
+1. `POST /api/auth/login { identificador, senha }` → `{ requiresEscolaSelection: true, escolasDisponiveis: [...], tempToken }`
+2. Frontend exibe modal de seleção de escola
+3. `POST /api/auth/selecionar-escola { escolaId }` (com tempToken) → JWT final com `escolaId`
+
+### Chave de API Anthropic por escola
+Configurada em `escolas.config.anthropicApiKey`. Se ausente, usa `ANTHROPIC_API_KEY` da plataforma.
+
+---
+
 ## Tenant Management — Super-Admin
 
 ### Novo perfil: `super_admin`
