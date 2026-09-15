@@ -6,9 +6,11 @@ import { tiposOcorrenciasTable } from "./tipos-ocorrencias";
 import { disciplinasTable } from "./disciplinas";
 import { usuariosTable } from "./usuarios";
 import { turnosTable } from "./turnos";
+import { escolasTable } from "./escolas";
 
 export const ocorrenciasTable = pgTable("ocorrencias", {
   id:                       uuid("id").primaryKey().defaultRandom(),
+  escolaId:                 uuid("escola_id").references(() => escolasTable.id, { onDelete: "restrict" }),
   estudanteId:              uuid("estudante_id").notNull().references(() => estudantesTable.id, { onDelete: "cascade" }),
   tipoOcorrenciaId:         uuid("tipo_ocorrencia_id").notNull().references(() => tiposOcorrenciasTable.id, { onDelete: "restrict" }),
   disciplinaId:             uuid("disciplina_id").references(() => disciplinasTable.id, { onDelete: "set null" }),

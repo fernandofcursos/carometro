@@ -40,7 +40,7 @@ services:
   # db — PostgreSQL local
   # ---------------------------------------------------------------------------
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg18
     container_name: seshat-prod-db
     restart: unless-stopped
     environment:

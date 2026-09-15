@@ -5,9 +5,11 @@ import { sql } from "drizzle-orm";
 import { usuariosTable } from "./usuarios";
 import { turmasTable } from "./turmas";
 import { turnosTable } from "./turnos";
+import { escolasTable } from "./escolas";
 
 export const matriculasTable = pgTable("matriculas", {
   id:           uuid("id").primaryKey().defaultRandom(),
+  escolaId:     uuid("escola_id").references(() => escolasTable.id, { onDelete: "restrict" }),
   usuarioId:    uuid("usuario_id").notNull().references(() => usuariosTable.id, { onDelete: "restrict" }),
   turmaId:      uuid("turma_id").notNull().references(() => turmasTable.id,   { onDelete: "restrict" }),
   // Turno específico em que o estudante frequenta esta turma (pode haver múltiplos turnos por turma)

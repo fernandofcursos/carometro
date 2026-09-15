@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, boolean, smallint, customType, char, varchar, integer, date } from "drizzle-orm/pg-core";
 import { fotosTable } from "./fotos";
+import { escolasTable } from "./escolas";
 
 const bytesAsString = customType<{ data: string; driverData: Buffer }>({
   dataType() { return "bytea"; },
@@ -16,6 +17,7 @@ const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
 
 export const usuariosTable = pgTable("usuarios", {
   id: uuid("id").primaryKey().defaultRandom(),
+  escolaId: uuid("escola_id").references(() => escolasTable.id, { onDelete: "restrict" }),
   nome: text("nome"),
   dataNascimento: date("data_nascimento"),
   emailEncrypted: bytesAsString("email_encrypted").notNull(),

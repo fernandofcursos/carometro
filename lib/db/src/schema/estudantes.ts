@@ -2,6 +2,7 @@ import { pgTable, uuid, text, timestamp, date, integer, varchar, char, customTyp
 import { turmasTable } from "./turmas";
 import { usuariosTable } from "./usuarios";
 import { fotosTable } from "./fotos";
+import { escolasTable } from "./escolas";
 
 // Fase 5: customType para armazenar bytes (foto criptografada AES-256) diretamente no PostgreSQL
 const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
@@ -12,6 +13,7 @@ const bytesAsBuffer = customType<{ data: Buffer; driverData: Buffer }>({
 
 export const estudantesTable = pgTable("estudantes", {
   id: uuid("id").primaryKey().defaultRandom(),
+  escolaId: uuid("escola_id").references(() => escolasTable.id, { onDelete: "restrict" }),
   nome: text("nome").notNull(),
   registro: text("registro").notNull().unique(),
   observacao: text("observacao"),

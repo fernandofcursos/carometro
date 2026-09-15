@@ -3,12 +3,14 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { cursosTable } from "./cursos";
+import { escolasTable } from "./escolas";
 
 export const MODULOS = ["I", "II", "III", "IV", "V", "VI"] as const;
 export type Modulo = typeof MODULOS[number];
 
 export const turmasTable = pgTable("turmas", {
   id: uuid("id").primaryKey().defaultRandom(),
+  escolaId: uuid("escola_id").references(() => escolasTable.id, { onDelete: "restrict" }),
   sigla: varchar("sigla", { length: 30 }).notNull(),
   descricao: text("descricao").notNull(),
   cursoId: uuid("curso_id").notNull().references(() => cursosTable.id, { onDelete: "restrict" }),

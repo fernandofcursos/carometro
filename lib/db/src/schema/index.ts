@@ -34,3 +34,5 @@ export * from "./tipos-avisos-informes";
 export * from "./avisos-anexos";
 export * from "./avisos-publicos-alvo";
 export * from "./requerimentos";
+export * from "./escolas";
+export * from "./ia";
