@@ -4,10 +4,11 @@ import { createHash, randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import {
   db, usuariosTable, rolesTable, usuariosRolesTable,
-  rolesPermissoesTable, permissoesTable,
+  rolesPermissoesTable, permissoesTable, matriculasTable, escolasTable,
   eq, and, isNull,
 } from "@workspace/db";
-import { signToken, setAuthCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
+import jwt from "jsonwebtoken";
+import { signToken, signTempToken, setAuthCookie, setTempCookie, clearAuthCookie, requireAuth } from "../lib/auth.js";
 import { descriptografarEmail } from "../lib/crypto.js";
 import { enviarEmailRecuperacao } from "../lib/mailer.js";
 import { invalidarCachePermissoes } from "../lib/permissions.js";
@@ -111,8 +112,16 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Identificador ou senha inválidos" });
     }
 
-    // Login bem-sucedido — buscar roles + permissões
-    const { roles, allRoles, activeRoleId, permissions } = await buscarRolesEPermissoes(usuario.id);
+    // Login bem-sucedido — detectar escolas do usuário via matrículas ativas
+    const escolasDoUsuario = await db
+      .selectDistinct({ id: escolasTable.id, nome: escolasTable.nome, sigla: escolasTable.sigla })
+      .from(matriculasTable)
+      .innerJoin(escolasTable, eq(matriculasTable.escolaId, escolasTable.id))
+      .where(and(
+        eq(matriculasTable.usuarioId, usuario.id),
+        eq(matriculasTable.ativo, true),
+        isNull(matriculasTable.deletadoEm),
+      ));
 
     // Resetar tentativas e registrar último login
     await db
@@ -120,8 +129,25 @@ router.post("/login", async (req: Request, res: Response) => {
       .set({ tentativasLoginFalhas: 0, bloqueadoAte: null, ultimoLoginEm: new Date() })
       .where(eq(usuariosTable.id, usuario.id));
 
-    // Gerar JWT e definir cookie
-    const token = signToken(usuario.id, roles);
+    // Se múltiplas escolas → retornar lista para seleção (sem emitir token completo)
+    if (escolasDoUsuario.length > 1) {
+      const tempToken = signTempToken(usuario.id);
+      setTempCookie(res, tempToken);
+      return res.status(200).json({
+        requiresEscolaSelection: true,
+        escolasDisponiveis: escolasDoUsuario,
+      });
+    }
+
+    // 0 escolas → super-admin ou usuário sem matrícula → login sem escolaId
+    // 1 escola → auto-selecionar
+    const escolaId = escolasDoUsuario.length === 1 ? escolasDoUsuario[0].id : undefined;
+
+    // Buscar roles + permissões
+    const { roles, allRoles, activeRoleId, permissions } = await buscarRolesEPermissoes(usuario.id);
+
+    // Gerar JWT (com escolaId se houver) e definir cookie
+    const token = signToken(usuario.id, roles, escolaId);
     setAuthCookie(res, token);
 
     // Descriptografar e-mail para retornar na resposta (dados pessoais — LGPD)
@@ -139,6 +165,7 @@ router.post("/login", async (req: Request, res: Response) => {
       permissions,                                         // adicionado: permissões para guards de menu
       primeiroAcesso: usuario.primeiroAcesso,
       disciplinas:   [],                                   // adicionado: placeholder (implementar na Fase 1e)
+      escolaId: escolaId ?? null,                          // escola selecionada automaticamente (ou null)
     });
   } catch (err) {
     console.error("[login] erro interno:", err);
@@ -277,6 +304,101 @@ router.post("/switch-role", requireAuth, async (req: Request, res: Response) => 
     });
   } catch {
     res.status(500).json({ error: "Erro ao trocar perfil" });
+  }
+});
+
+// POST /api/auth/selecionar-escola — confirmar escola após fluxo multi-escola
+// Requer temp_token emitido no login quando há múltiplas escolas
+router.post("/selecionar-escola", async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({ escolaId: z.string().uuid("escolaId inválido") });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+    }
+
+    // Verificar token temporário (cookie ou header Authorization Bearer)
+    const tempToken = req.cookies?.temp_token
+      ?? (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : undefined);
+
+    if (!tempToken) {
+      return res.status(401).json({ error: "Token temporário ausente" });
+    }
+
+    let payload: { sub: string; pendingEscolaSelection?: boolean };
+    try {
+      payload = jwt.verify(tempToken, process.env.SESSION_SECRET!, { issuer: "seshat" }) as any;
+    } catch {
+      return res.status(401).json({ error: "Token temporário inválido ou expirado" });
+    }
+
+    if (!payload.pendingEscolaSelection) {
+      return res.status(401).json({ error: "Token não é de seleção de escola" });
+    }
+
+    const usuarioId = payload.sub;
+    const { escolaId } = parsed.data;
+
+    // Validar que o usuário realmente tem matrícula ativa nesta escola
+    const [matricula] = await db
+      .select({ id: matriculasTable.id })
+      .from(matriculasTable)
+      .innerJoin(escolasTable, eq(matriculasTable.escolaId, escolasTable.id))
+      .where(and(
+        eq(matriculasTable.usuarioId, usuarioId),
+        eq(matriculasTable.escolaId, escolaId),
+        eq(matriculasTable.ativo, true),
+        isNull(matriculasTable.deletadoEm),
+      ))
+      .limit(1);
+
+    if (!matricula) {
+      return res.status(403).json({ error: "Escola não autorizada para este usuário" });
+    }
+
+    // Buscar dados completos do usuário
+    const [usuario] = await db
+      .select({
+        id: usuariosTable.id,
+        nome: usuariosTable.nome,
+        emailEncrypted: usuariosTable.emailEncrypted,
+        codigoAcesso: usuariosTable.codigoAcesso,
+        primeiroAcesso: usuariosTable.primeiroAcesso,
+      })
+      .from(usuariosTable)
+      .where(and(eq(usuariosTable.id, usuarioId), isNull(usuariosTable.deletadoEm)));
+
+    if (!usuario) {
+      return res.status(401).json({ error: "Usuário não encontrado" });
+    }
+
+    const { roles, allRoles, activeRoleId, permissions } = await buscarRolesEPermissoes(usuarioId);
+
+    // Emitir JWT completo com escolaId
+    const token = signToken(usuarioId, roles, escolaId);
+    setAuthCookie(res, token);
+    // Limpar cookie temporário
+    res.clearCookie("temp_token", { path: "/" });
+
+    let email = "";
+    try { email = descriptografarEmail(usuario.emailEncrypted); } catch { /* mantém vazio */ }
+
+    return res.json({
+      id:            usuario.id,
+      nome:          usuario.nome,
+      email,
+      codigoAcesso:  usuario.codigoAcesso,
+      roles,
+      allRoles,
+      activeRoleId,
+      permissions,
+      primeiroAcesso: usuario.primeiroAcesso,
+      disciplinas:   [],
+      escolaId,
+    });
+  } catch (err) {
+    console.error("[selecionar-escola] erro interno:", err);
+    res.status(500).json({ error: "Erro ao selecionar escola" });
   }
 });
 
