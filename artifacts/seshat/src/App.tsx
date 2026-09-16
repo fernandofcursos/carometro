@@ -62,6 +62,9 @@ import RequerimentoAnalisePage from "@/pages/requerimentos/analise";
 import TiposRequerimentosPage from "@/pages/requerimentos/tipos";
 import AeeGestaoPage  from "./pages/aee/gestao";
 import AeeAnalisePage from "./pages/aee/analise";
+import SoeGestaoPage from "./pages/soe/gestao";
+import SoeAnalisePage from "./pages/soe/analise";
+import SoeEncaminharPage from "./pages/soe/encaminhar";
 
 const queryClient = new QueryClient();
 
@@ -137,6 +140,9 @@ function AppRoutes() {
           <Route path="/iso27001" component={Iso27001Page} />
           <Route path="/aee/gestao"  component={AeeGestaoPage} />
           <Route path="/aee/analise" component={AeeAnalisePage} />
+          <Route path="/soe/gestao" component={SoeGestaoPage} />
+          <Route path="/soe/analise" component={SoeAnalisePage} />
+          <Route path="/soe/encaminhar" component={SoeEncaminharPage} />
           <Route component={NotFound} />
         </Switch>
       </Layout>

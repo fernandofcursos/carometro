@@ -14,7 +14,7 @@ import {
   AlertTriangle, Tag, UserCog, ShieldCheck, LogOut,
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
-  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home, Bell,
+  PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home, Bell, HeartHandshake,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -178,6 +178,17 @@ export function AppSidebar() {
       items: [
         ...(hasAny("aee:manage") ? [nav("Atendimento", "/aee/gestao", ShieldCheck)] : []),
         ...(!hasAny("aee:manage") && hasAny("aee:view") ? [nav("Acompanhamento", "/aee/analise", FileText)] : []),
+      ],
+    }] : []),
+    ...((hasAny("soe:manage") || hasAny("soe:view") || hasAny("soe:encaminhar")) ? [{
+      label: "SOE",
+      icon: HeartHandshake,
+      color: "#16a34a",
+      bgColor: "#f0fdf4",
+      items: [
+        ...(hasAny("soe:manage") ? [nav("Atendimentos", "/soe/gestao", HeartHandshake)] : []),
+        ...(!hasAny("soe:manage") && hasAny("soe:view") ? [nav("Acompanhamento", "/soe/analise", FileText)] : []),
+        ...(!hasAny("soe:view") && hasAny("soe:encaminhar") ? [nav("Encaminhamentos", "/soe/encaminhar", ClipboardList)] : []),
       ],
     }] : []),
     ...(canManageAvisos ? [{
