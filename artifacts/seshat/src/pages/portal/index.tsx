@@ -10,7 +10,7 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UserCircle, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, CreditCard, Fingerprint, ArrowLeft } from "lucide-react";
+import { UserCircle, BookOpen, AlertTriangle, CheckCircle2, GraduationCap, CreditCard, Fingerprint, ArrowLeft, HeartHandshake } from "lucide-react";
 import { AvisosWidget } from "@/components/avisos-widget";
 import { CardapioWidget } from "@/components/cardapio-widget";
 import { Link } from "wouter";
@@ -52,6 +52,23 @@ type CartaoSaidaDB = {
   id: string; dataSaida: string; horarioSaida: string | null;
   motivo: string | null; status: string; aprovadoEm: string | null;
   observacaoAprovador: string | null; token: string | null; criadoEm: string;
+};
+
+type SoeAtendimento = {
+  id: string; dataAtendimento: string; tipo: string;
+  motivo: string; status: string;
+};
+
+type SoeAcao = {
+  id: string; titulo: string; prazo?: string; status: string;
+};
+
+type SoePortalAtendimentos = {
+  atendimentos: SoeAtendimento[];
+};
+
+type SoePortalAcoes = {
+  acoes: SoeAcao[];
 };
 
 
@@ -710,6 +727,18 @@ export default function PortalEstudantePage() {
     refetchInterval: 30_000,
   });
 
+  const { data: soeAtendimentos } = useQuery<SoePortalAtendimentos>({
+    queryKey: ["soe-portal-atendimentos"],
+    queryFn: () => fetchJson(`${BASE}/api/soe/portal/meus-atendimentos`),
+    enabled: !!me,
+  });
+
+  const { data: soeAcoes } = useQuery<SoePortalAcoes>({
+    queryKey: ["soe-portal-acoes"],
+    queryFn: () => fetchJson(`${BASE}/api/soe/portal/minhas-acoes`),
+    enabled: !!me,
+  });
+
   // Carteira ativa do tipo 'carteira' (prioriza mais recente)
   const carteiraAtiva = carteiras
     .filter((c) => c.tipo === "carteira" && c.status === "ativa")
@@ -779,6 +808,9 @@ export default function PortalEstudantePage() {
           </TabsTrigger>
           <TabsTrigger value="cartao-liberacao" className="flex-1 gap-1.5">
             <Fingerprint className="w-4 h-4" /> Cartão de Liberação
+          </TabsTrigger>
+          <TabsTrigger value="soe" className="flex-1 gap-1.5">
+            <HeartHandshake className="w-4 h-4" /> SOE
           </TabsTrigger>
         </TabsList>
 
@@ -859,6 +891,47 @@ export default function PortalEstudantePage() {
             </p>
           </div>
           <CartaoLiberacao me={me} cartaoSemestral={cartaoSemestral} />
+        </TabsContent>
+
+        {/* Aba: SOE */}
+        <TabsContent value="soe" className="space-y-4 mt-4">
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            Seus dados são protegidos conforme a LGPD, ISO 27001 e normativos da SEDF.
+            Para dúvidas, procure a orientadora educacional.
+          </div>
+          <h3 className="font-semibold text-sm">Meus atendimentos</h3>
+          {(soeAtendimentos?.atendimentos ?? []).map((a) => (
+            <Card key={a.id}>
+              <CardContent className="p-3 flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium">{a.dataAtendimento} · {a.tipo}</p>
+                  <p className="text-xs text-muted-foreground">{a.motivo}</p>
+                </div>
+                <Badge variant="secondary">{a.status.replace(/_/g, " ")}</Badge>
+              </CardContent>
+            </Card>
+          ))}
+          {(soeAtendimentos?.atendimentos?.length ?? 0) === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum atendimento registrado.</p>
+          )}
+          {(soeAcoes?.acoes?.length ?? 0) > 0 && (
+            <>
+              <h3 className="font-semibold text-sm mt-4">Minhas ações</h3>
+              {soeAcoes?.acoes?.map((a) => (
+                <Card key={a.id}>
+                  <CardContent className="p-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium">{a.titulo}</p>
+                      {a.prazo && <p className="text-xs text-muted-foreground">Prazo: {a.prazo}</p>}
+                    </div>
+                    <Badge variant={a.status === "concluida" ? "default" : "secondary"}>
+                      {a.status.replace(/_/g, " ")}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
