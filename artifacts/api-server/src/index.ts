@@ -46,6 +46,7 @@ import portalSecretariaRouter from "./routes/portal-secretaria.js";
 import avisosInformesRouter from "./routes/avisos-informes.js";
 import requerimentosRouter from "./routes/requerimentos.js";
 import aeeRouter from "./routes/aee.js";
+import soeRouter from "./routes/soe.js";
 import iaRouter from "./routes/ia.js";
 import adminEscolasRouter from "./routes/admin-escolas.js";
 
@@ -150,6 +151,8 @@ app.use("/api/avisos-informes", avisosInformesRouter);
 app.use("/api/requerimentos", requerimentosRouter);
 // Módulo AEE — Atendimento Educacional Especializado
 app.use("/api/aee", aeeRouter);
+// Módulo SOE — Serviço de Orientação Educacional
+app.use("/api/soe", soeRouter);
 // Módulo IA / RAG — assistente pedagógico e busca semântica
 app.use("/api/ia", iaRouter);
 // Super-admin: gestão de escolas
