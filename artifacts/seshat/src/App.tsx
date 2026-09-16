@@ -60,6 +60,8 @@ import TiposAvisosPage from "@/pages/tipos-avisos/index";
 import RequerimentosPage from "@/pages/requerimentos/index";
 import RequerimentoAnalisePage from "@/pages/requerimentos/analise";
 import TiposRequerimentosPage from "@/pages/requerimentos/tipos";
+import AeeGestaoPage  from "./pages/aee/gestao";
+import AeeAnalisePage from "./pages/aee/analise";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +135,8 @@ function AppRoutes() {
           <Route path="/requerimentos/analise" component={RequerimentoAnalisePage} />
           <Route path="/requerimentos/tipos" component={TiposRequerimentosPage} />
           <Route path="/iso27001" component={Iso27001Page} />
+          <Route path="/aee/gestao"  component={AeeGestaoPage} />
+          <Route path="/aee/analise" component={AeeAnalisePage} />
           <Route component={NotFound} />
         </Switch>
       </Layout>

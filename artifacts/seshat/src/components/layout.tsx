@@ -170,6 +170,16 @@ export function AppSidebar() {
         ...(canManageRequerimentos ? [nav("Análise de Requerimentos", "/requerimentos/analise", FileText)] : []),
       ],
     }] : []),
+    ...((hasAny("aee:manage") || hasAny("aee:view")) ? [{
+      label: "AEE",
+      icon: ShieldCheck,
+      color: "#2563eb",
+      bgColor: "#eff6ff",
+      items: [
+        ...(hasAny("aee:manage") ? [nav("Atendimento", "/aee/gestao", ShieldCheck)] : []),
+        ...(!hasAny("aee:manage") && hasAny("aee:view") ? [nav("Acompanhamento", "/aee/analise", FileText)] : []),
+      ],
+    }] : []),
     ...(canManageAvisos ? [{
       label: "Avisos e Informes",
       icon: Bell,
