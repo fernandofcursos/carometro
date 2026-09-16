@@ -332,9 +332,12 @@ router.get("/metas", aeeGuard("view"), async (req: any, res) => {
   const condicoes: any[] = [];
   if (planoId) condicoes.push(eq(aeeMetasTable.planoId, String(planoId)));
 
-  const rows = await withTenant(req.escolaId, async (tx) =>
-    tx.select().from(aeeMetasTable).where(condicoes.length ? and(...condicoes) : undefined)
-  );
+  // metas always belong to a plano — if no planoId provided, return empty rather than full-tenant scan
+  const rows = condicoes.length > 0
+    ? await withTenant(req.escolaId, async (tx) =>
+        tx.select().from(aeeMetasTable).where(and(...condicoes))
+      )
+    : [];
   await registrarAuditoriaAee({ req, acao: "READ_METAS", escolaId: req.escolaId });
   res.json({ metas: rows });
 });
@@ -349,6 +352,7 @@ router.post("/metas", aeeGuard("manage"), async (req: any, res) => {
 });
 
 router.put("/metas/:id", aeeGuard("manage"), async (req: any, res) => {
+  // aeeMetasTable has no escola_id — isolated via withTenant + RLS on parent aee_planos
   const body = metaSchema.partial().merge(z.object({ status: z.string().optional() })).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [atualizada] = await withTenant(req.escolaId, async (tx) =>
@@ -378,7 +382,7 @@ router.post("/metas/:id/evolucao", aeeGuard("manage"), async (req: any, res) => 
   res.status(201).json(nova);
 });
 
-router.get("/metas/:id/evolucao", async (req: any, res) => {
+router.get("/metas/:id/evolucao", aeeGuard("view"), async (req: any, res) => {
   const rows = await withTenant(req.escolaId, async (tx) =>
     tx.select().from(aeeEvolucoesTable)
     .where(eq(aeeEvolucoesTable.metaId, req.params.id))
@@ -588,11 +592,13 @@ router.put("/liberacoes", aeeGuard("manage"), async (req: any, res) => {
 });
 
 router.delete("/liberacoes/:id", aeeGuard("manage"), async (req: any, res) => {
-  await withTenant(req.escolaId, async (tx) =>
+  const [revogada] = await withTenant(req.escolaId, async (tx) =>
     tx.update(aeeLiberacoesTable)
     .set({ revogadoEm: new Date() })
     .where(and(eq(aeeLiberacoesTable.id, req.params.id), eq(aeeLiberacoesTable.escolaId, req.escolaId)))
+    .returning({ id: aeeLiberacoesTable.id })
   );
+  if (!revogada) return res.status(404).json({ error: "Liberação não encontrada." });
   res.json({ ok: true });
 });
 
