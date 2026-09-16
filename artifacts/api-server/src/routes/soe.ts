@@ -52,7 +52,7 @@ router.get("/atendimentos", soeGuard("view"), async (req: any, res) => {
     ];
     if (estudanteId) conditions.push(eq(soeAtendimentosTable.estudanteId, String(estudanteId)));
     const rows = await withTenant(req.escolaId, async (tx) =>
-      tx.select({
+      await tx.select({
         id: soeAtendimentosTable.id,
         estudanteId: soeAtendimentosTable.estudanteId,
         orientadoraId: soeAtendimentosTable.orientadoraId,
@@ -80,7 +80,7 @@ router.post("/atendimentos", soeGuard("manage"), async (req: any, res) => {
     const registroEnc = body.registro ? cifrarRegistro(body.registro, req.escolaId) : null;
     const chaveRef = body.registro ? gerarChaveRef(req.escolaId) : null;
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.insert(soeAtendimentosTable).values({
+      await tx.insert(soeAtendimentosTable).values({
         escolaId:         req.escolaId,
         estudanteId:      body.estudanteId,
         orientadoraId:    req.usuarioId,
@@ -105,7 +105,7 @@ router.post("/atendimentos", soeGuard("manage"), async (req: any, res) => {
 router.get("/atendimentos/:id", soeGuard("manage"), async (req: any, res) => {
   try {
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.select().from(soeAtendimentosTable)
+      await tx.select().from(soeAtendimentosTable)
         .where(and(
           eq(soeAtendimentosTable.id, req.params.id),
           eq(soeAtendimentosTable.escolaId, req.escolaId),
@@ -145,7 +145,7 @@ router.put("/atendimentos/:id", soeGuard("manage"), async (req: any, res) => {
       update.chaveRef    = gerarChaveRef(req.escolaId);
     }
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.update(soeAtendimentosTable).set(update)
+      await tx.update(soeAtendimentosTable).set(update)
         .where(and(eq(soeAtendimentosTable.id, req.params.id), eq(soeAtendimentosTable.escolaId, req.escolaId)))
         .returning()
     );
@@ -163,7 +163,7 @@ router.put("/atendimentos/:id", soeGuard("manage"), async (req: any, res) => {
 router.delete("/atendimentos/:id", soeGuard("manage"), async (req: any, res) => {
   try {
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.update(soeAtendimentosTable)
+      await tx.update(soeAtendimentosTable)
         .set({ deletadoEm: new Date() })
         .where(and(eq(soeAtendimentosTable.id, req.params.id), eq(soeAtendimentosTable.escolaId, req.escolaId)))
         .returning({ id: soeAtendimentosTable.id })
@@ -191,7 +191,7 @@ router.get("/encaminhamentos", soeGuard("encaminhar"), async (req: any, res) => 
     const conditions: any[] = [eq(soeEncaminhamentosTable.escolaId, req.escolaId)];
     if (!isManage && !isView) conditions.push(eq(soeEncaminhamentosTable.encaminhadoPorId, req.usuarioId));
     const rows = await withTenant(req.escolaId, async (tx) =>
-      tx.select({
+      await tx.select({
         id: soeEncaminhamentosTable.id,
         estudanteId: soeEncaminhamentosTable.estudanteId,
         encaminhadoPorId: soeEncaminhamentosTable.encaminhadoPorId,
@@ -214,7 +214,7 @@ router.post("/encaminhamentos", soeGuard("encaminhar"), async (req: any, res) =>
   try {
     const body = encaminhamentoSchema.parse(req.body);
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.insert(soeEncaminhamentosTable).values({
+      await tx.insert(soeEncaminhamentosTable).values({
         escolaId:          req.escolaId,
         estudanteId:       body.estudanteId,
         encaminhadoPorId:  req.usuarioId,
@@ -241,7 +241,7 @@ router.put("/encaminhamentos/:id/status", soeGuard("manage"), async (req: any, r
       update.chaveRef      = gerarChaveRef(req.escolaId);
     }
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.update(soeEncaminhamentosTable).set(update)
+      await tx.update(soeEncaminhamentosTable).set(update)
         .where(and(eq(soeEncaminhamentosTable.id, req.params.id), eq(soeEncaminhamentosTable.escolaId, req.escolaId)))
         .returning({ id: soeEncaminhamentosTable.id, status: soeEncaminhamentosTable.status })
     );
@@ -273,7 +273,7 @@ router.get("/acoes", soeGuard("encaminhar"), async (req: any, res) => {
     const conditions: any[] = [eq(soeAcoesTable.escolaId, req.escolaId)];
     if (!isManage && !isView) conditions.push(eq(soeAcoesTable.responsavelId, req.usuarioId));
     const rows = await withTenant(req.escolaId, async (tx) =>
-      tx.select().from(soeAcoesTable)
+      await tx.select().from(soeAcoesTable)
         .where(and(...conditions))
         .orderBy(desc(soeAcoesTable.criadoEm))
     );
@@ -291,7 +291,7 @@ router.post("/acoes", soeGuard("view"), async (req: any, res) => {
       return res.status(403).json({ error: "Apenas a OE pode criar ações individuais." });
     }
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.insert(soeAcoesTable).values({
+      await tx.insert(soeAcoesTable).values({
         escolaId:      req.escolaId,
         tipo:          body.tipo,
         titulo:        body.titulo,
@@ -316,7 +316,7 @@ router.put("/acoes/:id/status", soeGuard("encaminhar"), async (req: any, res) =>
       status: z.enum(["pendente", "em_andamento", "concluida", "cancelada"]),
     }).parse(req.body);
     const [acao] = await withTenant(req.escolaId, async (tx) =>
-      tx.select({ responsavelId: soeAcoesTable.responsavelId })
+      await tx.select({ responsavelId: soeAcoesTable.responsavelId })
         .from(soeAcoesTable)
         .where(and(eq(soeAcoesTable.id, req.params.id), eq(soeAcoesTable.escolaId, req.escolaId)))
     );
@@ -326,7 +326,7 @@ router.put("/acoes/:id/status", soeGuard("encaminhar"), async (req: any, res) =>
       return res.status(403).json({ error: "Sem permissão para atualizar esta ação." });
     }
     const [updated] = await withTenant(req.escolaId, async (tx) =>
-      tx.update(soeAcoesTable)
+      await tx.update(soeAcoesTable)
         .set({ status: body.status, atualizadoEm: new Date() })
         .where(eq(soeAcoesTable.id, req.params.id))
         .returning({ id: soeAcoesTable.id, status: soeAcoesTable.status })
@@ -341,7 +341,7 @@ router.put("/acoes/:id/status", soeGuard("encaminhar"), async (req: any, res) =>
 router.delete("/acoes/:id", soeGuard("manage"), async (req: any, res) => {
   try {
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.delete(soeAcoesTable)
+      await tx.delete(soeAcoesTable)
         .where(and(eq(soeAcoesTable.id, req.params.id), eq(soeAcoesTable.escolaId, req.escolaId)))
         .returning({ id: soeAcoesTable.id })
     );
@@ -369,7 +369,7 @@ router.get("/estudos-de-caso", soeGuard("view"), async (req: any, res) => {
     const conditions: any[] = [eq(soeEstudosDeCasoTable.escolaId, req.escolaId)];
     if (estudanteId) conditions.push(eq(soeEstudosDeCasoTable.estudanteId, String(estudanteId)));
     const rows = await withTenant(req.escolaId, async (tx) =>
-      tx.select().from(soeEstudosDeCasoTable)
+      await tx.select().from(soeEstudosDeCasoTable)
         .where(and(...conditions))
         .orderBy(desc(soeEstudosDeCasoTable.dataReuniao))
     );
@@ -383,7 +383,7 @@ router.post("/estudos-de-caso", soeGuard("manage"), async (req: any, res) => {
   try {
     const body = estudoCasoSchema.parse(req.body);
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.insert(soeEstudosDeCasoTable).values({
+      await tx.insert(soeEstudosDeCasoTable).values({
         escolaId:       req.escolaId,
         estudanteId:    body.estudanteId,
         dataReuniao:    body.dataReuniao,
@@ -405,7 +405,7 @@ router.put("/estudos-de-caso/:id", soeGuard("manage"), async (req: any, res) => 
   try {
     const body = estudoCasoSchema.partial().parse(req.body);
     const [row] = await withTenant(req.escolaId, async (tx) =>
-      tx.update(soeEstudosDeCasoTable)
+      await tx.update(soeEstudosDeCasoTable)
         .set({ ...body, atualizadoEm: new Date() })
         .where(and(eq(soeEstudosDeCasoTable.id, req.params.id), eq(soeEstudosDeCasoTable.escolaId, req.escolaId)))
         .returning()
@@ -423,7 +423,7 @@ router.put("/estudos-de-caso/:id", soeGuard("manage"), async (req: any, res) => 
 router.get("/portal/meus-atendimentos", soeGuard("self"), async (req: any, res) => {
   try {
     const rows = await withTenant(req.escolaId, async (tx) =>
-      tx.select({
+      await tx.select({
         id: soeAtendimentosTable.id,
         dataAtendimento: soeAtendimentosTable.dataAtendimento,
         tipo: soeAtendimentosTable.tipo,
@@ -447,7 +447,7 @@ router.get("/portal/meus-atendimentos", soeGuard("self"), async (req: any, res) 
 router.get("/portal/minhas-acoes", soeGuard("self"), async (req: any, res) => {
   try {
     const rows = await withTenant(req.escolaId, async (tx) =>
-      tx.select({
+      await tx.select({
         id: soeAcoesTable.id,
         titulo: soeAcoesTable.titulo,
         descricao: soeAcoesTable.descricao,
