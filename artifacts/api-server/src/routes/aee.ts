@@ -44,10 +44,10 @@ function aeeGuard(nivel: AeeNivel) {
   };
 }
 
-async function gerarNumeroPai(escolaId: string): Promise<string> {
+async function gerarNumeroPai(tx: any, escolaId: string): Promise<string> {
   const ano = new Date().getFullYear();
   const prefix = `PAI-${ano}-`;
-  const [row] = await db
+  const [row] = await tx
     .select({ n: count() })
     .from(aeePlanosTable)
     .where(sql`numero LIKE ${prefix + "%"} AND escola_id = ${escolaId}::uuid`);
@@ -171,6 +171,7 @@ router.get("/planos", aeeGuard("view"), async (req: any, res) => {
   const rows = await withTenant(escolaId, async (tx) =>
     tx.select().from(aeePlanosTable).where(and(...condicoes)).orderBy(desc(aeePlanosTable.criadoEm))
   );
+  await registrarAuditoriaAee({ req, acao: "READ_PLANOS", escolaId });
   res.json({ planos: rows });
 });
 
@@ -179,12 +180,12 @@ router.post("/planos", aeeGuard("manage"), async (req: any, res) => {
   const body = planoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
-  const numero = await gerarNumeroPai(escolaId);
-  const [novo] = await withTenant(escolaId, async (tx) =>
-    tx.insert(aeePlanosTable).values({
+  const [novo] = await withTenant(escolaId, async (tx) => {
+    const numero = await gerarNumeroPai(tx, escolaId);
+    return tx.insert(aeePlanosTable).values({
       ...body.data, escolaId, numero, criadoPorId: req.usuarioId,
-    }).returning()
-  );
+    }).returning();
+  });
   res.status(201).json(novo);
 });
 
@@ -293,6 +294,7 @@ router.get("/planos/:id/adaptacoes", async (req: any, res) => {
     .where(eq(aeePlanoAdaptacoesTable.planoId, req.params.id))
     .orderBy(aeePlanoAdaptacoesTable.criadoEm)
   );
+  await registrarAuditoriaAee({ req, acao: "READ_ADAPTACOES", escolaId: req.escolaId });
   res.json({ adaptacoes: rows });
 });
 
