@@ -37,3 +37,4 @@ export * from "./requerimentos";
 export * from "./escolas";
 export * from "./ia";
 export * from "./aee";
+export * from "./soe";
