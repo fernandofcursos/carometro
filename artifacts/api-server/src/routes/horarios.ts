@@ -39,6 +39,7 @@ router.get("/", async (req, res) => {
         sala:               horariosAulasTable.sala,
         disciplinaOfertaId: horariosAulasTable.disciplinaOfertaId,
         disciplinaNome:     disciplinasTable.nome,
+        disciplinaSigla:    disciplinasTable.sigla,
         cursoNome:          cursosTable.nome,
         turnoNome:          turnosTable.nome,
       })
