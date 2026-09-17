@@ -88,9 +88,22 @@ slug === 'saida-eventual':
 | PUT | `/api/requerimentos/:id/analisar` | autenticado + `buscarRoles` (`secretaria` ou `supervisao_pedagogica`) |
 | POST | `/api/requerimentos/:id/assinar-analise` | autenticado + `buscarRoles` (`secretaria` ou `supervisao_pedagogica`) |
 
-> **IMPORTANTE:** Nenhum endpoint usa `requirePermissao` — todos usam `requireAuth` + `buscarRoles` (cache 60s).
+> **IMPORTANTE:** Os endpoints de fluxo do requerimento (acima) usam `requireAuth` + `buscarRoles` (cache 60s), **nunca `requirePermissao`**.
 > `requirePermissao` depende de seed na tabela `roles_permissoes` que pode não existir.
 > `buscarRoles` consulta `usuarios_roles JOIN roles` — independente de seed de permissões.
+
+### Endpoints ADMIN (gerenciamento de tipos e assuntos)
+
+Estes endpoints usam `requirePermissao("roles:manage")` — destinados à administração do sistema, não ao fluxo do requerente.
+
+| Método | Endpoint | Acesso |
+|---|---|---|
+| GET | `/api/requerimentos/admin/tipos` | `roles:manage` |
+| POST | `/api/requerimentos/admin/tipos` | `roles:manage` |
+| PUT | `/api/requerimentos/admin/tipos/:id` | `roles:manage` |
+| POST | `/api/requerimentos/admin/assuntos` | `roles:manage` |
+| PUT | `/api/requerimentos/admin/assuntos/:id` | `roles:manage` |
+| DELETE | `/api/requerimentos/admin/assuntos/:id` | `roles:manage` |
 
 ## Numeração
 
@@ -272,8 +285,9 @@ Idempotente: usa `CREATE TABLE IF NOT EXISTS` + seed em bloco `DO $$ ... $$`.
 
 ## Autorização — padrão buscarRoles
 
-Todos os endpoints de requerimentos usam `requireAuth` + `buscarRoles` internamente.
-**Nunca usar `requirePermissao`** nos endpoints de requerimentos — depende de seed externo.
+Os endpoints de **fluxo do requerimento** usam `requireAuth` + `buscarRoles` internamente.
+**Nunca usar `requirePermissao`** nos endpoints de fluxo (criar, assinar, analisar) — depende de seed externo.
+Os endpoints `/admin/` são a exceção: usam `requirePermissao("roles:manage")` legitimamente.
 
 ```typescript
 // Padrão correto para endpoints de análise (secretaria/supervisão):
