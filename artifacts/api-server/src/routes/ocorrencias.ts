@@ -408,7 +408,7 @@ router.post("/", requirePermissao("ocorrencias:create"), async (req: Request, re
 
 router.put("/:id", requirePermissao("ocorrencias:create"), async (req: Request, res: Response) => {
   try {
-    const data = criarSchema.omit({ enviarEmailPais: true }).partial().parse(req.body);
+    const data = criarSchema.omit({ enviarEmailPais: true, enviarEmailEstudante: true }).partial().parse(req.body);
     const [ocorrencia] = await db
       .update(ocorrenciasTable)
       .set({ ...data, atualizadoEm: new Date() })
