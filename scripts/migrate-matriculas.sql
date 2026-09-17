@@ -11,8 +11,10 @@ BEGIN;
 -- Já usa o índice parcial correto para instalações novas
 CREATE TABLE IF NOT EXISTS matriculas (
   id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  escola_id     uuid        REFERENCES escolas(id) ON DELETE RESTRICT,
   usuario_id    uuid        NOT NULL REFERENCES usuarios(id) ON DELETE RESTRICT,
   turma_id      uuid        NOT NULL REFERENCES turmas(id)   ON DELETE RESTRICT,
+  turno_id      uuid        REFERENCES turnos(id) ON DELETE SET NULL,
   registro      varchar(20) NOT NULL,
   ano           integer     NOT NULL,
   semestre      smallint    NOT NULL,
@@ -22,6 +24,30 @@ CREATE TABLE IF NOT EXISTS matriculas (
   deletado_em   timestamptz,
   CONSTRAINT ck_semestre CHECK (semestre IN (1, 2))
 );
+
+-- ── Migração: adicionar turno_id se não existir (schema antigo sem turno) ─────
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'matriculas' AND column_name = 'turno_id'
+  ) THEN
+    ALTER TABLE matriculas ADD COLUMN turno_id uuid REFERENCES turnos(id) ON DELETE SET NULL;
+    RAISE NOTICE 'matriculas: coluna turno_id adicionada.';
+  END IF;
+END $$;
+
+-- ── Migração: adicionar escola_id se não existir ───────────────────────────────
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'matriculas' AND column_name = 'escola_id'
+  ) THEN
+    ALTER TABLE matriculas ADD COLUMN escola_id uuid REFERENCES escolas(id) ON DELETE RESTRICT;
+    RAISE NOTICE 'matriculas: coluna escola_id adicionada.';
+  END IF;
+END $$;
 
 -- ── Migração: remover coluna 'principal' se existir (schema antigo) ───────────
 DO $$

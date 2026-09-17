@@ -581,8 +581,11 @@ router.patch("/:id", requirePermissao("estudantes:manage"), async (req: Request,
         const moduloNovo = moduloNumerico(turmaAlvo.modulo);
         for (const m of outrasAtivas) {
           const moduloExist = moduloNumerico(m.turmaModulo);
-          if (moduloNovo !== 0 && moduloExist !== 0 && moduloNovo >= moduloExist) {
-            return res.status(422).json({ error: `A segunda enturmação deve ser em módulo inferior ao atual (turma ${m.turmaSigla}, módulo ${m.turmaModulo ?? "—"}).` });
+          // Após a edição, o par de matrículas deve ter módulos estritamente diferentes
+          // (uma principal e uma secundária). Módulos iguais são inválidos; a direção
+          // (qual é maior) é irrelevante aqui — já foi estabelecida quando a 2ª foi criada.
+          if (moduloNovo !== 0 && moduloExist !== 0 && moduloNovo === moduloExist) {
+            return res.status(422).json({ error: `A segunda enturmação deve ser em módulo diferente do atual (turma ${m.turmaSigla}, módulo ${m.turmaModulo ?? "—"}).` });
           }
           if (turnoEfetivoPatch && m.turnoId && turnoEfetivoPatch === m.turnoId) {
             return res.status(422).json({ error: `O estudante já está enturmado neste turno (turma ${m.turmaSigla}). A segunda enturmação deve ser em turno diferente.` });
