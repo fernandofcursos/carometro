@@ -81,8 +81,7 @@ type Dashboard = {
 
 type Ocorrencia = {
   id: string; estudanteId: string; estudanteNome: string | null;
-  tipoOcorrenciaId: string; tipoDescricao: string;
-  disciplinaId: string | null; disciplinaNome: string | null;
+  tipoDescricao: string; disciplinaNome: string | null;
   dataOcorrencia: string; observacao: string | null;
   cienteEm: string | null; criadoEm: string;
 };
@@ -271,8 +270,8 @@ function OcorrenciasTab() {
   function openEdit(o: Ocorrencia) {
     setEditTarget(o);
     setForm({
-      estudanteId: o.estudanteId, tipoOcorrenciaId: o.tipoOcorrenciaId,
-      disciplinaId: o.disciplinaId ?? "", dataOcorrencia: o.dataOcorrencia, observacao: o.observacao ?? "",
+      estudanteId: o.estudanteId, tipoOcorrenciaId: "",
+      disciplinaId: "", dataOcorrencia: o.dataOcorrencia, observacao: o.observacao ?? "",
     });
     setOpen(true);
   }

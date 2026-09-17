@@ -38,11 +38,6 @@ const canManageEstudantes   = hasAny("estudantes:manage");
 const canManageCarteiras    = hasAny("estudantes:manage");
 const canViewOcorrencias    = hasAny("ocorrencias:view", "ocorrencias:create");
 const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
-const isProfessor           = (user?.roles ?? []).includes("professor");
-const canManageAvisos       = hasAny("avisos:manage");
-const canCreateRequerimentos   = hasAny("requerimentos:create");
-const canManageRequerimentos   = hasAny("requerimentos:manage");
-const canManageTiposRequerimentos = hasAny("requerimentos:manage"); // mesma permissão
 ```
 
 ## Item fixo: Início
@@ -84,7 +79,7 @@ Acima de todos os grupos, logo abaixo do `SidebarHeader`, existe um link fixo pa
 | Cursos | `cursos:manage` |
 | Turnos | `turnos:manage` |
 | Turmas | `turmas:manage` |
-| Unid. Curriculares | `disciplinas:manage` |
+| Disciplinas | `disciplinas:manage` |
 | Quadro de Horários | `horarios:manage` |
 | Calendário Escolar | `calendario:manage` |
 
@@ -95,54 +90,6 @@ Acima de todos os grupos, logo abaixo do `SidebarHeader`, existe um link fixo pa
 ### Ocorrências
 - Permissão: `ocorrencias:view` | `ocorrencias:create` | `tipos-ocorrencias:manage`
 - Itens: Tipos de Ocorrência, Textos Padrão, Relatório de Ocorrências
-
-### Meu Portal
-- Permissão: `isEstudante`
-- Itens: Dashboard (`/portal`), Cartão de Liberação, Requerimentos (`canCreateRequerimentos`)
-
-### Portal do Professor
-- Permissão: `isProfessor`
-- Itens: Dashboard Docente (`/portal-professor`)
-
-### Equipe Gestora
-- Permissão: `hasAny("equipe-gestora:view")` ou similar
-- Itens: Dashboard Equipe Gestora
-
-### Portal da Secretaria
-- Permissão: `hasAny("secretaria:view")` ou permissão específica
-- Itens: Dashboard Secretaria
-
-### Portal do Coordenador
-- Permissão: `hasAny("coordenador:view")` ou permissão específica
-- Itens: Dashboard Coordenador
-
-### Portal do Responsável
-- Permissão: `isPaiResponsavel`
-- Itens: Dashboard Responsável (`/portal-responsavel`)
-
-### Requerimentos
-- Permissão: `canManageRequerimentos`
-- Itens: Análise de Requerimentos (`/requerimentos/analise`), Tipos de Requerimento (`canManageTiposRequerimentos`)
-
-### EEAA
-- Permissão: `hasAny("eeaa:view")` ou permissão específica
-- Itens: EEAA
-
-### SOE
-- Permissão: `hasAny("soe:view")` ou permissão específica
-- Itens: SOE
-
-### Sala de Recursos / Adequações SR
-- Permissão: `hasAny("sala-recursos:view")` ou permissão específica
-- Itens: Sala de Recursos, Adequações
-
-### Avisos e Informes
-- Permissão: `canManageAvisos`
-- Itens: Avisos (`/avisos`), Informes (`/informes`), Tipos de Aviso (`/tipos-avisos`)
-
-### Manutenção / Importação
-- Permissão: `canImport`
-- Itens: importações de cursos, disciplinas, estudantes, professores, turmas
 
 ### Privacidade & Segurança
 - Sem permissão de grupo (visível para todos autenticados)

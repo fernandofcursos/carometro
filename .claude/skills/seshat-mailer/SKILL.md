@@ -60,31 +60,41 @@ RESEND_FROM=Seshat <noreply@seudominio.com.br>
 ```typescript
 // Resend via fetch nativo (HTTPS/443 — sem bloqueio de proxy)
 async function enviarViaResend(opts): Promise<EnvioInfo> {
-  const res = await fetch("https://api.resend.com/emails", { ... });
-  if (!res.ok) {
-    const data = await res.json();
-    // Erro de domínio não verificado → captura local silenciosa
-    if (data.message?.includes("verify a domain") || data.message?.includes("testing emails to your own")) {
-      // Não lança erro — retorna resendSemDominio: true
-      return { resendSemDominio: true };
-    }
-    throw new Error(data.message);
-  }
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to, subject, text, html }),
+  });
+  // res.ok → enviado; !res.ok → throw Error(data.message)
 }
 // enviar() chama enviarViaResend() quando RESEND_API_KEY está definida
 ```
 
 ## Modos sem SMTP
 
-### Modo captura local (fallback padrão sem SMTP/Resend)
+### Ethereal (requer acesso a api.nodemailer.com)
+1. Não definir variáveis SMTP
+2. `POST /api/mailer/teste { "para": "qualquer@email.com" }`
+3. Log: `[mailer] Ethereal ativado — login: <user>@ethereal.email / <senha>`
+4. Log: `[mailer] "Teste de envio..." → https://ethereal.email/message/...`
+5. Abrir URL para ver o e-mail
 
-Quando nenhuma variável SMTP ou `RESEND_API_KEY` está configurada, `ensureTransport()` usa diretamente `jsonTransport`:
+**A senha é exibida UMA VEZ ao iniciar o servidor.** Se o servidor foi reiniciado, a conta mudou.  
+Para fixar uma conta Ethereal, cadastre em https://ethereal.email e configure via SMTP:
+```env
+SMTP_HOST=smtp.ethereal.email
+SMTP_PORT=587
+SMTP_USER=<user>@ethereal.email
+SMTP_PASS=<senha>
+```
+
+### Modo captura local (fallback sem rede externa)
+
+Quando `api.nodemailer.com` está inacessível (proxy bloqueado), o mailer cai automaticamente para `jsonTransport`:
 - E-mails são processados mas **apenas logados no servidor** — sem envio real
-- Log: `[mailer] Modo captura local ativo — e-mails logados no servidor.`
+- Log: `[mailer] Ethereal indisponível — modo captura local`
 - Log: `[mailer] "Assunto" — capturado localmente (para: destino@email.com)`
 - UI exibe badge "captura local" (azul) com aviso nos logs
-
-> **Nota:** O modo "Ethereal" (nodemailer test accounts via `api.nodemailer.com`) foi removido. A variável `_etherealUser` ainda existe no código mas nunca é atribuída — `diagnosticoMailer()` nunca retorna `modo: "ethereal"`.
 
 ### Fallback quando porta SMTP bloqueada (ex.: dev container)
 

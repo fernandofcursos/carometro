@@ -6,7 +6,7 @@ description: Spec do carômetro de Apoio e Operacional
 
 ## Spec
 
-Retorna os membros da equipe de apoio e operacional da instituição. Os dados são exibidos em formato de carômetro (grade de fotos com nome). O agrupamento é feito inteiramente no cliente — o endpoint retorna uma lista plana.
+Retorna os membros da equipe de apoio e operacional da instituição. Os dados são exibidos em formato de carômetro (grade de fotos com nome). Quando os membros estiverem vinculados a turno ou curso específico, o agrupamento é feito por turno/curso.
 
 ## Endpoint
 
@@ -14,39 +14,38 @@ Retorna os membros da equipe de apoio e operacional da instituição. Os dados s
 
 ## Response Shape
 
-Array plano de `UsuarioCardAPI` (mesmo shape dos demais carômetros de grupo):
-
-```typescript
-type UsuarioCardAPI = {
-  id: string;           // UUID
-  nome: string | null;
-  fotoUrl: string | null;
-  roles: Array<{ id: string; nome: string }>;
-};
-
-// Resposta: UsuarioCardAPI[]
+```json
+{
+  "grupos": [
+    {
+      "turno": "Manhã",
+      "curso": null,
+      "membros": [
+        {
+          "id": 7,
+          "nome": "Paulo Rodrigues",
+          "foto_url": "https://example.com/fotos/paulo-rodrigues.jpg",
+          "role": "inspetor"
+        },
+        {
+          "id": 8,
+          "nome": "Lucia Ferreira",
+          "foto_url": "https://example.com/fotos/lucia-ferreira.jpg",
+          "role": "merendeira"
+        }
+      ]
+    }
+  ]
+}
 ```
-
-## Implementação no Servidor
-
-```typescript
-// Roles incluídas
-const ROLES = ["inspetor", "limpeza", "portaria", "merendeira", "seguranca"];
-
-// Usa getUsuariosPorRoles — mesma função dos demais carômetros de grupo
-const membros = await getUsuariosPorRoles(ROLES, escolaId);
-res.json(membros); // array plano
-```
-
-## Agrupamento (cliente)
-
-O agrupamento por cargo/role é feito no frontend via `buildGroups()` em `seshat-grupo.tsx`, exatamente como nos outros carômetros de grupo.
 
 ## Regras de Negócio
 
 - Roles incluídas: `inspetor`, `limpeza`, `portaria`, `merendeira`, `seguranca`
+- Exibe apenas: nome e foto
+- Agrupamento por turno/curso quando o membro estiver vinculado a um turno ou curso específico
+- Membros sem vínculo de turno/curso aparecem em grupo geral sem agrupamento
 - Apenas usuários ativos devem ser retornados
-- Exibe nome e foto
 
 ## Padrão Visual dos Cards
 

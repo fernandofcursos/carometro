@@ -26,7 +26,7 @@ Ana Silva,ana@escola.edu.br,Programação Web,Técnico em Informática,Manhã
 
 1. Lookup oferta de disciplina via (disciplinaNome + cursoNome + turnoNome)
 2. Lookup usuário por `emailHash` = SHA-256(email.toLowerCase())
-3. Se não existe: criar usuário com `nome`, email criptografado AES-256-CBC, `codigoAcesso` aleatório, `primeiroAcesso: true`, e `senhaHash` = bcrypt(senhaTemp gerada aleatoriamente, cost 10) — professor já tem credenciais de acesso desde a importação
+3. Se não existe: criar usuário com `nome`, email criptografado AES-256-CBC, `codigoAcesso` aleatório, `primeiroAcesso: true`
 4. Garantir role `professor` no usuário (`onConflictDoNothing`)
 5. Upsert em `usuario_disciplinas` (usuarioId, disciplinaOfertaId) — `onConflictDoNothing`
 

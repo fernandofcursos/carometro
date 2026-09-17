@@ -4,20 +4,19 @@ Módulo de Avisos e Informes do Seshat.
 
 ## Rotas de API
 
-- `GET /api/avisos-informes/tipos` — tipos ativos (apenas `requireAuth`)
-- `GET /api/avisos-informes/avisos?mes=YYYY-MM[&excluirCardapio=true]` — avisos do mês; requer `avisos:manage`. Com `excluirCardapio=true` omite os do tipo Cardápio. Retorna `tipoNome` e `tipoEhCardapio` via LEFT JOIN com tipos.
+- `GET /api/avisos-informes/tipos` — tipos ativos
+- `GET /api/avisos-informes/avisos?mes=YYYY-MM[&excluirCardapio=true]` — avisos do mês; com `excluirCardapio=true` omite os do tipo Cardápio. Retorna `tipoNome` e `tipoEhCardapio` via LEFT JOIN com tipos.
 - `GET /api/avisos-informes/cardapio?de=YYYY-MM-DD&ate=YYYY-MM-DD` — cardápio por intervalo de datas (apenas `requireAuth`, sem `avisos:manage`). Aceita também `?mes=YYYY-MM` como fallback. **Sempre usar range de datas**, nunca mês isolado, para não perder semanas que cruzam meses.
-- `GET /api/avisos-informes/informes?mes=YYYY-MM` — informes do mês; requer `avisos:manage`
-- `POST/PUT /api/avisos-informes/avisos` / `informes` — criar/editar; requer `avisos:manage`
-- `DELETE /api/avisos-informes/avisos/:id` / `informes/:id` — excluir; requer `avisos:manage`
-- `GET /api/avisos-informes/feed?perfil=ROLE&limite=N` — feed para dashboards (apenas `requireAuth`; exclui `ehCardapio=true`); inclui `anexos[]` por item
-- `POST /api/avisos-informes/tipos` — criar tipo; requer `avisos:manage`
-- `PUT/DELETE /api/avisos-informes/tipos/:id` — editar/excluir tipo; requer `avisos:manage`
+- `GET /api/avisos-informes/informes?mes=YYYY-MM` — informes do mês
+- `POST/PUT /api/avisos-informes/avisos` / `informes` — criar/editar
+- `DELETE /api/avisos-informes/avisos/:id` / `informes/:id` — excluir
+- `GET /api/avisos-informes/feed?perfil=ROLE&limite=N` — feed para dashboards (exclui `ehCardapio=true`); inclui `anexos[]` por item
+- `POST/PUT/DELETE /api/avisos-informes/tipos/:id` — CRUD de tipos
 
 ## Regras de apresentação nos dashboards
 
 - **Feed (AvisosWidget)** — nunca exibe avisos do tipo Cardápio (`ehCardapio=true`). O `/feed` já os filtra na API.
-- **Filtragem por perfil** — `GET /feed?perfil=ROLE` usa `EXISTS` em `avisos_publicos_alvo` para retornar avisos cujo público inclua `ROLE`. Quando `perfil` está vazio/ausente, retorna qualquer aviso com ao menos uma entrada em `avisos_publicos_alvo` (não filtra por `'todos'`).
+- **Filtragem por perfil** — `GET /feed?perfil=ROLE` usa `EXISTS` em `avisos_publicos_alvo` para retornar apenas avisos cujo público seja `'todos'` ou `ROLE`. Avisos dirigidos a outros perfis não aparecem.
 - **CardapioWidget** — exibe somente avisos do tipo Cardápio, em grade Seg–Sex. **Obrigatório** em todos os dashboards.
 - **Bloco "Comunicados & Cardápio"** — AvisosWidget + CardapioWidget juntos sob separador rotulado. Padrão idêntico em todos os perfis: Estudante (`perfil="estudante"`), Pai/Responsável (`perfil="pai_responsavel"`), Professor (`perfil="professor"`), Coordenador/Admin (`perfil="todos"`).
 - Os dois widgets são complementares e nunca duplicam conteúdo.
@@ -40,7 +39,7 @@ Módulo de Avisos e Informes do Seshat.
 ## Anexos (avisos/informes não-cardápio)
 
 - Tabela: `avisos_anexos` — `id`, `aviso_id` (CASCADE), `nome_original`, `nome_arquivo` (uuid.ext), `mime_type`, `tamanho`, `criado_em`
-- Tipos permitidos: doc, docx, xls, xlsx, pdf, jpg, jpeg, png — max 2 MB
+- Tipos permitidos: doc, docx, xlsx, pdf, jpg, jpeg, png — max 2 MB
 - Armazenamento: `artifacts/api-server/uploads/avisos/` — NUNCA público; servido apenas via endpoint autenticado (LGPD/ISO27001)
 - Nomenclatura no disco: `{uuid}.{ext}` (sem nome original, evita path traversal)
 - **Upload antes de salvar**: o modal exibe `PendingFilesZone` (drag-and-drop, lista com remoção) desde a criação.
@@ -80,8 +79,7 @@ Módulo de Avisos e Informes do Seshat.
 
 - Múltiplos perfis armazenados na tabela de junção `avisos_publicos_alvo(aviso_id, perfil)` com PK composta — não viola 2FN.
 - A coluna `publico_alvo varchar(30)` em `avisos` é mantida para compatibilidade retroativa.
-- Valores (API route — sem enum): `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`
-- **Nota:** `insertAvisoSchema` em `lib/db/src/schema/avisos.ts` só lista `["estudantes", "responsaveis", "todos"]`; a rota usa `avisoBodySchema` com `z.array(z.string())` (sem enum), aceitando todos os valores acima
+- Valores: `todos`, `estudantes`, `responsaveis`, `professores`, `coordenadores`, `equipe_gestora`
 - `todos` é mutuamente exclusivo com os demais: ao marcar "Todos os perfis", os outros são desmarcados e vice-versa.
 - UI: `PublicoAlvoSelector` — grid de checkboxes com estilo de card selecionável.
 - API: `syncPublicosAlvo(avisoId, perfis[])` sincroniza POST/PUT; `getPublicosAlvo(ids[])` enriquece listagens com `publicosAlvo[]`.

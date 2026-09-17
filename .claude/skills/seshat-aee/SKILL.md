@@ -1,7 +1,5 @@
 # Skill: Módulo AEE (Atendimento Educacional Especializado)
 
-> **⚠️ NÃO IMPLEMENTADO:** Nenhum dos arquivos listados em "Arquivos Chave" existe no repositório. Este módulo está especificado mas não foi desenvolvido. Não referenciar estas rotas ou schemas em código de produção.
-
 ## Visão Geral
 
 Módulo para gestão de estudantes com necessidades educacionais especiais. Cobre: cadastro, Planos de Atendimento Individualizado (PAI), sessões de atendimento, laudos clínicos criptografados, metas/evoluções e liberações granulares para professores de sala.

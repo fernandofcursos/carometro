@@ -24,7 +24,7 @@ Acesso via nginx `/n8n/` sob TLS — porta `5678` nunca exposta em produção.
   Qualquer REST API
 ```
 
-Em produção (`docker-compose.prod.yml`), n8n pertence a **ambas** as redes `app_net` e `monitoring_net`. Em dev (`docker-compose.yml`) pertence apenas a `app_net`.
+n8n está em `app_net` (não em `monitoring_net`) para poder fazer chamadas externas HTTPS — diferente do Prometheus/Grafana que são `internal: true`.
 
 ---
 

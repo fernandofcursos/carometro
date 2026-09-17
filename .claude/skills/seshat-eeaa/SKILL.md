@@ -18,7 +18,7 @@ Spec completa: `.specs/features/portal-eeaa.md`
 | `lib/db/src/schema/eeaa.ts` | Schema Drizzle de todas as tabelas EEAA |
 | `artifacts/seshat/src/pages/eeaa/gestao.tsx` | UI de gestão (`eeaa:manage`) |
 | `artifacts/seshat/src/pages/eeaa/analise.tsx` | UI de acompanhamento (`eeaa:view`) |
-| `scripts/migrate-eeaa.sql` | Migração SQL — NÃO executar sem aprovação (**arquivo não existe ainda**) |
+| `scripts/migrate-eeaa.sql` | Migração SQL — NÃO executar sem aprovação |
 
 ---
 
@@ -43,7 +43,7 @@ eeaa_auditoria         — log imutável (INSERT only, nunca UPDATE/DELETE)
 
 | Nível | Papéis | Acesso |
 |---|---|---|
-| `eeaa:manage` | `professor_aee`, `psicologo`, `psicopedagogo` | CRUD completo + laudos + cid10 |
+| `eeaa:manage` | `professor_eeaa`, `psicologo`, `psicopedagogo` | CRUD completo + laudos + cid10 |
 | `eeaa:view` | manage + `coordenacao`, `supervisao`, `direcao` | Leitura (sem laudos, sem cid10) |
 | `eeaa:self` | `estudante`, `pai_responsavel` | Apenas `/portal/meu-plano` |
 | Professor sala | sem papel EEAA | Apenas `/portal-professor/:id` com liberação ativa |
@@ -59,7 +59,7 @@ rascunho → aguardando_assinatura → vigente → encerrado
 ```
 
 - Edição só em `rascunho`.
-- `vigente` = assinaturas de `professor_aee` + `responsavel` coletadas.
+- `vigente` = assinaturas de `professor_eeaa` + `responsavel` coletadas.
 - Assinatura verificada via bcrypt na senha do usuário.
 
 ---

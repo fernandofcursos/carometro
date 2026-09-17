@@ -6,24 +6,7 @@
 
 ---
 
-## Leitura direta — `GET /api/fotos/:id`
-
-```typescript
-// Requer requireAuth (sem permissão extra — qualquer usuário autenticado pode acessar)
-router.get("/:id", requireAuth, async (req, res) => {
-  // Verifica integridade (hashIntegridade) antes de servir
-  // Seta Cache-Control: private, max-age=86400 (1 dia)
-  // Retorna os bytes descriptografados com Content-Type correto
-});
-```
-
-> Esta rota **não é pública** — exige autenticado (LGPD/ISO27001). Nunca gerar URLs `/api/fotos/:id` como se fossem públicas.
-
----
-
 ## Escrita — `POST /api/estudantes/:id/foto`
-
-Requer `requirePermissao("estudantes:manage")`.
 
 ```typescript
 // 1. Upsert em fotos com entidade_tipo='estudante'

@@ -269,17 +269,15 @@ router.get("/ocorrencias", async (req: Request, res: Response) => {
     const usuarioId = req.usuarioId!;
     const rows = await db
       .select({
-        id:                ocorrenciasTable.id,
-        estudanteId:       ocorrenciasTable.estudanteId,
-        estudanteNome:     estudantesTable.nome,
-        tipoOcorrenciaId:  ocorrenciasTable.tipoOcorrenciaId,
-        tipoDescricao:     tiposOcorrenciasTable.descricao,
-        disciplinaId:      ocorrenciasTable.disciplinaId,
-        disciplinaNome:    disciplinasTable.nome,
-        dataOcorrencia:    ocorrenciasTable.dataOcorrencia,
-        observacao:        ocorrenciasTable.observacao,
-        cienteEm:          ocorrenciasTable.cienteEm,
-        criadoEm:          ocorrenciasTable.criadoEm,
+        id:              ocorrenciasTable.id,
+        estudanteId:     ocorrenciasTable.estudanteId,
+        estudanteNome:   estudantesTable.nome,
+        tipoDescricao:   tiposOcorrenciasTable.descricao,
+        disciplinaNome:  disciplinasTable.nome,
+        dataOcorrencia:  ocorrenciasTable.dataOcorrencia,
+        observacao:      ocorrenciasTable.observacao,
+        cienteEm:        ocorrenciasTable.cienteEm,
+        criadoEm:        ocorrenciasTable.criadoEm,
       })
       .from(ocorrenciasTable)
       .innerJoin(estudantesTable, eq(estudantesTable.id, ocorrenciasTable.estudanteId))
