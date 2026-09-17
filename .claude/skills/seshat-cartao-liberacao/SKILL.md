@@ -34,7 +34,7 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 - Fora da janela: exibe informação do próximo cartão aprovado, mas **não exibe o cartão** — nova solicitação necessária
 - QR Code lido pelo app Seshat → registra ocorrência de saída antecipada automaticamente
 
-> **CRÍTICO:** O frontend revalida a query `portal-cartoes-saida` a cada **30 segundos** (`refetchInterval: 30_000`) para detectar entrada/saída da janela sem reload.
+> **CRÍTICO:** O frontend revalida **ambas** as queries (`portal-cartoes-saida` e `portal-carteiras`) a cada **30 segundos** (`refetchInterval: 30_000`) para detectar entrada/saída da janela sem reload.
 
 ---
 
@@ -63,10 +63,9 @@ Estudante: preenche Requerimento "Pedido de Saída Antecipada (Eventual)" em /re
 
 Componente `CartaoLiberacaoCard` — idêntico à `CarteiraEstudante` (560×320px horizontal), exceto pela paleta de cores.
 
-### Paleta Semestral
-```
-bg: "#dcfce7"  strip: "#166534"  curves: verde
-text: "#14532d"  label: "Semestral"
+### Paleta Semestral (`COR_SEMESTRAL` — constante separada)
+```typescript
+const COR_SEMESTRAL = { bg: "#dcfce7", strip: "#166534", curve1: "#16a34a", curve2: "#4ade80", curve3: "#86efac", text: "#14532d", label: "Semestral" };
 ```
 
 ### Paleta Diário — por dia da semana (`data_saida`)
@@ -76,11 +75,11 @@ text: "#14532d"  label: "Semestral"
 type Paleta = { bg: string; strip: string; curve1: string; curve2: string; curve3: string; text: string; label: string };
 
 const COR_DIA: Record<number, Paleta> = {
-  1: { bg:"#dbeafe", strip:"#1d4ed8", curve1:"#93c5fd", curve2:"#bfdbfe", curve3:"#dbeafe", text:"#1e3a8a", label:"Segunda-feira" }, // Lua — azul
-  2: { bg:"#fee2e2", strip:"#991b1b", curve1:"#fca5a5", curve2:"#fecaca", curve3:"#fee2e2", text:"#7f1d1d", label:"Terça-feira"   }, // Marte — vermelho
-  3: { bg:"#fefce8", strip:"#a16207", curve1:"#fde047", curve2:"#fef08a", curve3:"#fefce8", text:"#713f12", label:"Quarta-feira"  }, // Mercúrio — amarelo
-  4: { bg:"#ede9fe", strip:"#3730a3", curve1:"#a78bfa", curve2:"#c4b5fd", curve3:"#ede9fe", text:"#312e81", label:"Quinta-feira"  }, // Júpiter — roxo
-  5: { bg:"#fdf2f8", strip:"#9d174d", curve1:"#f0abfc", curve2:"#f5d0fe", curve3:"#fdf2f8", text:"#831843", label:"Sexta-feira"   }, // Vênus — rosa
+  1: { bg: "#dbeafe", strip: "#1d4ed8", curve1: "#3b82f6", curve2: "#60a5fa", curve3: "#93c5fd", text: "#1e3a8a", label: "Segunda-feira" }, // Lua — azul
+  2: { bg: "#fee2e2", strip: "#991b1b", curve1: "#dc2626", curve2: "#f87171", curve3: "#fca5a5", text: "#7f1d1d", label: "Terça-feira"   }, // Marte — vermelho
+  3: { bg: "#fefce8", strip: "#a16207", curve1: "#ca8a04", curve2: "#facc15", curve3: "#fde047", text: "#713f12", label: "Quarta-feira"  }, // Mercúrio — amarelo
+  4: { bg: "#ede9fe", strip: "#3730a3", curve1: "#6d28d9", curve2: "#8b5cf6", curve3: "#a78bfa", text: "#1e1b4b", label: "Quinta-feira"  }, // Júpiter — roxo
+  5: { bg: "#fdf2f8", strip: "#9d174d", curve1: "#db2777", curve2: "#f472b6", curve3: "#f9a8d4", text: "#831843", label: "Sexta-feira"   }, // Vênus — rosa
 };
 // 0=Dom e 6=Sab usam fallback do índice 1 (azul)
 ```
@@ -177,8 +176,8 @@ SENÃO:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/portal/carteiras` | Todas as carteiras do estudante (inclui semestral) |
-| GET | `/api/portal/cartoes-saida` | Cartões diários `aprovados` do estudante logado |
+| GET | `/api/portal/carteiras` | Todas as carteiras do estudante — **todos os status** (ativa, cancelada, revogada). A UI filtra `status === 'ativa'` no frontend para exibir o semestral. Refetch a cada **30 s** (`refetchInterval: 30_000`). |
+| GET | `/api/portal/cartoes-saida` | Cartões diários `aprovados` do estudante logado. Refetch a cada **30 s** (`refetchInterval: 30_000`). |
 
 ### Gestão (requer `estudantes:manage`)
 
