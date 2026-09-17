@@ -6,10 +6,11 @@ import { makeQuery } from "./helpers/db-mock.js";
 
 // ── DB mock ──────────────────────────────────────────────────────────────────
 const mockDb = {
-  select: vi.fn(() => makeQuery()),
-  insert: vi.fn(() => makeQuery()),
-  update: vi.fn(() => makeQuery()),
-  delete: vi.fn(() => makeQuery()),
+  select:         vi.fn(() => makeQuery()),
+  selectDistinct: vi.fn(() => makeQuery()),
+  insert:         vi.fn(() => makeQuery()),
+  update:         vi.fn(() => makeQuery()),
+  delete:         vi.fn(() => makeQuery()),
 };
 
 vi.mock("@workspace/db", () => ({
@@ -19,6 +20,9 @@ vi.mock("@workspace/db", () => ({
   usuariosRolesTable: { usuarioId: "usuarioId", roleId: "roleId" },
   rolesPermissoesTable: { roleId: "roleId", permissaoId: "permissaoId" },
   permissoesTable:    { id: "id", recurso: "recurso", acao: "acao" },
+  // tabelas adicionadas para multi-escola
+  escolasTable:       { id: "id", nome: "nome", sigla: "sigla" },
+  matriculasTable:    { usuarioId: "usuarioId", escolaId: "escolaId", ativo: "ativo", deletadoEm: "deletadoEm" },
   eq:     vi.fn((_a, _b) => "eq"),
   and:    vi.fn((..._args) => "and"),
   isNull: vi.fn((_col) => "isNull"),
@@ -47,6 +51,11 @@ vi.mock("../lib/crypto.js", () => ({
 // ── audit mock ────────────────────────────────────────────────────────────────
 vi.mock("../lib/audit.js", () => ({
   registrarAuditoria: vi.fn(),
+}));
+
+// ── mailer mock ───────────────────────────────────────────────────────────────
+vi.mock("../lib/mailer.js", () => ({
+  enviarEmailRecuperacao: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ── pino-http mock (avoid logs in tests) ─────────────────────────────────────
@@ -141,12 +150,14 @@ describe("POST /api/auth/login", () => {
 
     // 1. select usuario
     mockDb.select.mockReturnValueOnce(makeQuery([USUARIO_FIXTURE]));
-    // 2. select roles (buscarRolesEPermissoes)
-    mockDb.select.mockReturnValueOnce(makeQuery([ROLE_FIXTURE]));
-    // 3. select perms
-    mockDb.select.mockReturnValueOnce(makeQuery(PERMS_FIXTURE));
-    // 4. update (reset tentativas + ultimoLoginEm)
+    // 2. selectDistinct escolas (1 escola → auto-seleção)
+    mockDb.selectDistinct.mockReturnValueOnce(makeQuery([{ id: "escola-uuid-1", nome: "ETSM", sigla: "ETSM" }]));
+    // 3. update (reset tentativas + ultimoLoginEm)
     mockDb.update.mockReturnValueOnce(makeQuery([]));
+    // 4. select roles (buscarRolesEPermissoes)
+    mockDb.select.mockReturnValueOnce(makeQuery([ROLE_FIXTURE]));
+    // 5. select perms
+    mockDb.select.mockReturnValueOnce(makeQuery(PERMS_FIXTURE));
 
     const res = await request(app)
       .post("/api/auth/login")

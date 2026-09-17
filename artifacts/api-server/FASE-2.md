@@ -21,7 +21,7 @@
   - Cache agressivo (7 dias)
   - TODO: Buscar do banco
 
-### 3. **artifacts/carometro/src/components/camera-capture.tsx** — Compressão
+### 3. **artifacts/seshat/src/components/camera-capture.tsx** — Compressão
 - ✅ `comprimirImagem()` — Redimensiona e reduz qualidade
   - Máxima largura: 600px
   - Máximo tamanho: 150KB
@@ -59,7 +59,7 @@ export function verificarIntegridade(...): boolean { ... }
 - ✅ GET /:id/foto com descriptografia e integridade
 - ✅ Todos os TODOs comentados para próximas implementações
 
-### **artifacts/carometro/src/components/camera-capture.tsx** (Expandido com 35 linhas)
+### **artifacts/seshat/src/components/camera-capture.tsx** (Expandido com 35 linhas)
 - ✅ Função `comprimirImagem()` com lógica adaptativa
 - ✅ `capturePhoto()` agora comprime automaticamente
 - ✅ `handleFileUpload()` agora comprime automaticamente

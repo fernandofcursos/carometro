@@ -82,9 +82,9 @@ Invalida caches TanStack Query (refetch automático)
 | Arquivo | Responsabilidade |
 |---------|-----------------|
 | `lib/api-client-react/src/offline-queue.ts` | CRUD da fila em localStorage |
-| `artifacts/carometro/src/hooks/use-network-status.ts` | Detecta online/offline, drena fila |
-| `artifacts/carometro/src/components/status-rede.tsx` | UI do indicador de rede |
-| `artifacts/carometro/src/App.tsx` | Monta `<StatusRede>` globalmente |
+| `artifacts/seshat/src/hooks/use-network-status.ts` | Detecta online/offline, drena fila |
+| `artifacts/seshat/src/components/status-rede.tsx` | UI do indicador de rede |
+| `artifacts/seshat/src/App.tsx` | Monta `<StatusRede>` globalmente |
 
 ## Casos de Teste
 

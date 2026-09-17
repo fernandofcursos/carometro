@@ -60,7 +60,7 @@ Ao receber um erro, Orion segue esta ordem:
 | `EMFILE: too many open files` | Limite de file descriptors do container | `ulimit -n 65536` antes de iniciar |
 | `ENOENT: lstat '.../src/routes'` | node_modules instalado no host Mac | `rm -rf node_modules && pnpm install` no container |
 | `ENOENT: .../linux-x64/...` | Binário nativo errado (darwin vs linux) | Reinstalar node_modules no ambiente correto |
-| `ECONNREFUSED 127.0.0.1:8080` | API não está rodando | Subir API: `PORT=8080 pnpm --filter @workspace/api-server run dev` |
+| `ECONNREFUSED 127.0.0.1:8080` | API não está rodando | Subir API: `pnpm --filter @workspace/api-server run dev` |
 | `ECONNREFUSED 127.0.0.1:5432` | DATABASE_URL apontando para localhost | Verificar/corrigir DATABASE_URL no `.env` |
 | `column "x" does not exist` | Schema mudou sem `push-force` | `pnpm --filter @workspace/db run push-force` |
 | `password authentication failed` | Credenciais erradas no DATABASE_URL | Verificar usuário/senha no Neon dashboard |

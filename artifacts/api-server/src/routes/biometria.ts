@@ -24,7 +24,7 @@ import { rolesTable, usuariosRolesTable, rolesPermissoesTable, permissoesTable }
 const router = Router();
 
 // RP (Relying Party) config — deve coincidir com o origin do frontend
-const RP_NAME = process.env.RP_NAME ?? "Carômetro";
+const RP_NAME = process.env.RP_NAME ?? "Seshat";
 const RP_ID = process.env.RP_ID ?? "localhost";
 const ORIGIN = process.env.FRONTEND_ORIGIN ?? "http://localhost:5173";
 
