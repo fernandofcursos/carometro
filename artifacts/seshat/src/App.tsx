@@ -60,8 +60,8 @@ import TiposAvisosPage from "@/pages/tipos-avisos/index";
 import RequerimentosPage from "@/pages/requerimentos/index";
 import RequerimentoAnalisePage from "@/pages/requerimentos/analise";
 import TiposRequerimentosPage from "@/pages/requerimentos/tipos";
-import AeeGestaoPage  from "./pages/aee/gestao";
-import AeeAnalisePage from "./pages/aee/analise";
+import EeaaGestaoPage  from "./pages/eeaa/gestao";
+import EeaaAnalisePage from "./pages/eeaa/analise";
 import SoeGestaoPage from "./pages/soe/gestao";
 import SoeAnalisePage from "./pages/soe/analise";
 import SoeEncaminharPage from "./pages/soe/encaminhar";
@@ -141,8 +141,8 @@ function AppRoutes() {
           <Route path="/requerimentos/analise" component={RequerimentoAnalisePage} />
           <Route path="/requerimentos/tipos" component={TiposRequerimentosPage} />
           <Route path="/iso27001" component={Iso27001Page} />
-          <Route path="/aee/gestao"  component={AeeGestaoPage} />
-          <Route path="/aee/analise" component={AeeAnalisePage} />
+          <Route path="/eeaa/gestao"  component={EeaaGestaoPage} />
+          <Route path="/eeaa/analise" component={EeaaAnalisePage} />
           <Route path="/soe/gestao" component={SoeGestaoPage} />
           <Route path="/soe/analise" component={SoeAnalisePage} />
           <Route path="/soe/encaminhar" component={SoeEncaminharPage} />

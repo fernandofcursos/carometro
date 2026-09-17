@@ -12,12 +12,12 @@ async function apiFetch(url: string) {
   return body;
 }
 
-export default function AeeAnalisePage() {
+export default function EeaaAnalisePage() {
   const [busca, setBusca] = useState("");
 
   const { data } = useQuery({
-    queryKey: ["aee-estudantes-analise"],
-    queryFn: () => apiFetch("/api/aee/estudantes"),
+    queryKey: ["eeaa-estudantes-analise"],
+    queryFn: () => apiFetch("/api/eeaa/estudantes"),
   });
 
   const lista = (data?.estudantes ?? []).filter((e: any) =>
@@ -28,10 +28,10 @@ export default function AeeAnalisePage() {
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-3">
         <Eye className="h-6 w-6 text-purple-600" />
-        <h1 className="text-2xl font-bold">Acompanhamento AEE</h1>
+        <h1 className="text-2xl font-bold">Acompanhamento EEAA</h1>
       </div>
       <p className="text-sm text-muted-foreground">
-        Visão da gestão escolar — adaptações e metas dos estudantes atendidos pelo AEE.
+        Visão da gestão escolar — adaptações e metas dos estudantes atendidos pela EEAA.
         Dados clínicos não estão disponíveis nesta visão.
       </p>
 

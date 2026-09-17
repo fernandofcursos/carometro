@@ -171,14 +171,14 @@ export function AppSidebar() {
         ...(canManageRequerimentos ? [nav("Análise de Requerimentos", "/requerimentos/analise", FileText)] : []),
       ],
     }] : []),
-    ...((hasAny("aee:manage") || hasAny("aee:view")) ? [{
-      label: "AEE",
+    ...((hasAny("eeaa:manage") || hasAny("eeaa:view")) ? [{
+      label: "EEAA",
       icon: ShieldCheck,
       color: "#2563eb",
       bgColor: "#eff6ff",
       items: [
-        ...(hasAny("aee:manage") ? [nav("Atendimento", "/aee/gestao", ShieldCheck)] : []),
-        ...(!hasAny("aee:manage") && hasAny("aee:view") ? [nav("Acompanhamento", "/aee/analise", FileText)] : []),
+        ...(hasAny("eeaa:manage") ? [nav("Atendimento", "/eeaa/gestao", ShieldCheck)] : []),
+        ...(!hasAny("eeaa:manage") && hasAny("eeaa:view") ? [nav("Acompanhamento", "/eeaa/analise", FileText)] : []),
       ],
     }] : []),
     ...((hasAny("soe:manage") || hasAny("soe:view") || hasAny("soe:encaminhar")) ? [{
@@ -193,7 +193,7 @@ export function AppSidebar() {
       ],
     }] : []),
     ...((hasAny("sala_recursos:manage") || hasAny("sala_recursos:view")) ? [{
-      label: "AEE — Sala de Recursos",
+      label: "Sala de Recursos",
       icon: GraduationCap,
       color: "#0369a1",
       bgColor: "#f0f9ff",
@@ -203,7 +203,7 @@ export function AppSidebar() {
       ],
     }] : []),
     ...(hasAny("sala_recursos:professor") ? [{
-      label: "Adequações AEE",
+      label: "Adequações SR",
       icon: GraduationCap,
       color: "#0369a1",
       bgColor: "#f0f9ff",

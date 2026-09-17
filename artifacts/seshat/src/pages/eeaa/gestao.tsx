@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { ShieldCheck, Users, FileText, Target, ClipboardList, Lock } from "lucide-react";
 
-interface EstudanteAee {
+interface EstudanteEeaa {
   id: string; usuarioId: string; nomeEstudante: string | null;
   necessidades: string | null; ativo: boolean;
 }
@@ -34,21 +34,21 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant={(map[status] ?? "secondary") as any}>{status.replace("_", " ")}</Badge>;
 }
 
-function LaudoAcesso({ estudanteAeeId }: { estudanteAeeId: string }) {
+function LaudoAcesso({ estudanteEeaaId }: { estudanteEeaaId: string }) {
   const [aberto, setAberto] = useState(false);
   const [laudoId, setLaudoId] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState(false);
   const { toast } = useToast();
 
   const { data } = useQuery({
-    queryKey: ["aee-laudos", estudanteAeeId],
-    queryFn: () => apiFetch(`/api/aee/laudos?estudanteAeeId=${estudanteAeeId}`),
+    queryKey: ["eeaa-laudos", estudanteEeaaId],
+    queryFn: () => apiFetch(`/api/eeaa/laudos?estudanteEeaaId=${estudanteEeaaId}`),
     enabled: aberto,
   });
 
   const { data: laudoCompleto, refetch } = useQuery({
-    queryKey: ["aee-laudo-completo", laudoId],
-    queryFn: () => apiFetch(`/api/aee/laudos/${laudoId}`),
+    queryKey: ["eeaa-laudo-completo", laudoId],
+    queryFn: () => apiFetch(`/api/eeaa/laudos/${laudoId}`),
     enabled: false,
   });
 
@@ -112,18 +112,18 @@ function LaudoAcesso({ estudanteAeeId }: { estudanteAeeId: string }) {
   );
 }
 
-export default function AeeGestaoPage() {
+export default function EeaaGestaoPage() {
   const [busca, setBusca] = useState("");
-  const [estudanteSel, setEstudanteSel] = useState<EstudanteAee | null>(null);
+  const [estudanteSel, setEstudanteSel] = useState<EstudanteEeaa | null>(null);
 
-  const { data: estudantes } = useQuery<{ estudantes: EstudanteAee[] }>({
-    queryKey: ["aee-estudantes"],
-    queryFn: () => apiFetch("/api/aee/estudantes"),
+  const { data: estudantes } = useQuery<{ estudantes: EstudanteEeaa[] }>({
+    queryKey: ["eeaa-estudantes"],
+    queryFn: () => apiFetch("/api/eeaa/estudantes"),
   });
 
   const { data: planos } = useQuery<{ planos: Plano[] }>({
-    queryKey: ["aee-planos", estudanteSel?.id],
-    queryFn: () => apiFetch(`/api/aee/planos?estudanteAeeId=${estudanteSel!.id}`),
+    queryKey: ["eeaa-planos", estudanteSel?.id],
+    queryFn: () => apiFetch(`/api/eeaa/planos?estudanteEeaaId=${estudanteSel!.id}`),
     enabled: !!estudanteSel,
   });
 
@@ -135,12 +135,12 @@ export default function AeeGestaoPage() {
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-6 w-6 text-blue-600" />
-        <h1 className="text-2xl font-bold">Atendimento Educacional Especializado</h1>
+        <h1 className="text-2xl font-bold">Equipe Especializada de Apoio à Aprendizagem</h1>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Estudantes AEE", valor: lista.length, icon: Users },
+          { label: "Estudantes EEAA", valor: lista.length, icon: Users },
           { label: "PAIs vigentes", valor: 0, icon: FileText },
           { label: "Sessões este mês", valor: 0, icon: ClipboardList },
           { label: "Metas ativas", valor: 0, icon: Target },
@@ -200,7 +200,7 @@ export default function AeeGestaoPage() {
               </TabsContent>
 
               <TabsContent value="laudos" className="mt-3">
-                <LaudoAcesso estudanteAeeId={estudanteSel.id} />
+                <LaudoAcesso estudanteEeaaId={estudanteSel.id} />
               </TabsContent>
 
               <TabsContent value="sessoes" className="mt-3">
