@@ -32,7 +32,6 @@ async function encGuard(req: any, res: any, next: any) {
 const MODULOS_VALIDOS = ["sr", "eeaa", "soe"] as const;
 
 const criarSchema = z.object({
-  escolaId:      z.string().uuid(),
   estudanteId:   z.string().uuid(),
   origemModulo:  z.enum(MODULOS_VALIDOS),
   destinoModulo: z.enum(MODULOS_VALIDOS),
@@ -76,7 +75,8 @@ router.post("/", encGuard, async (req, res) => {
     const parsed = criarSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-    const { origemModulo, destinoModulo, escolaId, estudanteId, mensagem, tipoDemanda, cids } = parsed.data;
+    const { origemModulo, destinoModulo, estudanteId, mensagem, tipoDemanda, cids } = parsed.data;
+    const escolaId = (req as any).escolaId;
 
     if (origemModulo === destinoModulo)
       return res.status(422).json({ error: "Origem e destino não podem ser o mesmo módulo." });

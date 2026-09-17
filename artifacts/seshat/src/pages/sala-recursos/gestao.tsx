@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap, Users, BookOpen, Heart, ClipboardList, Plus, Send } from "lucide-react";
+import { EncaminhamentosTab } from "@/components/encaminhamentos-tab";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const r = await fetch(url, { credentials: "include", ...opts });
@@ -306,6 +307,7 @@ export default function SalaRecursosGestao() {
                   <TabsTrigger value="esv">ESV</TabsTrigger>
                   <TabsTrigger value="estudo">Estudo de Caso</TabsTrigger>
                   <TabsTrigger value="encaminhamentos">Encaminhamentos</TabsTrigger>
+                  <TabsTrigger value="inter-modulos">Inter-módulos</TabsTrigger>
                 </TabsList>
 
                 <div className="overflow-y-auto p-4">
@@ -398,6 +400,9 @@ export default function SalaRecursosGestao() {
                         </div>
                       ))
                     }
+                  </TabsContent>
+                  <TabsContent value="inter-modulos" className="mt-0">
+                    <EncaminhamentosTab modulo="sr" />
                   </TabsContent>
                 </div>
               </Tabs>

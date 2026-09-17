@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { HeartHandshake, Users, ClipboardList, Target, CalendarCheck, Lock } from "lucide-react";
+import { EncaminhamentosTab } from "@/components/encaminhamentos-tab";
 
 async function apiFetch(url: string, opts?: RequestInit) {
   const r = await fetch(url, { credentials: "include", ...opts });
@@ -180,6 +181,7 @@ export default function SoeGestaoPage() {
                 <TabsTrigger value="encaminhamentos">Encaminhamentos</TabsTrigger>
                 <TabsTrigger value="acoes">Ações</TabsTrigger>
                 <TabsTrigger value="estudos">Estudo de Caso</TabsTrigger>
+                <TabsTrigger value="inter-modulos">Inter-módulos</TabsTrigger>
               </TabsList>
 
               <TabsContent value="atendimentos" className="space-y-3 mt-3">
@@ -242,6 +244,9 @@ export default function SoeGestaoPage() {
                     </CardContent>
                   </Card>
                 ))}
+              </TabsContent>
+              <TabsContent value="inter-modulos" className="mt-3">
+                <EncaminhamentosTab modulo="soe" />
               </TabsContent>
             </Tabs>
           </div>

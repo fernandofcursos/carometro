@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ShieldCheck, Users, FileText, Target, ClipboardList, Lock } from "lucide-react";
+import { EncaminhamentosTab } from "@/components/encaminhamentos-tab";
 
 interface EstudanteEeaa {
   id: string; usuarioId: string; nomeEstudante: string | null;
@@ -181,6 +182,7 @@ export default function EeaaGestaoPage() {
                 <TabsTrigger value="metas">Metas</TabsTrigger>
                 <TabsTrigger value="laudos">Laudos</TabsTrigger>
                 <TabsTrigger value="liberacoes">Liberações</TabsTrigger>
+                <TabsTrigger value="inter-modulos">Inter-módulos</TabsTrigger>
               </TabsList>
 
               <TabsContent value="planos" className="space-y-3 mt-3">
@@ -211,6 +213,9 @@ export default function EeaaGestaoPage() {
               </TabsContent>
               <TabsContent value="liberacoes" className="mt-3">
                 <p className="text-sm text-muted-foreground">Liberações em implementação.</p>
+              </TabsContent>
+              <TabsContent value="inter-modulos" className="mt-3">
+                <EncaminhamentosTab modulo="eeaa" />
               </TabsContent>
             </Tabs>
           </div>

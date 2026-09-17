@@ -122,7 +122,6 @@ describe("POST /api/encaminhamentos", () => {
   it("retorna 422 se origemModulo === destinoModulo", async () => {
     mockBuscarRoles.mockResolvedValue(["sala_recursos:manage"]);
     const res = await request(app).post("/api/encaminhamentos").send({
-      escolaId: "00000000-0000-0000-0000-000000000099",
       estudanteId: "00000000-0000-0000-0000-000000000001",
       origemModulo: "sr", destinoModulo: "sr", mensagem: "teste",
     });
@@ -132,7 +131,6 @@ describe("POST /api/encaminhamentos", () => {
   it("retorna 403 sem permissão no módulo de origem", async () => {
     mockBuscarRoles.mockResolvedValue(["eeaa:manage"]);
     const res = await request(app).post("/api/encaminhamentos").send({
-      escolaId: "00000000-0000-0000-0000-000000000099",
       estudanteId: "00000000-0000-0000-0000-000000000001",
       origemModulo: "sr", destinoModulo: "eeaa", mensagem: "teste",
     });
@@ -144,7 +142,6 @@ describe("POST /api/encaminhamentos", () => {
     const chain = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockResolvedValue([makeEnc()]) };
     mockDb.insert.mockReturnValue(chain);
     const res = await request(app).post("/api/encaminhamentos").send({
-      escolaId: "00000000-0000-0000-0000-000000000099",
       estudanteId: "00000000-0000-0000-0000-000000000001",
       origemModulo: "sr", destinoModulo: "eeaa", mensagem: "Encaminhando",
       tipoDemanda: "TDAH", cids: ["F90.0"],

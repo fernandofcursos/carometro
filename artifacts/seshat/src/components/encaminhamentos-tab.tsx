@@ -66,13 +66,12 @@ function StatusBadge({ status }: { status: string }) {
 
 interface NovoEncModalProps {
   modulo: Modulo;
-  escolaId: string;
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function NovoEncModal({ modulo, escolaId, open, onClose, onSuccess }: NovoEncModalProps) {
+function NovoEncModal({ modulo, open, onClose, onSuccess }: NovoEncModalProps) {
   const { toast } = useToast();
   const [form, setForm] = useState({
     estudanteId: "", destinoModulo: "" as Modulo | "",
@@ -87,7 +86,6 @@ function NovoEncModal({ modulo, escolaId, open, onClose, onSuccess }: NovoEncMod
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          escolaId,
           estudanteId: form.estudanteId,
           origemModulo: modulo,
           destinoModulo: form.destinoModulo,
@@ -293,10 +291,9 @@ function AcaoModal({ enc, modulo, open, onClose, onSuccess }: AcaoModalProps) {
 
 interface EncaminhamentosTabProps {
   modulo: Modulo;
-  escolaId: string;
 }
 
-export function EncaminhamentosTab({ modulo, escolaId }: EncaminhamentosTabProps) {
+export function EncaminhamentosTab({ modulo }: EncaminhamentosTabProps) {
   const qc = useQueryClient();
   const [novoOpen, setNovoOpen] = useState(false);
   const [detalhe, setDetalhe] = useState<Enc | null>(null);
@@ -373,7 +370,6 @@ export function EncaminhamentosTab({ modulo, escolaId }: EncaminhamentosTabProps
 
       <NovoEncModal
         modulo={modulo}
-        escolaId={escolaId}
         open={novoOpen}
         onClose={() => setNovoOpen(false)}
         onSuccess={refresh}
