@@ -44,35 +44,20 @@ export const horariosAulasTable = pgTable("horarios_aulas", {
 Importar de `@workspace/db` (nunca direto de `drizzle-orm`):
 ```typescript
 import { db, horariosAulasTable, turmaTurnosTable, turnosTable, turmasTable, cursosTable,
-         disciplinaOfertasTable, disciplinasTable, eq, and, ilike, or } from "@workspace/db";
+         disciplinaOfertasTable, disciplinasTable, eq, and } from "@workspace/db";
 ```
 
-### Permissão por endpoint
+### Endpoints
 
-`router.use(requireAuth)` é aplicado globalmente — todos os endpoints exigem autenticação. Apenas os endpoints de escrita e importação exigem `horarios:manage`:
-
-| Método | Path | Permissão | Descrição |
-|---|---|---|---|
-| GET | `/api/horarios?turmaId=&ano=&semestre=` | requireAuth | Lista slots do quadro |
-| GET | `/api/horarios/turma-info?turmaId=` | requireAuth | Turma + turnos vinculados |
-| GET | `/api/horarios/disciplinas-oferta?turmaId=&turnoId=` | requireAuth | Disciplinas disponíveis |
-| POST | `/api/horarios` | `horarios:manage` | Criar slot |
-| PUT | `/api/horarios/:id` | `horarios:manage` | Editar slot |
-| DELETE | `/api/horarios/:id` | `horarios:manage` | Remover slot |
-| POST | `/api/horarios/importar-urania` | `horarios:manage` | Importação em lote (JSON) |
-
-### `GET /api/horarios` — shape de cada slot
-
-```typescript
-{
-  id, diaSemana, horaInicio, horaFim, sala,
-  disciplinaOfertaId: string | null,   // necessário para pré-selecionar disciplina no SlotModal
-  disciplinaNome: string | null,
-  disciplinaSigla: string | null,
-  cursoNome: string | null,   // retornado mas não usado no tipo Slot do frontend
-  turnoNome: string | null,
-}
-```
+| Método | Path | Descrição |
+|---|---|---|
+| GET | `/api/horarios?turmaId=&ano=&semestre=` | Lista slots do quadro |
+| GET | `/api/horarios/turma-info?turmaId=` | Turma + turnos vinculados |
+| GET | `/api/horarios/disciplinas-oferta?turmaId=&turnoId=` | Disciplinas disponíveis |
+| POST | `/api/horarios` | Criar slot |
+| PUT | `/api/horarios/:id` | Editar slot |
+| DELETE | `/api/horarios/:id` | Remover slot |
+| POST | `/api/horarios/importar-urania` | Importação em lote (JSON) |
 
 ### `GET /api/horarios/turma-info`
 
@@ -107,9 +92,9 @@ const turnos = await db
 ```
 
 **Match de disciplina:**
-1. Exato por nome (case-insensitive): `busca === disciplinaNome`
-2. Substring parcial: `disciplinaNome.includes(busca) || busca.includes(disciplinaNome.substring(0, 6))` — o segundo braço usa apenas os primeiros 6 caracteres do nome da disciplina no banco
-3. Sem match → slot criado sem `disciplinaOfertaId` (contado em `semDisciplina`)
+1. Exato por nome (case-insensitive)
+2. Substring bidirecional
+3. Sem match → slot criado sem `disciplinaOfertaId`
 
 Conflito (23505) → atualiza disciplina + sala em vez de criar.
 
@@ -167,7 +152,7 @@ Chave do mapa de slots: `"${diaSemana}-${horaInicio.slice(0,5)}"`
 - Disciplina: select filtrado por turnoId (se disponível)
 - Sala: input de texto
 
-**Reset de estado ao reabrir:** `useEffect` com `[open, slot?.id]` + `key={slotEdit?.id ?? "novo"}` no SlotModal (onde `slotEdit` é a variável de estado do componente pai).
+**Reset de estado ao reabrir:** `useEffect` com `[open, slot?.id]` + `key={slot?.id ?? "novo"}` no SlotModal.
 
 ### ImportacaoModal
 
@@ -225,7 +210,6 @@ let estudantes = estudanteProprio ? [estudanteProprio]
 ### Anti-padrões da query de agenda
 
 - ❌ `eq(matriculasTable.usuarioId, usuarioId)` — não funciona para pai_responsavel (o usuarioId é do responsável, não do filho)
-- ❌ Usar `horariosAulasTable` como base do `from()` na query de agenda — a base correta é `matriculasTable` com `innerJoin(horariosAulasTable, ...)`, garantindo que só estudantes matriculados vejam horários
 - ❌ `horariosAulasTable.disciplinaId` — coluna inexistente; usar `disciplinaOfertaId → disciplinaOfertasTable → disciplinasTable`
 - ❌ `horariosAulasTable.deletadoEm` / `horariosAulasTable.laboratorio` — colunas inexistentes no schema
 

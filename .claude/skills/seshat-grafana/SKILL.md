@@ -51,21 +51,21 @@ Arquivo: `monitoring/grafana/dashboards/seshat-overview.json`
 
 | Painel | Métrica | Limiares |
 |---|---|---|
-| Requisições/s | `sum(rate(http_requests_total[1m]))` | Verde ≤ 100, Amarelo ≤ 500, Vermelho > 500 |
-| Taxa de erros 5xx | `sum(rate(http_requests_total{status_code=~"5.."}[1m]))` | Verde = 0, Vermelho > 0 |
+| Requisições/s | `rate(http_requests_total[5m])` | Verde ≤ 100, Amarelo ≤ 500, Vermelho > 500 |
+| Taxa de erros 5xx | `rate(http_requests_total{status_code=~"5.."}[5m])` | Verde = 0, Vermelho > 0 |
 | Latência p95 | `histogram_quantile(0.95, ...)` | Verde ≤ 500ms, Amarelo ≤ 1s, Vermelho > 1s |
-| Requisições em voo | `http_requests_in_flight` | Informativo |
+| Req em andamento | `http_requests_in_flight` | Informativo |
 
 ### Linha 2 — Séries temporais e detalhamento
 
 | Painel | Tipo | Conteúdo |
 |---|---|---|
-| Req por rota | Timeseries | `sum by (route, method) (rate(http_requests_total[1m]))` |
+| Req por rota (top 10) | Timeseries | `rate(http_requests_total[5m])` por `route` |
 | Latência p95 por rota | Timeseries | `histogram_quantile(0.95, ...)` por `route` |
-| Node.js Heap | Timeseries | `nodejs_heap_size_used_bytes` (+ `nodejs_heap_size_total_bytes`, `process_resident_memory_bytes`) |
-| Conexões PostgreSQL | Timeseries | `pg_stat_activity_count{datname="seshat"}` |
-| Status HTTP | Timeseries | Distribuição 2xx / 3xx / 4xx / 5xx |
-| Tamanho do banco | Timeseries | `pg_database_size_bytes{datname="seshat"}` |
+| Node.js Heap | Timeseries | `nodejs_heap_used_bytes` |
+| Conexões PostgreSQL | Timeseries | `pg_stat_activity_count` |
+| Status HTTP | PieChart | Distribuição 2xx / 3xx / 4xx / 5xx |
+| Tamanho do banco | Stat | `pg_database_size_bytes{datname="seshat"}` |
 
 ---
 

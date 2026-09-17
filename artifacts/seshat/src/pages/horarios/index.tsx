@@ -32,7 +32,6 @@ type Slot = {
   sala: string | null;
   disciplinaOfertaId: string | null;
   disciplinaNome: string | null;
-  disciplinaSigla: string | null;
   turnoNome: string | null;
 };
 
@@ -512,8 +511,8 @@ function CelulaSlot({
       )}
       onClick={() => onEdit(slot)}
     >
-      <div className="font-semibold leading-tight truncate pr-5" title={slot.disciplinaNome ?? undefined}>
-        {slot.disciplinaSigla ?? slot.disciplinaNome ?? <span className="italic opacity-60">Sem disciplina</span>}
+      <div className="font-semibold leading-tight truncate pr-5">
+        {slot.disciplinaNome ?? <span className="italic opacity-60">Sem disciplina</span>}
       </div>
       {slot.sala && <div className="opacity-60 mt-0.5 truncate">{slot.sala}</div>}
 

@@ -57,24 +57,12 @@ type StatusPlano = "rascunho" | "ativo" | "encerrado";
 |---|---|---|---|
 | GET | `/api/sala-recursos/estudantes-enee` | view | Lista ENEEs |
 | POST | `/api/sala-recursos/estudantes-enee` | manage | Registra ENEE |
-| PUT | `/api/sala-recursos/estudantes-enee/:id` | manage | Atualiza ENEE |
 | GET | `/api/sala-recursos/atendimentos` | view | Lista atendimentos |
 | POST | `/api/sala-recursos/atendimentos` | manage | Registra atendimento |
-| PUT | `/api/sala-recursos/atendimentos/:id` | manage | Atualiza atendimento |
-| DELETE | `/api/sala-recursos/atendimentos/:id` | manage | Remove atendimento |
 | GET | `/api/sala-recursos/planos-aee` | view | Lista planos |
 | POST | `/api/sala-recursos/planos-aee` | manage | Cria plano |
 | GET | `/api/sala-recursos/planos-aee/:id` | professor | Ver plano (campos limitados para professor) |
 | PUT | `/api/sala-recursos/planos-aee/:id` | manage | Atualiza plano |
-| GET | `/api/sala-recursos/esv` | view | Lista ESV |
-| POST | `/api/sala-recursos/esv` | manage | Cria ESV |
-| PUT | `/api/sala-recursos/esv/:id` | manage | Atualiza ESV |
-| GET | `/api/sala-recursos/estudos-caso` | view | Lista estudos de caso |
-| POST | `/api/sala-recursos/estudos-caso` | manage | Cria estudo de caso |
-| PUT | `/api/sala-recursos/estudos-caso/:id` | manage | Atualiza estudo de caso |
-| GET | `/api/sala-recursos/encaminhamentos` | view | Lista encaminhamentos inter-módulo |
-| POST | `/api/sala-recursos/encaminhamentos` | manage | Cria encaminhamento inter-módulo |
-| PUT | `/api/sala-recursos/encaminhamentos/:id` | manage | Atualiza encaminhamento |
 | GET | `/api/sala-recursos/portal/professor/adequacoes` | professor | Adequações dos alunos ENEEs do professor |
 | GET | `/api/sala-recursos/portal/plano` | self | Plano AEE do estudante logado (família) |
 | POST | `/api/sala-recursos/encaminhamentos/inter-modulo` | manage | Routing inter-módulo |
@@ -91,12 +79,13 @@ Quando usuário tem APENAS `sala_recursos:professor`, `GET /planos-aee/:id` reto
 
 ```typescript
 // POST /api/sala-recursos/encaminhamentos/inter-modulo
-// Body (Zod):
-{ destinoModulo: "soe" | "aee"; estudanteId: uuid; referenciaId?: uuid; referenciaTipo?: string; mensagem: string }
 // Insere em encaminhamentosEventosTable com:
 {
-  escolaId, origemModulo: "sala_recursos", destinoModulo,
-  estudanteId, referenciaId?, referenciaTipo?, mensagem, criadoPorId
+  origemModulo: "sala_recursos",
+  destinoModulo: "soe" | "aee",
+  encaminhamentoId: uuid,
+  evento: "encaminhado",
+  payload: { ... }
 }
 ```
 
