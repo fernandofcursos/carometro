@@ -17,13 +17,14 @@ router.use(requireAuth);
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
 const criarSchema = z.object({
-  estudanteId:      z.string().uuid(),
-  tipoOcorrenciaId: z.string().uuid(),
-  disciplinaId:     z.string().uuid().optional().nullable(),
-  turnoId:          z.string().uuid().optional().nullable(),
-  dataOcorrencia:   z.string().date(),
-  observacao:       z.string().max(300, "Descrição deve ter no máximo 300 caracteres.").optional().nullable(),
-  enviarEmailPais:  z.boolean().optional().default(false),
+  estudanteId:          z.string().uuid(),
+  tipoOcorrenciaId:     z.string().uuid(),
+  disciplinaId:         z.string().uuid().optional().nullable(),
+  turnoId:              z.string().uuid().optional().nullable(),
+  dataOcorrencia:       z.string().date(),
+  observacao:           z.string().max(300, "Descrição deve ter no máximo 300 caracteres.").optional().nullable(),
+  enviarEmailPais:      z.boolean().optional().default(false),
+  enviarEmailEstudante: z.boolean().optional().default(false),
 });
 
 // ── Helpers de domínio ────────────────────────────────────────────────────────
@@ -339,7 +340,7 @@ router.get("/:id", requirePermissao("ocorrencias:view"), async (req: Request, re
 
 router.post("/", requirePermissao("ocorrencias:create"), async (req: Request, res: Response) => {
   try {
-    const { enviarEmailPais, ...data } = criarSchema.parse(req.body);
+    const { enviarEmailPais, enviarEmailEstudante, ...data } = criarSchema.parse(req.body);
 
     // Fetch turno/disciplina names now (before insert) for email notification
     let turnoNome: string | null = null;
@@ -358,11 +359,11 @@ router.post("/", requirePermissao("ocorrencias:create"), async (req: Request, re
       registradoPorId: req.usuarioId,
     }).returning();
 
-    // Regra: menor → e-mail para responsáveis; maior → e-mail para o próprio estudante
+    // Notificação: ambas são opt-in via flags do request
     const menor = await getEstudanteMenorDeIdade(data.estudanteId);
-    if (menor || enviarEmailPais) {
+    if (menor && enviarEmailPais) {
       await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
-    } else {
+    } else if (!menor && enviarEmailEstudante) {
       await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
     }
 
