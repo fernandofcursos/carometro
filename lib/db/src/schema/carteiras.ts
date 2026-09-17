@@ -19,6 +19,8 @@ export const carteirasTable = pgTable("carteiras", {
   token:          text("token").notNull(),
   canceladoEm:    timestamp("cancelado_em",     { withTimezone: true }),
   canceladoPorId: uuid("cancelado_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
+  revogadoEm:     timestamp("revogado_em",      { withTimezone: true }),
+  revogadoPorId:  uuid("revogado_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
   criadoEm:       timestamp("criado_em",        { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm:   timestamp("atualizado_em",    { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [
