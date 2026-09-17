@@ -185,44 +185,6 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       }
     } catch { /* horarios_aulas ainda não existe */ }
 
-    // Cardápio da semana (compartilhado)
-    let cardapioDisponivel = false;
-    let cardapio: { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] }[] = [];
-    try {
-      const { cardapiosTable } = await import("@workspace/db/schema") as any;
-      if (cardapiosTable) {
-        const { gte, lte } = await import("@workspace/db") as any;
-        const seg = new Date(hoje);
-        seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
-        const sex = new Date(seg); sex.setDate(seg.getDate() + 4);
-        const segStr = seg.toISOString().slice(0, 10);
-        const sexStr = sex.toISOString().slice(0, 10);
-        const rows = await db
-          .select({ data: cardapiosTable.data, refeicao: cardapiosTable.refeicao, descricao: cardapiosTable.descricao })
-          .from(cardapiosTable)
-          .where(and(
-            gte(cardapiosTable.data, segStr),
-            lte(cardapiosTable.data, sexStr),
-            eq(cardapiosTable.publicado, true),
-          ));
-        if (rows.length > 0) {
-          cardapioDisponivel = true;
-          const byData = new Map<string, typeof rows>();
-          for (const r of rows) {
-            const d = String(r.data);
-            if (!byData.has(d)) byData.set(d, []);
-            byData.get(d)!.push(r);
-          }
-          const DIAS_PT = ["", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira"];
-          cardapio = [...byData.entries()].map(([data, itens]) => {
-            const dt = new Date(data + "T12:00:00");
-            const dia = dt.getDay() === 0 ? 7 : dt.getDay();
-            return { dia, diaNome: DIAS_PT[dia] ?? data, data, itens: itens.map((i) => ({ refeicao: i.refeicao, descricao: i.descricao })) };
-          }).sort((a, b) => a.dia - b.dia);
-        }
-      }
-    } catch { /* cardapios ainda não existe */ }
-
     // Avisos publicados (do próprio professor + turmas em que leciona)
     let avisos: { id: string; titulo: string; conteudo: string; tipo: string; publicoAlvo: string; turmaSigla: string | null; criadoEm: string }[] = [];
     try {
@@ -252,8 +214,6 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       diaSemana,
       horariosDisponiveis,
       horariosPorCurso,
-      cardapioDisponivel,
-      cardapio,
       avisos,
     });
   } catch (err) {

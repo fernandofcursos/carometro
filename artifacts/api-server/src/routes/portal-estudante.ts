@@ -393,44 +393,12 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       }
     } catch { /* tabela ainda não existe — retorna vazio */ }
 
-    // Cardápio — tabela cardapios (pode não existir ainda)
-    let cardapio: { dia: number; diaNome: string; data: string; itens: { refeicao: string; descricao: string }[] }[] = [];
-    let cardapioDisponivel = false;
-    try {
-      const { cardapiosTable } = await import("@workspace/db/schema") as any;
-      if (cardapiosTable) {
-        const { gte, lte } = await import("@workspace/db") as any;
-        const seg = new Date(hoje);
-        seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
-        const sex = new Date(seg); sex.setDate(seg.getDate() + 4);
-        const semanaInicio = seg.toISOString().substring(0, 10);
-        const semanaFim    = sex.toISOString().substring(0, 10);
-
-        const rows = await db
-          .select({ data: cardapiosTable.data, refeicao: cardapiosTable.refeicao, descricao: cardapiosTable.descricao })
-          .from(cardapiosTable)
-          .where(and(gte(cardapiosTable.data, semanaInicio), lte(cardapiosTable.data, semanaFim), eq(cardapiosTable.publicado, true)));
-
-        cardapioDisponivel = true;
-        const byDia = new Map<number, { data: string; itens: { refeicao: string; descricao: string }[] }>();
-        for (const c of rows) {
-          const d = new Date(c.data + "T12:00:00"); const dia = d.getDay() === 0 ? 7 : d.getDay();
-          if (!byDia.has(dia)) byDia.set(dia, { data: c.data, itens: [] });
-          byDia.get(dia)!.itens.push({ refeicao: c.refeicao, descricao: c.descricao });
-        }
-        cardapio = [1, 2, 3, 4, 5].filter(d => byDia.has(d))
-          .map(d => ({ dia: d, diaNome: DIA_NOME[d], ...byDia.get(d)! }));
-      }
-    } catch { /* tabela ainda não existe — retorna vazio */ }
-
     res.json({
       hoje: hojeStr,
       diaSemana,
       ocorrencias: { resumo, totalGeral: ocrsRaw.length },
       agendaDisponivel,
       agenda: agendaDisponivel ? agenda : [],
-      cardapioDisponivel,
-      cardapio: cardapioDisponivel ? cardapio : [],
     });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao carregar dashboard" });
