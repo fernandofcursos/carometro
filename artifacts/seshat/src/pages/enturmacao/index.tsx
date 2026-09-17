@@ -697,7 +697,7 @@ function EstudanteCard({
                             {m.turmaModulo ?? "—"}
                           </td>
                           <td className="px-3 py-2.5 text-muted-foreground">
-                            {m.turnoNome ?? "—"}
+                            {m.turnoNome ?? m.turnos.map(t => t.nome).join(", ") || "—"}
                           </td>
                           <td className="px-3 py-2.5">
                             <span className="inline-flex px-2 py-0.5 rounded bg-secondary font-mono font-semibold">{m.turmaSigla}</span>
