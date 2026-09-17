@@ -2,6 +2,7 @@ import {
   pgTable, uuid, varchar, text, timestamp,
   date, boolean, smallint, integer, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { escolasTable } from "./escolas";
 import { usuariosTable } from "./usuarios";
@@ -121,7 +122,12 @@ export const encaminhamentosEventosTable = pgTable("encaminhamentos_eventos", {
   recebidoPorId:  uuid("recebido_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
   criadoEm:       timestamp("criado_em",    { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm:   timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+  tipoDemanda:    varchar("tipo_demanda", { length: 100 }),
+  cids:           text("cids").array(),
+  resolucao:      text("resolucao"),
+  paiId:          uuid("pai_id").references((): AnyPgColumn => encaminhamentosEventosTable.id, { onDelete: "set null" }),
 }, (t) => [
   index("idx_enc_eventos_escola").on(t.escolaId),
   index("idx_enc_eventos_destino").on(t.destinoModulo, t.status),
+  index("idx_enc_eventos_pai").on(t.paiId),
 ]);
