@@ -23,8 +23,8 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 - Requer requerimento "Pedido de Saída Antecipada (Semestral)" com `requer_data_hora = true`
   → o horário informado no requerimento é armazenado em `carteiras.horario_saida`
 - Pode ser emitido manualmente via `POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }`
-  → `horario_saida` **não é recebido** por esse endpoint — fica null e o cartão nunca aparece
-  → **⚠️ Pendente:** não existe endpoint para definir `horario_saida` após a emissão manual. O cartão semestral emitido via `emitir-liberacao` só funcionará quando esse endpoint for implementado (PATCH/PUT em `carteiras/:id`).
+  → `horario_saida` **não é recebido** por esse endpoint — fica null após a emissão
+  → Após emitir, defina o horário via `PATCH /api/carteiras/:id/horario { horarioSaida: "HH:MM" }`
 - **Refetch a cada 30 s** para detectar entrada/saída da janela automaticamente
 
 ### Diário
@@ -184,11 +184,12 @@ SENÃO:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET  | `/api/carteiras` | Lista carteiras (filtros: usuarioId, ano, semestre, status). **Nota:** `horario_saida` **não** está na projeção da lista — usar `GET /api/carteiras/:id` para ver o horário. |
+| GET  | `/api/carteiras` | Lista carteiras (filtros: usuarioId, ano, semestre, status). Inclui `horario_saida`. |
 | GET  | `/api/carteiras/:id` | Detalhe completo incluindo `horario_saida` e `token` |
-| POST | `/api/carteiras/emitir-liberacao/:usuarioId` | Emite cartão semestral `{ ano, semestre }` — **`horario_saida` não é definido aqui** |
-| POST | `/api/carteiras/:id/cancelar` | Cancela carteira `{ motivo? }` — **nota: `motivo` é aceito no body mas ignorado** (sem coluna na tabela) |
-| POST | `/api/carteiras/:id/revogar` | Revoga carteira — reutiliza colunas `cancelado_em`/`cancelado_por_id` |
+| POST | `/api/carteiras/emitir-liberacao/:usuarioId` | Emite cartão semestral `{ ano, semestre }` — `horario_saida` fica null após emissão |
+| PATCH | `/api/carteiras/:id/horario` | Define/atualiza horário do cartão semestral `{ horarioSaida: "HH:MM" }` |
+| POST | `/api/carteiras/:id/cancelar` | Cancela carteira (sem body necessário) |
+| POST | `/api/carteiras/:id/revogar` | Revoga carteira |
 | POST | `/api/carteiras/renovar/:usuarioId` | Emite nova carteira de estudante padrão (tipo=`carteira`) |
 | POST | `/api/cartoes-saida/:id/aprovar` | Aprova + gera token `{ observacao? }` |
 | POST | `/api/cartoes-saida/:id/recusar` | Recusa `{ observacao? }` |

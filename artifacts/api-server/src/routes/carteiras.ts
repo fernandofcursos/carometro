@@ -77,6 +77,7 @@ router.get("/", requirePermissao("estudantes:manage"), async (req: Request, res:
         tipo:        carteirasTable.tipo,
         ano:         carteirasTable.ano,
         semestre:    carteirasTable.semestre,
+        horarioSaida: carteirasTable.horarioSaida,
         status:      carteirasTable.status,
         canceladoEm: carteirasTable.canceladoEm,
         criadoEm:    carteirasTable.criadoEm,
@@ -116,7 +117,6 @@ router.get("/:id", requirePermissao("estudantes:manage"), async (req: Request, r
 router.post("/:id/cancelar", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
   try {
     const operadorId = req.usuarioId!;
-    const { motivo } = req.body as { motivo?: string };
 
     const [carteira] = await db
       .select({ id: carteirasTable.id, status: carteirasTable.status })
@@ -162,6 +162,39 @@ router.post("/:id/revogar", requirePermissao("estudantes:manage"), async (req: R
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao revogar carteira" });
+  }
+});
+
+// ── PATCH /api/carteiras/:id/horario — definir/atualizar horario_saida do cartao-semestral ──
+router.patch("/:id/horario", requirePermissao("estudantes:manage"), async (req: Request, res: Response) => {
+  try {
+    const { horarioSaida } = req.body as { horarioSaida: string };
+    if (!horarioSaida || !/^\d{2}:\d{2}$/.test(horarioSaida)) {
+      return res.status(400).json({ error: "Informe horarioSaida no formato HH:MM." });
+    }
+
+    const [carteira] = await db
+      .select({ id: carteirasTable.id, tipo: carteirasTable.tipo, status: carteirasTable.status })
+      .from(carteirasTable)
+      .where(eq(carteirasTable.id, String(req.params.id)));
+
+    if (!carteira) return res.status(404).json({ error: "Carteira não encontrada." });
+    if (carteira.tipo !== "cartao-semestral") {
+      return res.status(400).json({ error: "Horário de saída só se aplica ao Cartão de Liberação Semestral." });
+    }
+    if (carteira.status !== "ativa") {
+      return res.status(409).json({ error: `Carteira está ${carteira.status} — não é possível alterar.` });
+    }
+
+    const [updated] = await db
+      .update(carteirasTable)
+      .set({ horarioSaida, atualizadoEm: new Date() })
+      .where(eq(carteirasTable.id, carteira.id))
+      .returning({ id: carteirasTable.id, horarioSaida: carteirasTable.horarioSaida });
+
+    res.json({ ok: true, horarioSaida: updated.horarioSaida });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao atualizar horário" });
   }
 });
 
