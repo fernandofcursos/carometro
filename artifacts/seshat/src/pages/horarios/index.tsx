@@ -350,11 +350,13 @@ function ImportacaoModal({
   const { toast } = useToast();
   const qc = useQueryClient();
   const [jsonStr, setJsonStr] = useState("");
+  const [limparAntes, setLimparAntes] = useState(false);
   const [resultado, setResultado] = useState<ImportResult | null>(null);
   const [parseError, setParseError] = useState("");
 
   function handleClose() {
     setJsonStr("");
+    setLimparAntes(false);
     setResultado(null);
     setParseError("");
     onClose();
@@ -369,7 +371,7 @@ function ImportacaoModal({
         throw new Error("JSON inválido. Verifique a formatação.");
       }
       // Injeta turmaId/ano/semestre dos filtros ativos se não estiver no JSON
-      const body = { turmaId, ano, semestre, ...(parsed as object) };
+      const body = { turmaId, ano, semestre, limparAntes, ...(parsed as object) };
       return sendJson("POST", `${BASE}/api/horarios/importar-urania`, body);
     },
     onSuccess: (data: ImportResult) => {
@@ -397,6 +399,19 @@ function ImportacaoModal({
               Os campos <code>turmaId</code>, <code>ano</code> e <code>semestre</code> são opcionais no JSON —
               serão preenchidos com os valores dos filtros ativos.
             </p>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={limparAntes}
+                onChange={(e) => setLimparAntes(e.target.checked)}
+                className="rounded"
+              />
+              <span>Limpar todos os slots existentes antes de importar</span>
+              {limparAntes && (
+                <span className="text-xs text-amber-600 font-medium">(horários atuais serão removidos)</span>
+              )}
+            </label>
 
             <div className="space-y-1.5">
               <Label>JSON do Urania</Label>
