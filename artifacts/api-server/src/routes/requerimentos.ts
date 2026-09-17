@@ -73,25 +73,6 @@ async function buscarMatriculasAtivas(usuarioIds: string[]) {
   return map;
 }
 
-async function buscarEstudanteCompleto(estudanteId: string) {
-  const [est] = await db
-    .select({
-      id:             estudantesTable.id,
-      nome:           estudantesTable.nome,
-      registro:       estudantesTable.registro,
-      dataNascimento: estudantesTable.dataNascimento,
-      usuarioId:      estudantesTable.usuarioId,
-      turmaId:        estudantesTable.turmaId,
-    })
-    .from(estudantesTable)
-    .where(eq(estudantesTable.id, estudanteId))
-    .limit(1);
-  if (!est) return null;
-
-  const mat = await buscarMatriculasAtivas(est.usuarioId ? [est.usuarioId] : []);
-  const matriculas = (est.usuarioId ? mat.get(est.usuarioId) : undefined) ?? [];
-  return { ...est, matriculas };
-}
 
 function calcularIdade(dataNasc: string | null): number {
   if (!dataNasc) return 99; // sem data → assume maior de idade

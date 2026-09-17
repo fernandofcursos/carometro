@@ -248,16 +248,18 @@ function DetalheModal({ req: reqBase, onClose, onAssinar }: {
             </div>
           </div>
 
-          {/* Data/Hora solicitada */}
-          {req.dataSolicitacao && (
+          {/* Data/Hora solicitada — saida-semestral tem apenas horaSolicitacao (sem dataSolicitacao) */}
+          {(req.dataSolicitacao || req.horaSolicitacao) && (
             <div className="grid grid-cols-2 gap-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <div>
-                <p className="text-xs text-muted-foreground">Data solicitada</p>
-                <p className="font-medium">{new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
-              </div>
+              {req.dataSolicitacao ? (
+                <div>
+                  <p className="text-xs text-muted-foreground">Data solicitada</p>
+                  <p className="font-medium">{new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
+                </div>
+              ) : <div />}
               {req.horaSolicitacao && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Horário</p>
+                  <p className="text-xs text-muted-foreground">Horário de saída</p>
                   <p className="font-medium">{req.horaSolicitacao.substring(0, 5)}</p>
                 </div>
               )}
