@@ -16,6 +16,7 @@ Permite ao estudante adulto (≥18 anos) ou ao Pai/Responsável solicitar servi�
 - Pai/Responsável seleciona filho via `responsaveis_estudantes`
 - Sem limite de requerimentos por estudante
 - Status: `pendente → em_analise → deferido | indeferido`
+  - `em_analise` é aceito pela API (`PUT /analisar`) mas **não exposto na UI atual** — a tela de análise só tem botões para deferir/indeferir
 - Análise exclusiva: `secretaria` e `supervisao_pedagogica`
 - Indeferido: parecer obrigatório (máx 1000 palavras)
 
