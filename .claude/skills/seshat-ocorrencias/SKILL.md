@@ -52,8 +52,6 @@ if (menor && enviarEmailPais) {
 2. Fallback: `usuarios.data_nascimento` do usuário vinculado
 3. Se nenhuma data → trata como maior (envia para e-mail próprio)
 
-**`notificacao_pais_enviada_em`** é atualizado apenas quando envia para responsáveis (menores).
-
 ## Notificação Manual
 
 ```typescript
@@ -70,29 +68,43 @@ if (menor && enviarEmailPais) {
 - Reenvio sempre permitido — sem bloqueio por `notificacaoPaisEnviadaEm`
 - Atualiza `notificacaoPaisEnviadaEm` se ao menos 1 envio teve sucesso
 
-## Campo notificacaoPaisEnviadaEm
+## Campos de Notificação
 
-Incluído no GET `/api/ocorrencias` e usado no frontend:
+Dois campos de timestamp retornados pelo GET e usados no frontend:
+
+| Campo | Atualizado por |
+|---|---|
+| `notificacaoPaisEnviadaEm` | `notificarPais()` — ao notificar responsáveis (menores) |
+| `notificacaoEstudanteEnviadaEm` | `notificarEstudante()` — ao notificar o próprio estudante (adultos) |
 
 ```typescript
-// seshat.tsx — botão de notificação (rota depende da idade do estudante)
-const rota = estudanteMenor
-  ? `/api/ocorrencias/${id}/notificar-pais`
-  : `/api/ocorrencias/${id}/notificar-estudante`;
+// seshat.tsx — botão de notificação (rota e label dependem de estudanteMenor)
+const jaMenorNotif = !!ocorrencia.notificacaoPaisEnviadaEm;
+const jaAdultoNotif = !!ocorrencia.notificacaoEstudanteEnviadaEm;
+const jaNotificado = estudanteMenor ? jaMenorNotif : jaAdultoNotif;
+const dataNotif = estudanteMenor
+  ? ocorrencia.notificacaoPaisEnviadaEm
+  : ocorrencia.notificacaoEstudanteEnviadaEm;
 
-<Button
-  onClick={() => notificarMutation.mutate(ocorrencia.id)}
-  title={ocorrencia.notificacaoPaisEnviadaEm
-    ? `Notificado em ${format(new Date(ocorrencia.notificacaoPaisEnviadaEm), "dd/MM/yyyy HH:mm")} — clique para reenviar`
-    : "Enviar e-mail aos responsáveis"}
+const notificarMutation = useMutation({
+  mutationFn: async (id: string) => {
+    const rota = estudanteMenor
+      ? `/api/ocorrencias/${id}/notificar-pais`
+      : `/api/ocorrencias/${id}/notificar-estudante`;
+    // POST sem body
+  },
+});
+
+<Button onClick={() => notificarMutation.mutate(ocorrencia.id)}
+  title={jaNotificado ? `Notificado em ${formatarData(dataNotif)} — clique para reenviar` : titlePrimeiro}
 >
   <Send className="w-3 h-3 mr-1" />
-  {ocorrencia.notificacaoPaisEnviadaEm ? "Reenviar e-mail" : "Notificar responsáveis"}
+  {jaNotificado ? "Reenviar e-mail" : (estudanteMenor ? "Notificar responsáveis" : "Notificar estudante")}
 </Button>
 ```
 
-- Sempre visível para usuários com `ocorrencias:create`
-- Label muda para "Reenviar e-mail" após primeiro envio
+- Visível apenas para usuários com `ocorrencias:create`
+- Label e rota variam conforme `estudanteMenor`
 - Toast exibe `data.mensagem` da API
 - Erro 422 → toast destrutivo
 
