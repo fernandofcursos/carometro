@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS sr_planos_aee (
   avaliacao      text        NOT NULL,
   prazo          date        NOT NULL,
   observacoes    text,
-  status         varchar(20) NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho','em_elaboracao','concluido','arquivado')),
+  status         varchar(20) NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho','ativo','encerrado')),
   elaborado_por_id uuid      REFERENCES usuarios(id) ON DELETE SET NULL,
   ano            integer     NOT NULL,
   semestre       smallint    NOT NULL,
