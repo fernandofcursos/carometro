@@ -235,20 +235,22 @@ function AnalisarModal({
               </div>
             </div>
 
-            {/* Data/hora solicitada */}
-            {req.dataSolicitacao && (
+            {/* Data/hora solicitada — saida-semestral tem apenas horaSolicitacao (sem dataSolicitacao) */}
+            {(req.dataSolicitacao || req.horaSolicitacao) && (
               <div className="grid grid-cols-2 gap-3 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded">
-                <div>
-                  <p className="text-xs text-muted-foreground">Data solicitada</p>
-                  <p className="text-sm font-medium">
-                    {new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", {
-                      weekday: "short", day: "2-digit", month: "short", year: "numeric",
-                    })}
-                  </p>
-                </div>
+                {req.dataSolicitacao ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Data solicitada</p>
+                    <p className="text-sm font-medium">
+                      {new Date(req.dataSolicitacao + "T00:00").toLocaleDateString("pt-BR", {
+                        weekday: "short", day: "2-digit", month: "short", year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                ) : <div />}
                 {req.horaSolicitacao && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Horário</p>
+                    <p className="text-xs text-muted-foreground">Horário de saída</p>
                     <p className="text-sm font-medium">{req.horaSolicitacao.substring(0, 5)}</p>
                   </div>
                 )}

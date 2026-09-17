@@ -94,7 +94,7 @@ export const insertRequerimentoSchema = createInsertSchema(requerimentosTable, {
           analisadoPorId: true, analisadoEm: true, criadoEm: true, atualizadoEm: true });
 
 export const analisarRequerimentoSchema = z.object({
-  status:  z.enum(["deferido", "indeferido"]),
+  status:  z.enum(["em_analise", "deferido", "indeferido"]),
   parecer: z.string().max(10000).optional().nullable(),
 });
 
