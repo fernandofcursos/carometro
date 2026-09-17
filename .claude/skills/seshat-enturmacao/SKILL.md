@@ -22,7 +22,7 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 | **Proibido cursos diferentes** | Se já existe matrícula ativa, a nova turma deve pertencer ao mesmo curso. → 422 se curso diferente. |
 | **Segunda enturmação: módulo inferior** | A segunda enturmação deve ser em **módulo numericamente inferior** ao módulo da turma já matriculada. Ex.: já está em Módulo II → pode adicionar Módulo I; não pode adicionar Módulo II ou III. Verificado comparando `turmas.modulo` (romano). → 422 se módulo ≥ existente. |
 | **Módulo inferior — máx. 3 disciplinas** | Quando enturmado em módulo inferior como segunda enturmação, o estudante pode cursar **no máximo 3 disciplinas** desse módulo. UI força modo checkbox com limite; label "Disciplinas (módulo inferior — máx. 3)". |
-| **Turno diferente — verificado nas disciplinas** | O conflito de turno não é verificado na turma, mas nas **disciplinas cursadas** (`usuario-disciplinas`). O estudante deve selecionar disciplinas do módulo inferior em turno diferente das disciplinas do módulo principal. |
+| **Turno diferente — verificado na matrícula** | O conflito de turno é verificado na **matrícula** (`turnoId`). A API resolve o `turnoEfetivo` da nova matrícula e rejeita se já existe matrícula ativa com o mesmo turno (`turnoEfetivo === mat.turnoId`). → 422 "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno." |
 | **Módulo menor (flag de curso) — max 3 disciplinas** | Cursos com `moduloMenor = true` limitam a seleção a **3 disciplinas por turno**. Validado na API (PUT usuario-disciplinas) e reforçado na UI. |
 | **Módulo maior — 1 ou todas** | Cursos com `moduloMenor = false` exigem que o estudante curse **uma única disciplina ou todas** do turno. Seleção parcial → 422. |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
@@ -119,7 +119,7 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 3. Resolve usuário (por usuarioId ou email; cria se não existir)
 4. getOrCreateEstudanteRoleId() — cria a role 'estudante' automaticamente se ausente
 5. Atribui role 'estudante' ao usuário (INSERT ON CONFLICT skip)
-6. Verifica unicidade (usuarioId, ano, semestre) — 422 se duplicado
+6. Verifica regras de negócio (cursoId, limite 2 matrículas, mesmo turno) — 422 se violado
 7. INSERT matriculas
 8. Sincroniza estudantes (try/catch tolerante a falha)
 ```
