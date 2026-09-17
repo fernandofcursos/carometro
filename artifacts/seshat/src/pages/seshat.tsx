@@ -240,6 +240,7 @@ function EstudanteModal({
   const [dataOcorrencia, setDataOcorrencia] = useState(hoje);
   const [tipoId, setTipoId]     = useState("");
   const [disciplinaOfertaId, setDisciplinaOfertaId] = useState("__none__");
+  const [turnoIdManual, setTurnoIdManual] = useState("__none__"); // usado quando disciplinasUsuario está vazio
   const [observacao, setObservacao] = useState("");
   const [enviarEmail, setEnviarEmail] = useState(false);
 
@@ -264,7 +265,9 @@ function EstudanteModal({
 
   // Derived discipline info
   const disciplinaSelecionada = disciplinasUsuario.find((d) => d.ofertaId === disciplinaOfertaId);
-  const turnoIdDerived = disciplinaSelecionada?.turnoId ?? null;
+  const turnoIdDerived = disciplinasUsuario.length > 0
+    ? (disciplinaSelecionada?.turnoId ?? null)
+    : (turnoIdManual !== "__none__" ? turnoIdManual : null);
   const turnoNomeDerived = disciplinaSelecionada?.turnoNome ?? null;
 
   const hojeFormatado = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
@@ -280,7 +283,8 @@ function EstudanteModal({
         turnoId: turnoIdDerived,
         dataOcorrencia,
         observacao: observacao.trim() || null,
-        enviarEmailPais: menor && enviarEmail,
+        enviarEmailPais:      menor && enviarEmail,
+        enviarEmailEstudante: !menor && enviarEmail,
       };
       const res = await fetch(`${BASE}/api/ocorrencias`, {
         method: "POST",
@@ -293,7 +297,7 @@ function EstudanteModal({
       return body;
     },
     onSuccess: () => {
-      setTipoId(""); setDisciplinaOfertaId("__none__"); setObservacao(""); setEnviarEmail(false);
+      setTipoId(""); setDisciplinaOfertaId("__none__"); setTurnoIdManual("__none__"); setObservacao(""); setEnviarEmail(false);
       toast({ title: "Ocorrência registrada com sucesso" });
       refetchOcorrencias();
       queryClient.invalidateQueries({ queryKey: ["ocorrencias"] });
@@ -460,8 +464,8 @@ function EstudanteModal({
                   <div className="space-y-1">
                     <Label className="text-xs">Turno</Label>
                     <Select
-                      value={disciplinaOfertaId}
-                      onValueChange={setDisciplinaOfertaId}
+                      value={turnoIdManual}
+                      onValueChange={setTurnoIdManual}
                     >
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder="Selecione o turno (opcional)" />
@@ -508,7 +512,7 @@ function EstudanteModal({
                   />
                 </div>
 
-                {menor && (
+                {menor ? (
                   <div className="flex items-start gap-3 rounded-lg border border-orange-200 px-4 py-3 bg-orange-50">
                     <Checkbox
                       id="enviar-email"
@@ -522,6 +526,23 @@ function EstudanteModal({
                       </Label>
                       <p className="text-xs text-orange-700 mt-0.5">
                         Estudante menor de idade. Envia a ocorrência para os e-mails de responsável cadastrados.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 rounded-lg border border-blue-200 px-4 py-3 bg-blue-50">
+                    <Checkbox
+                      id="enviar-email"
+                      checked={enviarEmail}
+                      onCheckedChange={(v) => setEnviarEmail(!!v)}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <Label htmlFor="enviar-email" className="font-medium cursor-pointer text-xs">
+                        Notificar estudante por e-mail
+                      </Label>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        Envia a ocorrência para o e-mail próprio do estudante cadastrado.
                       </p>
                     </div>
                   </div>
