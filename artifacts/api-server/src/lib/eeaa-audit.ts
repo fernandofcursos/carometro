@@ -1,7 +1,7 @@
-import { db, aeeAuditoriaTable } from "@workspace/db";
+import { db, eeaaAuditoriaTable } from "@workspace/db";
 import { Request } from "express";
 
-export interface AeeAuditoriaParams {
+export interface EeaaAuditoriaParams {
   req: Request;
   acao: string;
   estudanteId?: string;
@@ -9,10 +9,10 @@ export interface AeeAuditoriaParams {
   escolaId?: string;
 }
 
-export async function registrarAuditoriaAee(params: AeeAuditoriaParams): Promise<void> {
+export async function registrarAuditoriaEeaa(params: EeaaAuditoriaParams): Promise<void> {
   try {
     const escolaId = params.escolaId ?? (params.req as any).escolaId;
-    await db.insert(aeeAuditoriaTable).values({
+    await db.insert(eeaaAuditoriaTable).values({
       acao:        params.acao,
       usuarioId:   (params.req as any).usuarioId!,
       estudanteId: params.estudanteId,
@@ -23,6 +23,6 @@ export async function registrarAuditoriaAee(params: AeeAuditoriaParams): Promise
     });
   } catch (err) {
     // Falha de auditoria não derruba a operação, mas alerta em stderr
-    console.error("[AEE AUDIT ERROR]", err instanceof Error ? err.message : err);
+    console.error("[EEAA AUDIT ERROR]", err instanceof Error ? err.message : err);
   }
 }

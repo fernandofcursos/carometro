@@ -3,43 +3,43 @@ import { createHash } from "crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import {
-  db, aeeEstudantesTable, aeePlanosTable, aeePlanoAssinaturasTable,
-  aeePlanoAdaptacoesTable, aeeMetasTable, aeeEvolucoesTable,
-  aeeSessoesTable, aeeLaudosTable, aeeLiberacoesTable, aeeAuditoriaTable,
+  db, eeaaEstudantesTable, eeaaPlanosTable, eeaaPlanoAssinaturasTable,
+  eeaaPlanoAdaptacoesTable, eeaaMetasTable, eeaaEvolucoesTable,
+  eeaaSessoesTable, eeaaLaudosTable, eeaaLiberacoesTable, eeaaAuditoriaTable,
   usuariosTable,
   eq, and, isNull, sql, count, desc,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { buscarRoles } from "../lib/permissions.js";
 import { withTenant } from "../middleware/tenant.js";
-import { cifrarLaudo, decifrarLaudo, gerarChaveRef } from "../lib/aee-crypto.js";
-import { registrarAuditoriaAee } from "../lib/aee-audit.js";
+import { cifrarLaudo, decifrarLaudo, gerarChaveRef } from "../lib/eeaa-crypto.js";
+import { registrarAuditoriaEeaa } from "../lib/eeaa-audit.js";
 
 const router = Router();
 router.use(requireAuth);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-type AeeNivel = "manage" | "view" | "self";
+type EeaaNivel = "manage" | "view" | "self";
 
 const ROLES_MANAGE = ["professor_aee", "psicologo", "psicopedagogo"];
 const ROLES_VIEW   = [...ROLES_MANAGE, "coordenacao", "supervisao", "direcao"];
 
-function temAcessoAee(roles: string[], nivel: AeeNivel): boolean {
+function temAcessoEeaa(roles: string[], nivel: EeaaNivel): boolean {
   if (nivel === "manage") return roles.some(r => ROLES_MANAGE.includes(r));
   if (nivel === "view")   return roles.some(r => ROLES_VIEW.includes(r));
   return true; // "self" verificado por usuarioId na query
 }
 
-function aeeGuard(nivel: AeeNivel) {
+function eeaaGuard(nivel: EeaaNivel) {
   return async (req: any, res: any, next: any) => {
     const roles = await buscarRoles(req.usuarioId!);
-    await registrarAuditoriaAee({ req, acao: "ACCESS_ATTEMPT" });
-    if (!temAcessoAee(roles, nivel)) {
-      await registrarAuditoriaAee({ req, acao: "ACCESS_DENIED" });
+    await registrarAuditoriaEeaa({ req, acao: "ACCESS_ATTEMPT" });
+    if (!temAcessoEeaa(roles, nivel)) {
+      await registrarAuditoriaEeaa({ req, acao: "ACCESS_DENIED" });
       return res.status(403).json({ error: "Acesso negado." });
     }
-    req.aeeRoles = roles;
+    req.eeaaRoles = roles;
     next();
   };
 }
@@ -49,7 +49,7 @@ async function gerarNumeroPai(tx: any, escolaId: string): Promise<string> {
   const prefix = `PAI-${ano}-`;
   const [row] = await tx
     .select({ n: count() })
-    .from(aeePlanosTable)
+    .from(eeaaPlanosTable)
     .where(sql`numero LIKE ${prefix + "%"} AND escola_id = ${escolaId}::uuid`);
   const seq = ((row?.n as number) ?? 0) + 1;
   return `${prefix}${String(seq).padStart(4, "0")}`;
@@ -61,51 +61,51 @@ function gerarTokenHash(planoId: string, usuarioId: string, papel: string, senha
     .digest("hex");
 }
 
-// ── Estudantes AEE ───────────────────────────────────────────────────────────
+// ── Estudantes EEAA ───────────────────────────────────────────────────────────
 
-const estudanteAeeSchema = z.object({
+const estudanteEeaaSchema = z.object({
   usuarioId:      z.string().uuid(),
   necessidades:   z.string().optional(),
   cid10:          z.string().max(10).optional(),
   profissionalId: z.string().uuid().optional(),
 });
 
-router.get("/estudantes", aeeGuard("view"), async (req: any, res) => {
+router.get("/estudantes", eeaaGuard("view"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
   const rows = await withTenant(escolaId, async (tx) =>
     tx.select({
-      id:             aeeEstudantesTable.id,
-      usuarioId:      aeeEstudantesTable.usuarioId,
-      necessidades:   aeeEstudantesTable.necessidades,
-      ativo:          aeeEstudantesTable.ativo,
-      profissionalId: aeeEstudantesTable.profissionalId,
+      id:             eeaaEstudantesTable.id,
+      usuarioId:      eeaaEstudantesTable.usuarioId,
+      necessidades:   eeaaEstudantesTable.necessidades,
+      ativo:          eeaaEstudantesTable.ativo,
+      profissionalId: eeaaEstudantesTable.profissionalId,
       nomeEstudante:  usuariosTable.nome,
     })
-    .from(aeeEstudantesTable)
-    .leftJoin(usuariosTable, eq(usuariosTable.id, aeeEstudantesTable.usuarioId))
-    .where(and(eq(aeeEstudantesTable.escolaId, escolaId), isNull(aeeEstudantesTable.deletadoEm)))
+    .from(eeaaEstudantesTable)
+    .leftJoin(usuariosTable, eq(usuariosTable.id, eeaaEstudantesTable.usuarioId))
+    .where(and(eq(eeaaEstudantesTable.escolaId, escolaId), isNull(eeaaEstudantesTable.deletadoEm)))
     .orderBy(usuariosTable.nome)
   );
   res.json({ estudantes: rows });
 });
 
-router.get("/estudantes/:id", aeeGuard("view"), async (req: any, res) => {
+router.get("/estudantes/:id", eeaaGuard("view"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
-  const roles: string[] = req.aeeRoles;
-  const isManage = temAcessoAee(roles, "manage");
+  const roles: string[] = req.eeaaRoles;
+  const isManage = temAcessoEeaa(roles, "manage");
 
   const [est] = await withTenant(escolaId, async (tx) =>
     tx.select()
-    .from(aeeEstudantesTable)
+    .from(eeaaEstudantesTable)
     .where(and(
-      eq(aeeEstudantesTable.id, req.params.id),
-      eq(aeeEstudantesTable.escolaId, escolaId),
-      isNull(aeeEstudantesTable.deletadoEm),
+      eq(eeaaEstudantesTable.id, req.params.id),
+      eq(eeaaEstudantesTable.escolaId, escolaId),
+      isNull(eeaaEstudantesTable.deletadoEm),
     ))
   );
-  if (!est) return res.status(404).json({ error: "Estudante AEE não encontrado." });
+  if (!est) return res.status(404).json({ error: "Estudante EEAA não encontrado." });
 
-  await registrarAuditoriaAee({ req, acao: "READ_PERFIL", estudanteId: est.id, escolaId });
+  await registrarAuditoriaEeaa({ req, acao: "READ_PERFIL", estudanteId: est.id, escolaId });
 
   // cid10 só para manage
   const resultado: any = { ...est };
@@ -114,42 +114,42 @@ router.get("/estudantes/:id", aeeGuard("view"), async (req: any, res) => {
   res.json(resultado);
 });
 
-router.post("/estudantes", aeeGuard("manage"), async (req: any, res) => {
+router.post("/estudantes", eeaaGuard("manage"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
-  const body = estudanteAeeSchema.safeParse(req.body);
+  const body = estudanteEeaaSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
   const [novo] = await withTenant(escolaId, async (tx) =>
-    tx.insert(aeeEstudantesTable).values({ ...body.data, escolaId }).returning()
+    tx.insert(eeaaEstudantesTable).values({ ...body.data, escolaId }).returning()
   );
-  await registrarAuditoriaAee({ req, acao: "CREATE_ESTUDANTE", estudanteId: novo.id, escolaId });
+  await registrarAuditoriaEeaa({ req, acao: "CREATE_ESTUDANTE", estudanteId: novo.id, escolaId });
   res.status(201).json(novo);
 });
 
-router.put("/estudantes/:id", aeeGuard("manage"), async (req: any, res) => {
+router.put("/estudantes/:id", eeaaGuard("manage"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
-  const body = estudanteAeeSchema.partial().safeParse(req.body);
+  const body = estudanteEeaaSchema.partial().safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
   const [atualizado] = await withTenant(escolaId, async (tx) =>
-    tx.update(aeeEstudantesTable)
+    tx.update(eeaaEstudantesTable)
     .set({ ...body.data, atualizadoEm: new Date() })
-    .where(and(eq(aeeEstudantesTable.id, req.params.id), eq(aeeEstudantesTable.escolaId, escolaId)))
+    .where(and(eq(eeaaEstudantesTable.id, req.params.id), eq(eeaaEstudantesTable.escolaId, escolaId)))
     .returning()
   );
-  if (!atualizado) return res.status(404).json({ error: "Estudante AEE não encontrado." });
+  if (!atualizado) return res.status(404).json({ error: "Estudante EEAA não encontrado." });
   res.json(atualizado);
 });
 
-router.delete("/estudantes/:id", aeeGuard("manage"), async (req: any, res) => {
+router.delete("/estudantes/:id", eeaaGuard("manage"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
   const [removido] = await withTenant(escolaId, async (tx) =>
-    tx.update(aeeEstudantesTable)
+    tx.update(eeaaEstudantesTable)
     .set({ deletadoEm: new Date(), ativo: false })
-    .where(and(eq(aeeEstudantesTable.id, req.params.id), eq(aeeEstudantesTable.escolaId, escolaId)))
+    .where(and(eq(eeaaEstudantesTable.id, req.params.id), eq(eeaaEstudantesTable.escolaId, escolaId)))
     .returning()
   );
-  if (!removido) return res.status(404).json({ error: "Estudante AEE não encontrado." });
+  if (!removido) return res.status(404).json({ error: "Estudante EEAA não encontrado." });
   res.json({ ok: true });
 });
 
@@ -162,39 +162,39 @@ const planoSchema = z.object({
   objetivosGerais: z.string().optional(),
 });
 
-router.get("/planos", aeeGuard("view"), async (req: any, res) => {
+router.get("/planos", eeaaGuard("view"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
-  const { estudanteAeeId } = req.query;
-  const condicoes: any[] = [eq(aeePlanosTable.escolaId, escolaId), isNull(aeePlanosTable.deletadoEm)];
-  if (estudanteAeeId) condicoes.push(eq(aeePlanosTable.estudanteAeeId, String(estudanteAeeId)));
+  const { estudanteEeaaId } = req.query;
+  const condicoes: any[] = [eq(eeaaPlanosTable.escolaId, escolaId), isNull(eeaaPlanosTable.deletadoEm)];
+  if (estudanteEeaaId) condicoes.push(eq(eeaaPlanosTable.estudanteAeeId, String(estudanteEeaaId)));
 
   const rows = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeePlanosTable).where(and(...condicoes)).orderBy(desc(aeePlanosTable.criadoEm))
+    tx.select().from(eeaaPlanosTable).where(and(...condicoes)).orderBy(desc(eeaaPlanosTable.criadoEm))
   );
-  await registrarAuditoriaAee({ req, acao: "READ_PLANOS", escolaId });
+  await registrarAuditoriaEeaa({ req, acao: "READ_PLANOS", escolaId });
   res.json({ planos: rows });
 });
 
-router.post("/planos", aeeGuard("manage"), async (req: any, res) => {
+router.post("/planos", eeaaGuard("manage"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
   const body = planoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
   const [novo] = await withTenant(escolaId, async (tx) => {
     const numero = await gerarNumeroPai(tx, escolaId);
-    return tx.insert(aeePlanosTable).values({
+    return tx.insert(eeaaPlanosTable).values({
       ...body.data, escolaId, numero, criadoPorId: req.usuarioId,
     }).returning();
   });
   res.status(201).json(novo);
 });
 
-router.put("/planos/:id", aeeGuard("manage"), async (req: any, res) => {
+router.put("/planos/:id", eeaaGuard("manage"), async (req: any, res) => {
   const escolaId: string = req.escolaId;
   // Só permite editar rascunho
   const [plano] = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeePlanosTable)
-    .where(and(eq(aeePlanosTable.id, req.params.id), eq(aeePlanosTable.escolaId, escolaId)))
+    tx.select().from(eeaaPlanosTable)
+    .where(and(eq(eeaaPlanosTable.id, req.params.id), eq(eeaaPlanosTable.escolaId, escolaId)))
   );
   if (!plano) return res.status(404).json({ error: "Plano não encontrado." });
   if (plano.status !== "rascunho") return res.status(422).json({ error: "Só é possível editar planos em rascunho." });
@@ -203,9 +203,9 @@ router.put("/planos/:id", aeeGuard("manage"), async (req: any, res) => {
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
   const [atualizado] = await withTenant(escolaId, async (tx) =>
-    tx.update(aeePlanosTable)
+    tx.update(eeaaPlanosTable)
     .set({ ...body.data, atualizadoEm: new Date() })
-    .where(eq(aeePlanosTable.id, req.params.id))
+    .where(eq(eeaaPlanosTable.id, req.params.id))
     .returning()
   );
   res.json(atualizado);
@@ -224,8 +224,8 @@ router.post("/planos/:id/assinar", async (req: any, res) => {
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
   const [plano] = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeePlanosTable)
-    .where(and(eq(aeePlanosTable.id, req.params.id), eq(aeePlanosTable.escolaId, escolaId)))
+    tx.select().from(eeaaPlanosTable)
+    .where(and(eq(eeaaPlanosTable.id, req.params.id), eq(eeaaPlanosTable.escolaId, escolaId)))
   );
   if (!plano) return res.status(404).json({ error: "Plano não encontrado." });
   if (plano.status === "vigente" || plano.status === "encerrado") {
@@ -243,7 +243,7 @@ router.post("/planos/:id/assinar", async (req: any, res) => {
   const tokenHash = gerarTokenHash(plano.id, req.usuarioId!, body.data.papel, body.data.senha);
 
   await withTenant(escolaId, async (tx) =>
-    tx.insert(aeePlanoAssinaturasTable).values({
+    tx.insert(eeaaPlanoAssinaturasTable).values({
       planoId:   plano.id,
       usuarioId: req.usuarioId!,
       papel:     body.data.papel,
@@ -255,28 +255,28 @@ router.post("/planos/:id/assinar", async (req: any, res) => {
 
   // Verifica se todas as assinaturas obrigatórias foram coletadas
   const assinaturas = await withTenant(escolaId, async (tx) =>
-    tx.select({ papel: aeePlanoAssinaturasTable.papel })
-    .from(aeePlanoAssinaturasTable)
-    .where(eq(aeePlanoAssinaturasTable.planoId, plano.id))
+    tx.select({ papel: eeaaPlanoAssinaturasTable.papel })
+    .from(eeaaPlanoAssinaturasTable)
+    .where(eq(eeaaPlanoAssinaturasTable.planoId, plano.id))
   );
   const papeis = assinaturas.map((a: { papel: string | null }) => a.papel);
   const todasAssinadas = papeis.includes("professor_aee") && papeis.includes("responsavel");
 
   if (todasAssinadas) {
     await withTenant(escolaId, async (tx) =>
-      tx.update(aeePlanosTable)
+      tx.update(eeaaPlanosTable)
       .set({ status: "vigente", atualizadoEm: new Date() })
-      .where(eq(aeePlanosTable.id, plano.id))
+      .where(eq(eeaaPlanosTable.id, plano.id))
     );
   } else if (plano.status === "rascunho") {
     await withTenant(escolaId, async (tx) =>
-      tx.update(aeePlanosTable)
+      tx.update(eeaaPlanosTable)
       .set({ status: "aguardando_assinatura", atualizadoEm: new Date() })
-      .where(eq(aeePlanosTable.id, plano.id))
+      .where(eq(eeaaPlanosTable.id, plano.id))
     );
   }
 
-  await registrarAuditoriaAee({ req, acao: "ASSINAR_PAI", recursoId: plano.id, escolaId });
+  await registrarAuditoriaEeaa({ req, acao: "ASSINAR_PAI", recursoId: plano.id, escolaId });
   res.json({ ok: true, vigente: todasAssinadas });
 });
 
@@ -290,29 +290,29 @@ const adaptacaoSchema = z.object({
 router.get("/planos/:id/adaptacoes", async (req: any, res) => {
   const escolaId: string = req.escolaId;
   const rows = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeePlanoAdaptacoesTable)
-    .where(eq(aeePlanoAdaptacoesTable.planoId, req.params.id))
-    .orderBy(aeePlanoAdaptacoesTable.criadoEm)
+    tx.select().from(eeaaPlanoAdaptacoesTable)
+    .where(eq(eeaaPlanoAdaptacoesTable.planoId, req.params.id))
+    .orderBy(eeaaPlanoAdaptacoesTable.criadoEm)
   );
-  await registrarAuditoriaAee({ req, acao: "READ_ADAPTACOES", escolaId: req.escolaId });
+  await registrarAuditoriaEeaa({ req, acao: "READ_ADAPTACOES", escolaId: req.escolaId });
   res.json({ adaptacoes: rows });
 });
 
-router.post("/planos/:id/adaptacoes", aeeGuard("manage"), async (req: any, res) => {
+router.post("/planos/:id/adaptacoes", eeaaGuard("manage"), async (req: any, res) => {
   const body = adaptacaoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [nova] = await withTenant(req.escolaId, async (tx) =>
-    tx.insert(aeePlanoAdaptacoesTable).values({ ...body.data, planoId: req.params.id }).returning()
+    tx.insert(eeaaPlanoAdaptacoesTable).values({ ...body.data, planoId: req.params.id }).returning()
   );
   res.status(201).json(nova);
 });
 
-router.delete("/planos/:id/adaptacoes/:adaptId", aeeGuard("manage"), async (req: any, res) => {
+router.delete("/planos/:id/adaptacoes/:adaptId", eeaaGuard("manage"), async (req: any, res) => {
   await withTenant(req.escolaId, async (tx) =>
-    tx.delete(aeePlanoAdaptacoesTable)
+    tx.delete(eeaaPlanoAdaptacoesTable)
     .where(and(
-      eq(aeePlanoAdaptacoesTable.id, req.params.adaptId),
-      eq(aeePlanoAdaptacoesTable.planoId, req.params.id),
+      eq(eeaaPlanoAdaptacoesTable.id, req.params.adaptId),
+      eq(eeaaPlanoAdaptacoesTable.planoId, req.params.id),
     ))
   );
   res.json({ ok: true });
@@ -327,38 +327,38 @@ const metaSchema = z.object({
   prazo:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-router.get("/metas", aeeGuard("view"), async (req: any, res) => {
+router.get("/metas", eeaaGuard("view"), async (req: any, res) => {
   const { planoId } = req.query;
   const condicoes: any[] = [];
-  if (planoId) condicoes.push(eq(aeeMetasTable.planoId, String(planoId)));
+  if (planoId) condicoes.push(eq(eeaaMetasTable.planoId, String(planoId)));
 
   // metas always belong to a plano — if no planoId provided, return empty rather than full-tenant scan
   const rows = condicoes.length > 0
     ? await withTenant(req.escolaId, async (tx) =>
-        tx.select().from(aeeMetasTable).where(and(...condicoes))
+        tx.select().from(eeaaMetasTable).where(and(...condicoes))
       )
     : [];
-  await registrarAuditoriaAee({ req, acao: "READ_METAS", escolaId: req.escolaId });
+  await registrarAuditoriaEeaa({ req, acao: "READ_METAS", escolaId: req.escolaId });
   res.json({ metas: rows });
 });
 
-router.post("/metas", aeeGuard("manage"), async (req: any, res) => {
+router.post("/metas", eeaaGuard("manage"), async (req: any, res) => {
   const body = metaSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [nova] = await withTenant(req.escolaId, async (tx) =>
-    tx.insert(aeeMetasTable).values(body.data).returning()
+    tx.insert(eeaaMetasTable).values(body.data).returning()
   );
   res.status(201).json(nova);
 });
 
-router.put("/metas/:id", aeeGuard("manage"), async (req: any, res) => {
-  // aeeMetasTable has no escola_id — isolated via withTenant + RLS on parent aee_planos
+router.put("/metas/:id", eeaaGuard("manage"), async (req: any, res) => {
+  // eeaaMetasTable has no escola_id — isolated via withTenant + RLS on parent eeaa_planos
   const body = metaSchema.partial().merge(z.object({ status: z.string().optional() })).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [atualizada] = await withTenant(req.escolaId, async (tx) =>
-    tx.update(aeeMetasTable)
+    tx.update(eeaaMetasTable)
     .set({ ...body.data, atualizadoEm: new Date() })
-    .where(eq(aeeMetasTable.id, req.params.id))
+    .where(eq(eeaaMetasTable.id, req.params.id))
     .returning()
   );
   if (!atualizada) return res.status(404).json({ error: "Meta não encontrada." });
@@ -371,22 +371,22 @@ const evolucaoSchema = z.object({
   percentual:  z.number().int().min(0).max(100).optional(),
 });
 
-router.post("/metas/:id/evolucao", aeeGuard("manage"), async (req: any, res) => {
+router.post("/metas/:id/evolucao", eeaaGuard("manage"), async (req: any, res) => {
   const body = evolucaoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [nova] = await withTenant(req.escolaId, async (tx) =>
-    tx.insert(aeeEvolucoesTable).values({
+    tx.insert(eeaaEvolucoesTable).values({
       ...body.data, metaId: req.params.id, profissionalId: req.usuarioId,
     }).returning()
   );
   res.status(201).json(nova);
 });
 
-router.get("/metas/:id/evolucao", aeeGuard("view"), async (req: any, res) => {
+router.get("/metas/:id/evolucao", eeaaGuard("view"), async (req: any, res) => {
   const rows = await withTenant(req.escolaId, async (tx) =>
-    tx.select().from(aeeEvolucoesTable)
-    .where(eq(aeeEvolucoesTable.metaId, req.params.id))
-    .orderBy(aeeEvolucoesTable.registradoEm)
+    tx.select().from(eeaaEvolucoesTable)
+    .where(eq(eeaaEvolucoesTable.metaId, req.params.id))
+    .orderBy(eeaaEvolucoesTable.registradoEm)
   );
   res.json({ evolucoes: rows });
 });
@@ -394,56 +394,56 @@ router.get("/metas/:id/evolucao", aeeGuard("view"), async (req: any, res) => {
 // ── Sessões ──────────────────────────────────────────────────────────────────
 
 const sessaoSchema = z.object({
-  estudanteAeeId: z.string().uuid(),
+  estudanteEeaaId: z.string().uuid(),
   dataSessao:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   duracaoMin:     z.number().int().positive().optional(),
   local:          z.string().max(100).optional(),
   observacoes:    z.string().optional(),
 });
 
-router.get("/sessoes", aeeGuard("view"), async (req: any, res) => {
-  const { estudanteAeeId } = req.query;
+router.get("/sessoes", eeaaGuard("view"), async (req: any, res) => {
+  const { estudanteEeaaId } = req.query;
   const condicoes: any[] = [
-    eq(aeeSessoesTable.escolaId, req.escolaId),
-    isNull(aeeSessoesTable.deletadoEm),
+    eq(eeaaSessoesTable.escolaId, req.escolaId),
+    isNull(eeaaSessoesTable.deletadoEm),
   ];
-  if (estudanteAeeId) condicoes.push(eq(aeeSessoesTable.estudanteAeeId, String(estudanteAeeId)));
+  if (estudanteEeaaId) condicoes.push(eq(eeaaSessoesTable.estudanteAeeId, String(estudanteEeaaId)));
 
   const rows = await withTenant(req.escolaId, async (tx) =>
-    tx.select().from(aeeSessoesTable)
+    tx.select().from(eeaaSessoesTable)
     .where(and(...condicoes))
-    .orderBy(desc(aeeSessoesTable.dataSessao))
+    .orderBy(desc(eeaaSessoesTable.dataSessao))
   );
   res.json({ sessoes: rows });
 });
 
-router.post("/sessoes", aeeGuard("manage"), async (req: any, res) => {
+router.post("/sessoes", eeaaGuard("manage"), async (req: any, res) => {
   const body = sessaoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [nova] = await withTenant(req.escolaId, async (tx) =>
-    tx.insert(aeeSessoesTable).values({
+    tx.insert(eeaaSessoesTable).values({
       ...body.data, escolaId: req.escolaId, profissionalId: req.usuarioId,
     }).returning()
   );
   res.status(201).json(nova);
 });
 
-router.put("/sessoes/:id", aeeGuard("manage"), async (req: any, res) => {
+router.put("/sessoes/:id", eeaaGuard("manage"), async (req: any, res) => {
   const body = sessaoSchema.partial().safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
   const [atualizada] = await withTenant(req.escolaId, async (tx) =>
-    tx.update(aeeSessoesTable).set(body.data)
-    .where(and(eq(aeeSessoesTable.id, req.params.id), eq(aeeSessoesTable.escolaId, req.escolaId)))
+    tx.update(eeaaSessoesTable).set(body.data)
+    .where(and(eq(eeaaSessoesTable.id, req.params.id), eq(eeaaSessoesTable.escolaId, req.escolaId)))
     .returning()
   );
   if (!atualizada) return res.status(404).json({ error: "Sessão não encontrada." });
   res.json(atualizada);
 });
 
-router.delete("/sessoes/:id", aeeGuard("manage"), async (req: any, res) => {
+router.delete("/sessoes/:id", eeaaGuard("manage"), async (req: any, res) => {
   const [removida] = await withTenant(req.escolaId, async (tx) =>
-    tx.update(aeeSessoesTable).set({ deletadoEm: new Date() })
-    .where(and(eq(aeeSessoesTable.id, req.params.id), eq(aeeSessoesTable.escolaId, req.escolaId)))
+    tx.update(eeaaSessoesTable).set({ deletadoEm: new Date() })
+    .where(and(eq(eeaaSessoesTable.id, req.params.id), eq(eeaaSessoesTable.escolaId, req.escolaId)))
     .returning()
   );
   if (!removida) return res.status(404).json({ error: "Sessão não encontrada." });
@@ -453,7 +453,7 @@ router.delete("/sessoes/:id", aeeGuard("manage"), async (req: any, res) => {
 // ── Laudos (acesso restrito + auditoria obrigatória) ─────────────────────────
 
 const laudoSchema = z.object({
-  estudanteAeeId:  z.string().uuid(),
+  estudanteEeaaId:  z.string().uuid(),
   tipo:            z.enum(["psicologico", "psicopedagogico", "fonoaudiologico", "medico", "outro"]),
   titulo:          z.string().min(1).max(200),
   conteudo:        z.string().min(1),
@@ -461,45 +461,45 @@ const laudoSchema = z.object({
   dataLaudo:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-router.get("/laudos", aeeGuard("manage"), async (req: any, res) => {
-  const { estudanteAeeId } = req.query;
+router.get("/laudos", eeaaGuard("manage"), async (req: any, res) => {
+  const { estudanteEeaaId } = req.query;
   const condicoes: any[] = [
-    eq(aeeLaudosTable.escolaId, req.escolaId),
-    isNull(aeeLaudosTable.deletadoEm),
+    eq(eeaaLaudosTable.escolaId, req.escolaId),
+    isNull(eeaaLaudosTable.deletadoEm),
   ];
-  if (estudanteAeeId) condicoes.push(eq(aeeLaudosTable.estudanteAeeId, String(estudanteAeeId)));
+  if (estudanteEeaaId) condicoes.push(eq(eeaaLaudosTable.estudanteAeeId, String(estudanteEeaaId)));
 
   // NUNCA retorna conteudo_enc na listagem
   const rows = await withTenant(req.escolaId, async (tx) =>
     tx.select({
-      id:              aeeLaudosTable.id,
-      tipo:            aeeLaudosTable.tipo,
-      titulo:          aeeLaudosTable.titulo,
-      dataLaudo:       aeeLaudosTable.dataLaudo,
-      profissionalExt: aeeLaudosTable.profissionalExt,
-      criadoEm:        aeeLaudosTable.criadoEm,
+      id:              eeaaLaudosTable.id,
+      tipo:            eeaaLaudosTable.tipo,
+      titulo:          eeaaLaudosTable.titulo,
+      dataLaudo:       eeaaLaudosTable.dataLaudo,
+      profissionalExt: eeaaLaudosTable.profissionalExt,
+      criadoEm:        eeaaLaudosTable.criadoEm,
     })
-    .from(aeeLaudosTable).where(and(...condicoes))
-    .orderBy(desc(aeeLaudosTable.criadoEm))
+    .from(eeaaLaudosTable).where(and(...condicoes))
+    .orderBy(desc(eeaaLaudosTable.criadoEm))
   );
   res.json({ laudos: rows });
 });
 
-router.get("/laudos/:id", aeeGuard("manage"), async (req: any, res) => {
+router.get("/laudos/:id", eeaaGuard("manage"), async (req: any, res) => {
   const [laudo] = await withTenant(req.escolaId, async (tx) =>
-    tx.select().from(aeeLaudosTable)
+    tx.select().from(eeaaLaudosTable)
     .where(and(
-      eq(aeeLaudosTable.id, req.params.id),
-      eq(aeeLaudosTable.escolaId, req.escolaId),
-      isNull(aeeLaudosTable.deletadoEm),
+      eq(eeaaLaudosTable.id, req.params.id),
+      eq(eeaaLaudosTable.escolaId, req.escolaId),
+      isNull(eeaaLaudosTable.deletadoEm),
     ))
   );
   if (!laudo) return res.status(404).json({ error: "Laudo não encontrado." });
 
   // Auditoria obrigatória ANTES de descriptografar
-  await registrarAuditoriaAee({
+  await registrarAuditoriaEeaa({
     req, acao: "READ_LAUDO",
-    estudanteId: laudo.estudanteAeeId,
+    estudanteId: laudo.estudanteEeaaId,
     recursoId:   laudo.id,
     escolaId:    req.escolaId,
   });
@@ -509,7 +509,7 @@ router.get("/laudos/:id", aeeGuard("manage"), async (req: any, res) => {
   res.json({ ...laudoSemEnc, conteudo });
 });
 
-router.post("/laudos", aeeGuard("manage"), async (req: any, res) => {
+router.post("/laudos", eeaaGuard("manage"), async (req: any, res) => {
   const body = laudoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
@@ -518,31 +518,31 @@ router.post("/laudos", aeeGuard("manage"), async (req: any, res) => {
   const chaveRef    = gerarChaveRef(req.escolaId);
 
   const [novo] = await withTenant(req.escolaId, async (tx) =>
-    tx.insert(aeeLaudosTable).values({
+    tx.insert(eeaaLaudosTable).values({
       ...resto, conteudoEnc, chaveRef,
       escolaId: req.escolaId, criadoPorId: req.usuarioId,
-    }).returning({ id: aeeLaudosTable.id, tipo: aeeLaudosTable.tipo, titulo: aeeLaudosTable.titulo })
+    }).returning({ id: eeaaLaudosTable.id, tipo: eeaaLaudosTable.tipo, titulo: eeaaLaudosTable.titulo })
   );
 
-  await registrarAuditoriaAee({
+  await registrarAuditoriaEeaa({
     req, acao: "CREATE_LAUDO",
-    estudanteId: body.data.estudanteAeeId,
+    estudanteId: body.data.estudanteEeaaId,
     recursoId:   novo.id,
     escolaId:    req.escolaId,
   });
   res.status(201).json(novo);
 });
 
-router.delete("/laudos/:id", aeeGuard("manage"), async (req: any, res) => {
+router.delete("/laudos/:id", eeaaGuard("manage"), async (req: any, res) => {
   const [removido] = await withTenant(req.escolaId, async (tx) =>
-    tx.update(aeeLaudosTable).set({ deletadoEm: new Date() })
-    .where(and(eq(aeeLaudosTable.id, req.params.id), eq(aeeLaudosTable.escolaId, req.escolaId)))
-    .returning({ id: aeeLaudosTable.id, estudanteAeeId: aeeLaudosTable.estudanteAeeId })
+    tx.update(eeaaLaudosTable).set({ deletadoEm: new Date() })
+    .where(and(eq(eeaaLaudosTable.id, req.params.id), eq(eeaaLaudosTable.escolaId, req.escolaId)))
+    .returning({ id: eeaaLaudosTable.id, estudanteEeaaId: eeaaLaudosTable.estudanteEeaaId })
   );
   if (!removido) return res.status(404).json({ error: "Laudo não encontrado." });
-  await registrarAuditoriaAee({
+  await registrarAuditoriaEeaa({
     req, acao: "DELETE_LAUDO",
-    estudanteId: removido.estudanteAeeId,
+    estudanteId: removido.estudanteEeaaId,
     recursoId:   removido.id,
     escolaId:    req.escolaId,
   });
@@ -552,51 +552,51 @@ router.delete("/laudos/:id", aeeGuard("manage"), async (req: any, res) => {
 // ── Liberações ───────────────────────────────────────────────────────────────
 
 const liberacaoSchema = z.object({
-  estudanteAeeId: z.string().uuid(),
+  estudanteEeaaId: z.string().uuid(),
   professorId:    z.string().uuid(),
   verAdaptacoes:  z.boolean().default(true),
   verMetas:       z.boolean().default(false),
   verResumoIa:    z.boolean().default(false),
 });
 
-router.get("/liberacoes/:estudanteAeeId", aeeGuard("manage"), async (req: any, res) => {
+router.get("/liberacoes/:estudanteEeaaId", eeaaGuard("manage"), async (req: any, res) => {
   const rows = await withTenant(req.escolaId, async (tx) =>
-    tx.select().from(aeeLiberacoesTable)
+    tx.select().from(eeaaLiberacoesTable)
     .where(and(
-      eq(aeeLiberacoesTable.estudanteAeeId, req.params.estudanteAeeId),
-      eq(aeeLiberacoesTable.escolaId, req.escolaId),
-      isNull(aeeLiberacoesTable.revogadoEm),
+      eq(eeaaLiberacoesTable.estudanteEeaaId, req.params.estudanteEeaaId),
+      eq(eeaaLiberacoesTable.escolaId, req.escolaId),
+      isNull(eeaaLiberacoesTable.revogadoEm),
     ))
   );
   res.json({ liberacoes: rows });
 });
 
-router.put("/liberacoes", aeeGuard("manage"), async (req: any, res) => {
+router.put("/liberacoes", eeaaGuard("manage"), async (req: any, res) => {
   const body = liberacaoSchema.safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0].message });
 
   await withTenant(req.escolaId, async (tx) => {
-    await tx.update(aeeLiberacoesTable)
+    await tx.update(eeaaLiberacoesTable)
     .set({ revogadoEm: new Date() })
     .where(and(
-      eq(aeeLiberacoesTable.estudanteAeeId, body.data.estudanteAeeId),
-      eq(aeeLiberacoesTable.professorId, body.data.professorId),
-      eq(aeeLiberacoesTable.escolaId, req.escolaId),
-      isNull(aeeLiberacoesTable.revogadoEm),
+      eq(eeaaLiberacoesTable.estudanteEeaaId, body.data.estudanteEeaaId),
+      eq(eeaaLiberacoesTable.professorId, body.data.professorId),
+      eq(eeaaLiberacoesTable.escolaId, req.escolaId),
+      isNull(eeaaLiberacoesTable.revogadoEm),
     ));
-    await tx.insert(aeeLiberacoesTable).values({
+    await tx.insert(eeaaLiberacoesTable).values({
       ...body.data, escolaId: req.escolaId, concedidoPorId: req.usuarioId,
     });
   });
   res.json({ ok: true });
 });
 
-router.delete("/liberacoes/:id", aeeGuard("manage"), async (req: any, res) => {
+router.delete("/liberacoes/:id", eeaaGuard("manage"), async (req: any, res) => {
   const [revogada] = await withTenant(req.escolaId, async (tx) =>
-    tx.update(aeeLiberacoesTable)
+    tx.update(eeaaLiberacoesTable)
     .set({ revogadoEm: new Date() })
-    .where(and(eq(aeeLiberacoesTable.id, req.params.id), eq(aeeLiberacoesTable.escolaId, req.escolaId)))
-    .returning({ id: aeeLiberacoesTable.id })
+    .where(and(eq(eeaaLiberacoesTable.id, req.params.id), eq(eeaaLiberacoesTable.escolaId, req.escolaId)))
+    .returning({ id: eeaaLiberacoesTable.id })
   );
   if (!revogada) return res.status(404).json({ error: "Liberação não encontrada." });
   res.json({ ok: true });
@@ -604,14 +604,14 @@ router.delete("/liberacoes/:id", aeeGuard("manage"), async (req: any, res) => {
 
 // ── Auditoria (somente leitura) ──────────────────────────────────────────────
 
-router.get("/auditoria", aeeGuard("manage"), async (req: any, res) => {
+router.get("/auditoria", eeaaGuard("manage"), async (req: any, res) => {
   const { estudanteId, limit = "50" } = req.query;
-  const condicoes: any[] = [eq(aeeAuditoriaTable.escolaId, req.escolaId)];
-  if (estudanteId) condicoes.push(eq(aeeAuditoriaTable.estudanteId, String(estudanteId)));
+  const condicoes: any[] = [eq(eeaaAuditoriaTable.escolaId, req.escolaId)];
+  if (estudanteId) condicoes.push(eq(eeaaAuditoriaTable.estudanteId, String(estudanteId)));
 
-  const rows = await db.select().from(aeeAuditoriaTable)
+  const rows = await db.select().from(eeaaAuditoriaTable)
     .where(and(...condicoes))
-    .orderBy(desc(aeeAuditoriaTable.criadoEm))
+    .orderBy(desc(eeaaAuditoriaTable.criadoEm))
     .limit(Math.min(Number(limit), 200));
   res.json({ logs: rows });
 });
@@ -623,87 +623,87 @@ router.get("/portal/meu-plano", async (req: any, res) => {
   const escolaId: string  = req.escolaId;
 
   const [est] = await withTenant(escolaId, async (tx) =>
-    tx.select({ id: aeeEstudantesTable.id })
-    .from(aeeEstudantesTable)
+    tx.select({ id: eeaaEstudantesTable.id })
+    .from(eeaaEstudantesTable)
     .where(and(
-      eq(aeeEstudantesTable.usuarioId, usuarioId),
-      eq(aeeEstudantesTable.escolaId, escolaId),
-      eq(aeeEstudantesTable.ativo, true),
-      isNull(aeeEstudantesTable.deletadoEm),
+      eq(eeaaEstudantesTable.usuarioId, usuarioId),
+      eq(eeaaEstudantesTable.escolaId, escolaId),
+      eq(eeaaEstudantesTable.ativo, true),
+      isNull(eeaaEstudantesTable.deletadoEm),
     ))
   );
-  if (!est) return res.json({ aee: false });
+  if (!est) return res.json({ eeaa: false });
 
   const [plano] = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeePlanosTable)
+    tx.select().from(eeaaPlanosTable)
     .where(and(
-      eq(aeePlanosTable.estudanteAeeId, est.id),
-      eq(aeePlanosTable.status, "vigente"),
+      eq(eeaaPlanosTable.estudanteEeaaId, est.id),
+      eq(eeaaPlanosTable.status, "vigente"),
     ))
-    .orderBy(desc(aeePlanosTable.criadoEm))
+    .orderBy(desc(eeaaPlanosTable.criadoEm))
     .limit(1)
   );
-  if (!plano) return res.json({ aee: true, planoVigente: null });
+  if (!plano) return res.json({ eeaa: true, planoVigente: null });
 
   const adaptacoes = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeePlanoAdaptacoesTable).where(eq(aeePlanoAdaptacoesTable.planoId, plano.id))
+    tx.select().from(eeaaPlanoAdaptacoesTable).where(eq(eeaaPlanoAdaptacoesTable.planoId, plano.id))
   );
   const metas = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeeMetasTable).where(eq(aeeMetasTable.planoId, plano.id))
+    tx.select().from(eeaaMetasTable).where(eq(eeaaMetasTable.planoId, plano.id))
   );
 
-  await registrarAuditoriaAee({ req, acao: "PORTAL_READ_PAI", estudanteId: est.id, escolaId });
-  res.json({ aee: true, planoVigente: { ...plano, adaptacoes, metas } });
+  await registrarAuditoriaEeaa({ req, acao: "PORTAL_READ_PAI", estudanteId: est.id, escolaId });
+  res.json({ eeaa: true, planoVigente: { ...plano, adaptacoes, metas } });
 });
 
 // ── Portal do Professor (somente liberações) ─────────────────────────────────
 
-router.get("/portal-professor/:estudanteAeeId", async (req: any, res) => {
+router.get("/portal-professor/:estudanteEeaaId", async (req: any, res) => {
   const escolaId: string    = req.escolaId;
   const professorId: string = req.usuarioId!;
 
   const [lib] = await withTenant(escolaId, async (tx) =>
-    tx.select().from(aeeLiberacoesTable)
+    tx.select().from(eeaaLiberacoesTable)
     .where(and(
-      eq(aeeLiberacoesTable.estudanteAeeId, req.params.estudanteAeeId),
-      eq(aeeLiberacoesTable.professorId, professorId),
-      eq(aeeLiberacoesTable.escolaId, escolaId),
-      isNull(aeeLiberacoesTable.revogadoEm),
+      eq(eeaaLiberacoesTable.estudanteEeaaId, req.params.estudanteEeaaId),
+      eq(eeaaLiberacoesTable.professorId, professorId),
+      eq(eeaaLiberacoesTable.escolaId, escolaId),
+      isNull(eeaaLiberacoesTable.revogadoEm),
     ))
   );
   if (!lib) return res.json({ liberado: false });
 
-  await registrarAuditoriaAee({
+  await registrarAuditoriaEeaa({
     req, acao: "PROFESSOR_READ_LIBERACAO",
-    estudanteId: req.params.estudanteAeeId, escolaId,
+    estudanteId: req.params.estudanteEeaaId, escolaId,
   });
 
   const resultado: any = { liberado: true };
   if (lib.verAdaptacoes) {
     const [plano] = await withTenant(escolaId, async (tx) =>
-      tx.select({ id: aeePlanosTable.id }).from(aeePlanosTable)
+      tx.select({ id: eeaaPlanosTable.id }).from(eeaaPlanosTable)
       .where(and(
-        eq(aeePlanosTable.estudanteAeeId, req.params.estudanteAeeId),
-        eq(aeePlanosTable.status, "vigente"),
+        eq(eeaaPlanosTable.estudanteEeaaId, req.params.estudanteEeaaId),
+        eq(eeaaPlanosTable.status, "vigente"),
       )).limit(1)
     );
     if (plano) {
       resultado.adaptacoes = await withTenant(escolaId, async (tx) =>
-        tx.select().from(aeePlanoAdaptacoesTable).where(eq(aeePlanoAdaptacoesTable.planoId, plano.id))
+        tx.select().from(eeaaPlanoAdaptacoesTable).where(eq(eeaaPlanoAdaptacoesTable.planoId, plano.id))
       );
     }
   }
   if (lib.verMetas) {
     const [plano] = await withTenant(escolaId, async (tx) =>
-      tx.select({ id: aeePlanosTable.id }).from(aeePlanosTable)
+      tx.select({ id: eeaaPlanosTable.id }).from(eeaaPlanosTable)
       .where(and(
-        eq(aeePlanosTable.estudanteAeeId, req.params.estudanteAeeId),
-        eq(aeePlanosTable.status, "vigente"),
+        eq(eeaaPlanosTable.estudanteEeaaId, req.params.estudanteEeaaId),
+        eq(eeaaPlanosTable.status, "vigente"),
       )).limit(1)
     );
     if (plano) {
       resultado.metas = await withTenant(escolaId, async (tx) =>
-        tx.select().from(aeeMetasTable).where(eq(aeeMetasTable.planoId, plano.id))
+        tx.select().from(eeaaMetasTable).where(eq(eeaaMetasTable.planoId, plano.id))
       );
     }
   }

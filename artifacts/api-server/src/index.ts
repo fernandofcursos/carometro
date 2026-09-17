@@ -45,7 +45,7 @@ import portalSecretariaRouter from "./routes/portal-secretaria.js";
 // Módulo Avisos e Informes
 import avisosInformesRouter from "./routes/avisos-informes.js";
 import requerimentosRouter from "./routes/requerimentos.js";
-import aeeRouter from "./routes/aee.js";
+import eeaaRouter from "./routes/eeaa.js";
 import soeRouter from "./routes/soe.js";
 import salaRecursosRouter from "./routes/sala-recursos.js";
 import iaRouter from "./routes/ia.js";
@@ -150,8 +150,8 @@ app.use("/api/portal-secretaria", portalSecretariaRouter);
 // Módulo Avisos e Informes
 app.use("/api/avisos-informes", avisosInformesRouter);
 app.use("/api/requerimentos", requerimentosRouter);
-// Módulo AEE — Atendimento Educacional Especializado
-app.use("/api/aee", aeeRouter);
+// Módulo EEAA — Equipe Especializada de Apoio à Aprendizagem
+app.use("/api/eeaa", eeaaRouter);
 // Módulo SOE — Serviço de Orientação Educacional
 app.use("/api/soe", soeRouter);
 app.use("/api/sala-recursos", salaRecursosRouter);
