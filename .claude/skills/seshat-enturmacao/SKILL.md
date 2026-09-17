@@ -133,9 +133,9 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 | ZodError `registro` | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes." |
+| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes. Remova a enturmação atual primeiro." |
 | Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
-| Mesmo turno (app-level) | 422 | "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno. Só é permitido em turnos diferentes." |
+| Mesmo turno (app-level) | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente do módulo principal." |
 | Módulo menor > 3 disciplinas/turno | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
 | Módulo maior — seleção parcial | 422 | "Módulo maior: selecione uma ou todas as disciplinas do turno." |
 | 23505 + uq_matricula_usuario_turma | 409 | "Este estudante já está matriculado nesta turma." |
