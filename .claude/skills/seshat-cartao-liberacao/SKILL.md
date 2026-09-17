@@ -23,7 +23,8 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 - Requer requerimento "Pedido de Saída Antecipada (Semestral)" com `requer_data_hora = true`
   → o horário informado no requerimento é armazenado em `carteiras.horario_saida`
 - Pode ser emitido manualmente via `POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }`
-  (neste caso `horario_saida` fica null e o cartão nunca aparece — é necessário definir o horário)
+  → `horario_saida` **não é recebido** por esse endpoint — fica null e o cartão nunca aparece
+  → **⚠️ Pendente:** não existe endpoint para definir `horario_saida` após a emissão manual. O cartão semestral emitido via `emitir-liberacao` só funcionará quando esse endpoint for implementado (PATCH/PUT em `carteiras/:id`).
 - **Refetch a cada 30 s** para detectar entrada/saída da janela automaticamente
 
 ### Diário
@@ -71,14 +72,17 @@ text: "#14532d"  label: "Semestral"
 ### Paleta Diário — por dia da semana (`data_saida`)
 
 ```typescript
+// Paleta completa — 7 campos por entrada (usados no SVG e no layout)
+type Paleta = { bg: string; strip: string; curve1: string; curve2: string; curve3: string; text: string; label: string };
+
 const COR_DIA: Record<number, Paleta> = {
-  1: { bg:"#dbeafe", strip:"#1d4ed8", label:"Segunda-feira" }, // Lua — azul-claro
-  2: { bg:"#fee2e2", strip:"#991b1b", label:"Terça-feira"   }, // Marte — vermelho
-  3: { bg:"#fefce8", strip:"#a16207", label:"Quarta-feira"  }, // Mercúrio — amarelo
-  4: { bg:"#ede9fe", strip:"#3730a3", label:"Quinta-feira"  }, // Júpiter — roxo
-  5: { bg:"#fdf2f8", strip:"#9d174d", label:"Sexta-feira"   }, // Vênus — rosa
+  1: { bg:"#dbeafe", strip:"#1d4ed8", curve1:"#93c5fd", curve2:"#bfdbfe", curve3:"#dbeafe", text:"#1e3a8a", label:"Segunda-feira" }, // Lua — azul
+  2: { bg:"#fee2e2", strip:"#991b1b", curve1:"#fca5a5", curve2:"#fecaca", curve3:"#fee2e2", text:"#7f1d1d", label:"Terça-feira"   }, // Marte — vermelho
+  3: { bg:"#fefce8", strip:"#a16207", curve1:"#fde047", curve2:"#fef08a", curve3:"#fefce8", text:"#713f12", label:"Quarta-feira"  }, // Mercúrio — amarelo
+  4: { bg:"#ede9fe", strip:"#3730a3", curve1:"#a78bfa", curve2:"#c4b5fd", curve3:"#ede9fe", text:"#312e81", label:"Quinta-feira"  }, // Júpiter — roxo
+  5: { bg:"#fdf2f8", strip:"#9d174d", curve1:"#f0abfc", curve2:"#f5d0fe", curve3:"#fdf2f8", text:"#831843", label:"Sexta-feira"   }, // Vênus — rosa
 };
-// 0=Dom e 6=Sab usam fallback do índice 1 (azul-claro)
+// 0=Dom e 6=Sab usam fallback do índice 1 (azul)
 ```
 
 ### Logos
@@ -180,7 +184,12 @@ SENÃO:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/api/carteiras/emitir-liberacao/:usuarioId` | Emite cartão semestral `{ ano, semestre }` |
+| GET  | `/api/carteiras` | Lista carteiras (filtros: usuarioId, ano, semestre, status). **Nota:** `horario_saida` **não** está na projeção da lista — usar `GET /api/carteiras/:id` para ver o horário. |
+| GET  | `/api/carteiras/:id` | Detalhe completo incluindo `horario_saida` e `token` |
+| POST | `/api/carteiras/emitir-liberacao/:usuarioId` | Emite cartão semestral `{ ano, semestre }` — **`horario_saida` não é definido aqui** |
+| POST | `/api/carteiras/:id/cancelar` | Cancela carteira `{ motivo? }` — **nota: `motivo` é aceito no body mas ignorado** (sem coluna na tabela) |
+| POST | `/api/carteiras/:id/revogar` | Revoga carteira — reutiliza colunas `cancelado_em`/`cancelado_por_id` |
+| POST | `/api/carteiras/renovar/:usuarioId` | Emite nova carteira de estudante padrão (tipo=`carteira`) |
 | POST | `/api/cartoes-saida/:id/aprovar` | Aprova + gera token `{ observacao? }` |
 | POST | `/api/cartoes-saida/:id/recusar` | Recusa `{ observacao? }` |
 | GET  | `/api/cartoes-saida` | Lista todas as solicitações (filtros: estudanteId, status) |
