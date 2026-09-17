@@ -4,39 +4,48 @@
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `artifacts/api-server/src/routes/ocorrencias.ts` | CRUD + notificar-pais |
+| `artifacts/api-server/src/routes/ocorrencias.ts` | CRUD + notificar-pais + notificar-estudante |
 | `artifacts/seshat/src/pages/seshat.tsx` | Formulário de ocorrência no carômetro |
 | `artifacts/seshat/src/pages/ocorrencias/index.tsx` | Relatório de ocorrências |
 
 ## Endpoints
 
 ```
-GET  /api/ocorrencias?estudanteId=uuid  → { ocorrencias[] }  // requer ocorrencias:view
-POST /api/ocorrencias                   → ocorrencia criada   // requer ocorrencias:create
-PUT  /api/ocorrencias/:id               → partial update      // requer ocorrencias:create
-DELETE /api/ocorrencias/:id             → soft delete         // requer ocorrencias:create
-POST /api/ocorrencias/:id/notificar-pais → notifica responsáveis por e-mail
+GET  /api/ocorrencias?estudanteId=uuid         → { ocorrencias[] }  // requer ocorrencias:view
+GET  /api/ocorrencias/estudante/:estudanteId   → { ocorrencias[] }  // sem permissão extra (ownership check)
+GET  /api/ocorrencias/:id                      → ocorrencia          // requer ocorrencias:view
+POST /api/ocorrencias                          → ocorrencia criada   // requer ocorrencias:create
+PUT  /api/ocorrencias/:id                      → partial update      // requer ocorrencias:create
+DELETE /api/ocorrencias/:id                    → soft delete         // requer ocorrencias:create
+POST /api/ocorrencias/:id/ciente               → estudante adulto ou responsável vinculado marca ciência
+POST /api/ocorrencias/:id/notificar-pais       → notifica responsáveis por e-mail  // requer ocorrencias:create
+POST /api/ocorrencias/:id/notificar-estudante  → notifica estudante adulto por e-mail  // requer ocorrencias:create
 ```
 
 ## Notificação por E-mail ao Registrar Ocorrência
 
-### Regra automática no POST /api/ocorrencias
+### Lógica opt-in no POST /api/ocorrencias
 
-| Condição | Destinatário |
+A notificação por e-mail **não é automática** — depende de flags explícitas no body.
+
+| Flag | Efeito |
 |---|---|
-| Estudante **menor de 18 anos** | Responsáveis (`estudante_emails.tipo = 'responsavel'`) |
-| Estudante **maior ou igual a 18 anos** | Próprio estudante (`estudante_emails.tipo = 'proprio'`) |
-| `enviarEmailPais: true` no body | Força envio para responsáveis (independente da idade) |
+| `enviarEmailPais: true` | Notifica responsáveis (somente se estudante for menor de 18) |
+| `enviarEmailEstudante: true` | Notifica o próprio estudante (somente se for maior ou igual a 18) |
+| Nenhuma flag | Nenhum e-mail é enviado |
 
 ```typescript
-// POST /api/ocorrencias — lógica de envio automático
+// POST /api/ocorrencias — lógica de envio opt-in
+const { enviarEmailPais, enviarEmailEstudante, ...ocorrenciaData } = data;
 const menor = await getEstudanteMenorDeIdade(data.estudanteId);
-if (menor || enviarEmailPais) {
+if (menor && enviarEmailPais) {
   await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
-} else {
+} else if (!menor && enviarEmailEstudante) {
   await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
 }
 ```
+
+**Schema:** `enviarEmailPais: boolean` e `enviarEmailEstudante: boolean` estão presentes em `criarSchema` mas são omitidos no `PUT /:id` (não se notifica ao editar).
 
 **Verificação de idade:**
 1. `estudantes.data_nascimento` (primária)
@@ -45,10 +54,11 @@ if (menor || enviarEmailPais) {
 
 **`notificacao_pais_enviada_em`** é atualizado apenas quando envia para responsáveis (menores).
 
-## Notificação Manual de Responsáveis
+## Notificação Manual
 
 ```typescript
-// POST /:id/notificar-pais
+// POST /:id/notificar-pais  — menores de idade
+// POST /:id/notificar-estudante — maiores de idade
 // 200 → { ok: true, enviados: number, mensagem: string }
 // 422 → { error: "Nenhum responsável com e-mail cadastrado..." }
 // 404 → { error: "Ocorrência não encontrada." }
@@ -65,7 +75,11 @@ if (menor || enviarEmailPais) {
 Incluído no GET `/api/ocorrencias` e usado no frontend:
 
 ```typescript
-// seshat.tsx — botão de notificação
+// seshat.tsx — botão de notificação (rota depende da idade do estudante)
+const rota = estudanteMenor
+  ? `/api/ocorrencias/${id}/notificar-pais`
+  : `/api/ocorrencias/${id}/notificar-estudante`;
+
 <Button
   onClick={() => notificarMutation.mutate(ocorrencia.id)}
   title={ocorrencia.notificacaoPaisEnviadaEm
