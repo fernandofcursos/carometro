@@ -23,7 +23,7 @@ const slotSchema = z.object({
 });
 
 // GET /api/horarios?turmaId=&ano=&semestre=
-router.get("/", async (req, res) => {
+router.get("/", requirePermissao("horarios:manage"), async (req, res) => {
   try {
     const { turmaId, ano, semestre } = req.query;
     if (!turmaId || !ano || !semestre) {
@@ -63,7 +63,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/horarios/turma-info?turmaId=  — retorna dados da turma + turnos vinculados
-router.get("/turma-info", async (req, res) => {
+router.get("/turma-info", requirePermissao("horarios:manage"), async (req, res) => {
   try {
     const { turmaId } = req.query;
     if (!turmaId) return res.status(400).json({ error: "turmaId obrigatório." });
@@ -91,7 +91,7 @@ router.get("/turma-info", async (req, res) => {
 });
 
 // GET /api/horarios/disciplinas-oferta?turmaId=&turnoId=
-router.get("/disciplinas-oferta", async (req, res) => {
+router.get("/disciplinas-oferta", requirePermissao("horarios:manage"), async (req, res) => {
   try {
     const { turmaId, turnoId } = req.query;
     if (!turmaId) return res.status(400).json({ error: "turmaId obrigatório." });
@@ -202,6 +202,28 @@ router.delete("/:id", requirePermissao("horarios:manage"), async (req, res) => {
   }
 });
 
+// DELETE /api/horarios?turmaId=&ano=&semestre= — limpa todos os slots de uma turma/período
+router.delete("/", requirePermissao("horarios:manage"), async (req, res) => {
+  try {
+    const { turmaId, ano, semestre } = req.query;
+    if (!turmaId || !ano || !semestre) {
+      return res.status(400).json({ error: "Parâmetros turmaId, ano e semestre são obrigatórios." });
+    }
+    const deleted = await db
+      .delete(horariosAulasTable)
+      .where(and(
+        eq(horariosAulasTable.turmaId, String(turmaId)),
+        eq(horariosAulasTable.ano, Number(ano)),
+        eq(horariosAulasTable.semestre, Number(semestre) as 1 | 2),
+      ))
+      .returning({ id: horariosAulasTable.id });
+    res.json({ removidos: deleted.length });
+  } catch (err) {
+    req.log?.error(err);
+    res.status(500).json({ error: "Erro ao limpar horários." });
+  }
+});
+
 // POST /api/horarios/importar-urania — importação em lote do sistema Urania (JSON)
 const uraniaHorarioSchema = z.object({
   diaSemana:  z.number().int().min(1).max(5),
@@ -212,10 +234,11 @@ const uraniaHorarioSchema = z.object({
 });
 
 const uraniaSchema = z.object({
-  turmaId:  z.string().uuid(),
-  ano:      z.number().int().min(2020).max(2100),
-  semestre: z.union([z.literal(1), z.literal(2)]),
-  horarios: z.array(uraniaHorarioSchema).min(1).max(500),
+  turmaId:      z.string().uuid(),
+  ano:          z.number().int().min(2020).max(2100),
+  semestre:     z.union([z.literal(1), z.literal(2)]),
+  horarios:     z.array(uraniaHorarioSchema).min(1).max(500),
+  limparAntes:  z.boolean().optional().default(false),
 });
 
 router.post("/importar-urania", requirePermissao("horarios:manage"), async (req, res) => {
@@ -229,6 +252,16 @@ router.post("/importar-urania", requirePermissao("horarios:manage"), async (req,
       .where(eq(turmasTable.id, body.turmaId));
 
     if (!turma) return res.status(404).json({ error: "Turma não encontrada." });
+
+    if (body.limparAntes) {
+      await db
+        .delete(horariosAulasTable)
+        .where(and(
+          eq(horariosAulasTable.turmaId, body.turmaId),
+          eq(horariosAulasTable.ano, body.ano),
+          eq(horariosAulasTable.semestre, body.semestre),
+        ));
+    }
 
     // Carrega todas as disciplinas do curso para matching por nome
     const ofertasDB = await db
