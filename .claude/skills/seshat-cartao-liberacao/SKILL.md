@@ -208,7 +208,9 @@ SENÃO:
 ### `carteiras` — semestral
 ```
 tipo = 'cartao-semestral' | status: 'ativa'|'cancelada'|'revogada'
-token: HMAC-SHA256  |  ano + semestre
+token: HMAC-SHA256  |  ano + semestre  |  horario_saida (time)
+cancelado_em / cancelado_por_id  → usado em cancelamento
+revogado_em  / revogado_por_id   → usado em revogação
 ```
 
 ### `cartoes_saida` — diário

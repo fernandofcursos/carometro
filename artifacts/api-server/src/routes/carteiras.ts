@@ -156,7 +156,7 @@ router.post("/:id/revogar", requirePermissao("estudantes:manage"), async (req: R
 
     await db
       .update(carteirasTable)
-      .set({ status: "revogada", canceladoEm: new Date(), canceladoPorId: operadorId, atualizadoEm: new Date() })
+      .set({ status: "revogada", revogadoEm: new Date(), revogadoPorId: operadorId, atualizadoEm: new Date() })
       .where(eq(carteirasTable.id, carteira.id));
 
     res.json({ ok: true });
