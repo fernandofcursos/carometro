@@ -65,6 +65,9 @@ import AeeAnalisePage from "./pages/aee/analise";
 import SoeGestaoPage from "./pages/soe/gestao";
 import SoeAnalisePage from "./pages/soe/analise";
 import SoeEncaminharPage from "./pages/soe/encaminhar";
+import SalaRecursosGestao from "./pages/sala-recursos/gestao";
+import SalaRecursosProfessores from "./pages/sala-recursos/professores";
+import SalaRecursosAnalise from "./pages/sala-recursos/analise";
 
 const queryClient = new QueryClient();
 
@@ -143,6 +146,9 @@ function AppRoutes() {
           <Route path="/soe/gestao" component={SoeGestaoPage} />
           <Route path="/soe/analise" component={SoeAnalisePage} />
           <Route path="/soe/encaminhar" component={SoeEncaminharPage} />
+          <Route path="/sala-recursos/gestao" component={SalaRecursosGestao} />
+          <Route path="/sala-recursos/professores" component={SalaRecursosProfessores} />
+          <Route path="/sala-recursos/analise" component={SalaRecursosAnalise} />
           <Route component={NotFound} />
         </Switch>
       </Layout>

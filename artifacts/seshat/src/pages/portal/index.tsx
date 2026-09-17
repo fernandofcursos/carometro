@@ -739,6 +739,13 @@ export default function PortalEstudantePage() {
     enabled: !!me,
   });
 
+  const { data: srPlanoData } = useQuery<{ plano: { id: string; objetivos: string; estrategias: string; avaliacao: string; prazo: string; status: string; ano: number; semestre: number } | null }>({
+    queryKey: ["sr-portal-plano"],
+    queryFn: () => fetchJson(`${BASE}/api/sala-recursos/portal/plano`),
+    enabled: !!me,
+  });
+  const srPlano = srPlanoData?.plano ?? null;
+
   // Carteira ativa do tipo 'carteira' (prioriza mais recente)
   const carteiraAtiva = carteiras
     .filter((c) => c.tipo === "carteira" && c.status === "ativa")
@@ -811,6 +818,9 @@ export default function PortalEstudantePage() {
           </TabsTrigger>
           <TabsTrigger value="soe" className="flex-1 gap-1.5">
             <HeartHandshake className="w-4 h-4" /> SOE
+          </TabsTrigger>
+          <TabsTrigger value="plano-aee" className="flex-1 gap-1.5">
+            <GraduationCap className="w-4 h-4" /> Plano AEE
           </TabsTrigger>
         </TabsList>
 
@@ -931,6 +941,42 @@ export default function PortalEstudantePage() {
                 </Card>
               ))}
             </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="plano-aee" className="space-y-4 mt-4">
+          {!srPlano ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              <GraduationCap className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              <p>Nenhum Plano de AEE ativo no momento.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                Plano elaborado pela Sala de Recursos Generalista · {srPlano.ano}/{srPlano.semestre}º semestre
+              </div>
+              <div className="grid gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Objetivos</p>
+                    <p className="text-sm">{srPlano.objetivos}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Estratégias</p>
+                    <p className="text-sm">{srPlano.estrategias}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Avaliação</p>
+                    <p className="text-sm">{srPlano.avaliacao}</p>
+                  </CardContent>
+                </Card>
+                <p className="text-xs text-muted-foreground">Prazo: {srPlano.prazo}</p>
+              </div>
+            </div>
           )}
         </TabsContent>
       </Tabs>

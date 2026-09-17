@@ -15,6 +15,7 @@ import {
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
   PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home, Bell, HeartHandshake,
+  BarChart2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -190,6 +191,23 @@ export function AppSidebar() {
         ...(!hasAny("soe:manage") && hasAny("soe:view") ? [nav("Acompanhamento", "/soe/analise", FileText)] : []),
         ...(!hasAny("soe:view") && hasAny("soe:encaminhar") ? [nav("Encaminhamentos", "/soe/encaminhar", ClipboardList)] : []),
       ],
+    }] : []),
+    ...((hasAny("sala_recursos:manage") || hasAny("sala_recursos:view")) ? [{
+      label: "AEE — Sala de Recursos",
+      icon: GraduationCap,
+      color: "#0369a1",
+      bgColor: "#f0f9ff",
+      items: [
+        ...(hasAny("sala_recursos:manage") || hasAny("sala_recursos:view") ? [nav("Gestão", "/sala-recursos/gestao", GraduationCap)] : []),
+        ...(hasAny("sala_recursos:view") ? [nav("Análise", "/sala-recursos/analise", BarChart2)] : []),
+      ],
+    }] : []),
+    ...(hasAny("sala_recursos:professor") ? [{
+      label: "Adequações AEE",
+      icon: GraduationCap,
+      color: "#0369a1",
+      bgColor: "#f0f9ff",
+      items: [nav("Adequações", "/sala-recursos/professores", GraduationCap)],
     }] : []),
     ...(canManageAvisos ? [{
       label: "Avisos e Informes",
