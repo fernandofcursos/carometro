@@ -155,7 +155,7 @@ describe("POST /api/eeaa/laudos — criptografia", () => {
     mockDb.insert.mockReturnValueOnce(makeQuery([{ id: "laudo-uuid-1", tipo: "psicologico", titulo: "Avaliação" }]));
 
     const res = await request(app).post("/api/eeaa/laudos").send({
-      estudanteEeaaId: "00000000-0000-0000-0000-000000000002",
+      estudanteAeeId: "00000000-0000-0000-0000-000000000002",
       tipo: "psicologico",
       titulo: "Avaliação Psicológica",
       conteudo: "Texto confidencial do laudo",

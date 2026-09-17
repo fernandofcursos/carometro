@@ -394,7 +394,7 @@ router.get("/metas/:id/evolucao", eeaaGuard("view"), async (req: any, res) => {
 // ── Sessões ──────────────────────────────────────────────────────────────────
 
 const sessaoSchema = z.object({
-  estudanteEeaaId: z.string().uuid(),
+  estudanteAeeId: z.string().uuid(),
   dataSessao:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   duracaoMin:     z.number().int().positive().optional(),
   local:          z.string().max(100).optional(),
@@ -453,7 +453,7 @@ router.delete("/sessoes/:id", eeaaGuard("manage"), async (req: any, res) => {
 // ── Laudos (acesso restrito + auditoria obrigatória) ─────────────────────────
 
 const laudoSchema = z.object({
-  estudanteEeaaId:  z.string().uuid(),
+  estudanteAeeId:  z.string().uuid(),
   tipo:            z.enum(["psicologico", "psicopedagogico", "fonoaudiologico", "medico", "outro"]),
   titulo:          z.string().min(1).max(200),
   conteudo:        z.string().min(1),
@@ -499,7 +499,7 @@ router.get("/laudos/:id", eeaaGuard("manage"), async (req: any, res) => {
   // Auditoria obrigatória ANTES de descriptografar
   await registrarAuditoriaEeaa({
     req, acao: "READ_LAUDO",
-    estudanteId: laudo.estudanteEeaaId,
+    estudanteId: laudo.estudanteAeeId,
     recursoId:   laudo.id,
     escolaId:    req.escolaId,
   });
@@ -526,7 +526,7 @@ router.post("/laudos", eeaaGuard("manage"), async (req: any, res) => {
 
   await registrarAuditoriaEeaa({
     req, acao: "CREATE_LAUDO",
-    estudanteId: body.data.estudanteEeaaId,
+    estudanteId: body.data.estudanteAeeId,
     recursoId:   novo.id,
     escolaId:    req.escolaId,
   });
@@ -537,12 +537,12 @@ router.delete("/laudos/:id", eeaaGuard("manage"), async (req: any, res) => {
   const [removido] = await withTenant(req.escolaId, async (tx) =>
     tx.update(eeaaLaudosTable).set({ deletadoEm: new Date() })
     .where(and(eq(eeaaLaudosTable.id, req.params.id), eq(eeaaLaudosTable.escolaId, req.escolaId)))
-    .returning({ id: eeaaLaudosTable.id, estudanteEeaaId: eeaaLaudosTable.estudanteEeaaId })
+    .returning({ id: eeaaLaudosTable.id, estudanteAeeId: eeaaLaudosTable.estudanteAeeId })
   );
   if (!removido) return res.status(404).json({ error: "Laudo não encontrado." });
   await registrarAuditoriaEeaa({
     req, acao: "DELETE_LAUDO",
-    estudanteId: removido.estudanteEeaaId,
+    estudanteId: removido.estudanteAeeId,
     recursoId:   removido.id,
     escolaId:    req.escolaId,
   });
@@ -552,7 +552,7 @@ router.delete("/laudos/:id", eeaaGuard("manage"), async (req: any, res) => {
 // ── Liberações ───────────────────────────────────────────────────────────────
 
 const liberacaoSchema = z.object({
-  estudanteEeaaId: z.string().uuid(),
+  estudanteAeeId: z.string().uuid(),
   professorId:    z.string().uuid(),
   verAdaptacoes:  z.boolean().default(true),
   verMetas:       z.boolean().default(false),
@@ -563,7 +563,7 @@ router.get("/liberacoes/:estudanteEeaaId", eeaaGuard("manage"), async (req: any,
   const rows = await withTenant(req.escolaId, async (tx) =>
     tx.select().from(eeaaLiberacoesTable)
     .where(and(
-      eq(eeaaLiberacoesTable.estudanteEeaaId, req.params.estudanteEeaaId),
+      eq(eeaaLiberacoesTable.estudanteAeeId, req.params.estudanteEeaaId),
       eq(eeaaLiberacoesTable.escolaId, req.escolaId),
       isNull(eeaaLiberacoesTable.revogadoEm),
     ))
@@ -579,7 +579,7 @@ router.put("/liberacoes", eeaaGuard("manage"), async (req: any, res) => {
     await tx.update(eeaaLiberacoesTable)
     .set({ revogadoEm: new Date() })
     .where(and(
-      eq(eeaaLiberacoesTable.estudanteEeaaId, body.data.estudanteEeaaId),
+      eq(eeaaLiberacoesTable.estudanteAeeId, body.data.estudanteAeeId),
       eq(eeaaLiberacoesTable.professorId, body.data.professorId),
       eq(eeaaLiberacoesTable.escolaId, req.escolaId),
       isNull(eeaaLiberacoesTable.revogadoEm),
@@ -637,7 +637,7 @@ router.get("/portal/meu-plano", async (req: any, res) => {
   const [plano] = await withTenant(escolaId, async (tx) =>
     tx.select().from(eeaaPlanosTable)
     .where(and(
-      eq(eeaaPlanosTable.estudanteEeaaId, est.id),
+      eq(eeaaPlanosTable.estudanteAeeId, est.id),
       eq(eeaaPlanosTable.status, "vigente"),
     ))
     .orderBy(desc(eeaaPlanosTable.criadoEm))
@@ -665,7 +665,7 @@ router.get("/portal-professor/:estudanteEeaaId", async (req: any, res) => {
   const [lib] = await withTenant(escolaId, async (tx) =>
     tx.select().from(eeaaLiberacoesTable)
     .where(and(
-      eq(eeaaLiberacoesTable.estudanteEeaaId, req.params.estudanteEeaaId),
+      eq(eeaaLiberacoesTable.estudanteAeeId, req.params.estudanteEeaaId),
       eq(eeaaLiberacoesTable.professorId, professorId),
       eq(eeaaLiberacoesTable.escolaId, escolaId),
       isNull(eeaaLiberacoesTable.revogadoEm),
@@ -683,7 +683,7 @@ router.get("/portal-professor/:estudanteEeaaId", async (req: any, res) => {
     const [plano] = await withTenant(escolaId, async (tx) =>
       tx.select({ id: eeaaPlanosTable.id }).from(eeaaPlanosTable)
       .where(and(
-        eq(eeaaPlanosTable.estudanteEeaaId, req.params.estudanteEeaaId),
+        eq(eeaaPlanosTable.estudanteAeeId, req.params.estudanteEeaaId),
         eq(eeaaPlanosTable.status, "vigente"),
       )).limit(1)
     );
@@ -697,7 +697,7 @@ router.get("/portal-professor/:estudanteEeaaId", async (req: any, res) => {
     const [plano] = await withTenant(escolaId, async (tx) =>
       tx.select({ id: eeaaPlanosTable.id }).from(eeaaPlanosTable)
       .where(and(
-        eq(eeaaPlanosTable.estudanteEeaaId, req.params.estudanteEeaaId),
+        eq(eeaaPlanosTable.estudanteAeeId, req.params.estudanteEeaaId),
         eq(eeaaPlanosTable.status, "vigente"),
       )).limit(1)
     );
