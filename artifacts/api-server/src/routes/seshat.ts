@@ -10,6 +10,8 @@ import {
   eq,
   isNull,
   and,
+  or,
+  ilike,
   inArray,
   usuariosTable,
   usuariosRolesTable,
@@ -234,6 +236,10 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
     if (turmaId) condicoes.push(eq(estudantesTable.turmaId, turmaId as string));
     if (cursoId) condicoes.push(eq(turmasTable.cursoId, cursoId as string));
     if (turnoId) condicoes.push(eq(turmaTurnosTable.turnoId, turnoId as string));
+    if (busca) condicoes.push(or(
+      ilike(estudantesTable.nome, `%${busca}%`),
+      ilike(estudantesTable.registro, `%${busca}%`),
+    )!);
 
     const rows = await db
       .select({
@@ -259,14 +265,6 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
       .where(and(...condicoes))
       .orderBy(turnosTable.nome, cursosTable.nome, turmasTable.sigla, estudantesTable.nome);
 
-    // Filtro de busca em memória
-    const filtrados = busca
-      ? rows.filter((r) =>
-          r.nome.toLowerCase().includes((busca as string).toLowerCase()) ||
-          r.registro.includes(busca as string)
-        )
-      : rows;
-
     // Descriptografar fotos e agrupar por turma
     // (JOIN com turmaTurnosTable pode gerar linhas duplicadas por estudante se turma tiver N turnos)
     const turmaMap = new Map<string, {
@@ -276,7 +274,7 @@ router.get("/", requirePermissao("carometro:view"), async (req: Request, res: Re
       estudantes: Map<string, { id: string; nome: string; registro: string; dataNascimento: string | null; fotoUrl: string | null }>;
     }>();
 
-    for (const r of filtrados) {
+    for (const r of rows) {
       const tid = r.turmaId;
       if (!turmaMap.has(tid)) {
         turmaMap.set(tid, {

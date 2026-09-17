@@ -318,7 +318,12 @@ router.post("/:id/foto", requirePermissao("estudantes:manage"), async (req: Requ
 
     const [estudante] = await db
       .update(estudantesTable)
-      .set({ fotoId: fotoRow.id, atualizadoEm: new Date() })
+      .set({
+        fotoId: fotoRow.id, atualizadoEm: new Date(),
+        // Nullifica colunas legadas ao migrar para fotosTable
+        fotoStorageKey: null, fotoIv: null, fotoMimeType: null,
+        fotoTamanhoBytes: null, fotoHashIntegridade: null, fotoDados: null,
+      })
       .where(eq(estudantesTable.id, estudanteId))
       .returning({ id: estudantesTable.id, usuarioId: estudantesTable.usuarioId });
 
