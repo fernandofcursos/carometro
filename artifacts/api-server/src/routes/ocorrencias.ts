@@ -63,18 +63,13 @@ async function getEstudanteMenorDeIdade(estudanteId: string): Promise<boolean> {
 }
 
 async function usuarioTemRole(usuarioId: string, roleName: string): Promise<boolean> {
-  const [role] = await db
-    .select({ id: rolesTable.id })
-    .from(rolesTable)
-    .where(eq(rolesTable.nome, roleName))
-    .limit(1);
-  if (!role) return false;
-  const [ur] = await db
+  const [row] = await db
     .select({ usuarioId: usuariosRolesTable.usuarioId })
     .from(usuariosRolesTable)
-    .where(and(eq(usuariosRolesTable.usuarioId, usuarioId), eq(usuariosRolesTable.roleId, role.id)))
+    .innerJoin(rolesTable, eq(rolesTable.id, usuariosRolesTable.roleId))
+    .where(and(eq(usuariosRolesTable.usuarioId, usuarioId), eq(rolesTable.nome, roleName)))
     .limit(1);
-  return !!ur;
+  return !!row;
 }
 
 // ── Helper: busca campos completos de uma ocorrência ─────────────────────────
@@ -124,9 +119,10 @@ async function buscarDadosEmail(ocorrenciaId: string, estudanteId: string) {
 
   const [ocorr] = await db
     .select({
-      tipoDescricao:  tiposOcorrenciasTable.descricao,
-      dataOcorrencia: ocorrenciasTable.dataOcorrencia,
-      observacao:     ocorrenciasTable.observacao,
+      tipoOcorrenciaId: ocorrenciasTable.tipoOcorrenciaId,
+      tipoDescricao:    tiposOcorrenciasTable.descricao,
+      dataOcorrencia:   ocorrenciasTable.dataOcorrencia,
+      observacao:       ocorrenciasTable.observacao,
     })
     .from(ocorrenciasTable)
     .leftJoin(tiposOcorrenciasTable, eq(ocorrenciasTable.tipoOcorrenciaId, tiposOcorrenciasTable.id))
@@ -160,13 +156,8 @@ async function enviarParaEmails(
   if (!emails.length) return 0;
   const { est, ocorr } = await buscarDadosEmail(ocorrenciaId, estudanteId);
 
-  // Busca texto padrão do tipo de ocorrência, se existir
-  const textoPadrao = ocorr
-    ? await buscarTextoPadrao(
-        (await db.select({ tipoOcorrenciaId: ocorrenciasTable.tipoOcorrenciaId })
-          .from(ocorrenciasTable).where(eq(ocorrenciasTable.id, ocorrenciaId)).limit(1)
-        )[0]?.tipoOcorrenciaId ?? ""
-      )
+  const textoPadrao = ocorr?.tipoOcorrenciaId
+    ? await buscarTextoPadrao(ocorr.tipoOcorrenciaId)
     : null;
 
   let enviados = 0;
