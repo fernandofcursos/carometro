@@ -10,7 +10,7 @@ const TTL_MS = 60_000; // 60 segundos
 type PermEntry = { permissoes: string[]; expiraEm: number };
 const permCache = new Map<string, PermEntry>();
 
-async function buscarPermissoes(usuarioId: string): Promise<string[]> {
+export async function buscarPermissoes(usuarioId: string): Promise<string[]> {
   const cached = permCache.get(usuarioId);
   if (cached && Date.now() < cached.expiraEm) return cached.permissoes;
 

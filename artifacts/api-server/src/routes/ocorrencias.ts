@@ -4,10 +4,11 @@ import {
   db, ocorrenciasTable, tiposOcorrenciasTable, estudantesTable,
   disciplinasTable, turnosTable, usuariosTable, estudanteEmailsTable,
   rolesTable, usuariosRolesTable, textosPadraoOcorrenciasTable,
+  responsaveisEstudantesTable,
   eq, isNull, and,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
-import { requirePermissao } from "../lib/permissions.js";
+import { requirePermissao, buscarPermissoes } from "../lib/permissions.js";
 import { registrarAuditoria } from "../lib/audit.js";
 import { enviarEmailOcorrencia } from "../lib/mailer.js";
 
@@ -291,6 +292,38 @@ router.get("/", requirePermissao("ocorrencias:view"), async (req: Request, res: 
 
 router.get("/estudante/:estudanteId", async (req: Request, res: Response) => {
   try {
+    const estudanteId = String(req.params.estudanteId);
+    const usuarioId   = req.usuarioId!;
+
+    // Verifica propriedade: estudante só acessa seus próprios dados;
+    // pai/responsável deve estar vinculado via responsaveis_estudantes.
+    const isEstudanteRole = await usuarioTemRole(usuarioId, "estudante");
+    if (isEstudanteRole) {
+      const [estudante] = await db
+        .select({ id: estudantesTable.id })
+        .from(estudantesTable)
+        .where(and(eq(estudantesTable.usuarioId, usuarioId), eq(estudantesTable.id, estudanteId), isNull(estudantesTable.deletadoEm)))
+        .limit(1);
+      if (!estudante) return res.status(403).json({ error: "Acesso negado." });
+    } else {
+      // Pai/responsável ou outro — verifica vínculo
+      const [vinculo] = await db
+        .select({ id: responsaveisEstudantesTable.id })
+        .from(responsaveisEstudantesTable)
+        .where(and(
+          eq(responsaveisEstudantesTable.usuarioId, usuarioId),
+          eq(responsaveisEstudantesTable.estudanteId, estudanteId),
+        ))
+        .limit(1);
+      if (!vinculo) {
+        // Não é responsável vinculado — verifica se tem permissão de staff
+        const perms = await buscarPermissoes(usuarioId);
+        if (!perms.includes("ocorrencias:view")) {
+          return res.status(403).json({ error: "Acesso negado." });
+        }
+      }
+    }
+
     const ocorrencias = await db
       .select({
         id:               ocorrenciasTable.id,
@@ -312,7 +345,7 @@ router.get("/estudante/:estudanteId", async (req: Request, res: Response) => {
       .leftJoin(turnosTable,           eq(ocorrenciasTable.turnoId,           turnosTable.id))
       .where(and(
         isNull(ocorrenciasTable.deletadoEm),
-        eq(ocorrenciasTable.estudanteId, String(req.params.estudanteId)),
+        eq(ocorrenciasTable.estudanteId, estudanteId),
       ))
       .orderBy(ocorrenciasTable.dataOcorrencia);
     res.json(ocorrencias);
@@ -437,14 +470,41 @@ router.post("/:id/ciente", async (req: Request, res: Response) => {
     if (!existente) return res.status(404).json({ error: "Ocorrência não encontrada." });
     if (existente.cienteEm) return res.status(409).json({ error: "Ciência já registrada." });
 
-    // Estudante menor de idade não pode dar ciência — deve ser o pai/responsável
-    const isEstudante = await usuarioTemRole(req.usuarioId!, "estudante");
+    const usuarioId = req.usuarioId!;
+
+    // Estudante só pode dar ciência das próprias ocorrências e se for maior de idade
+    const isEstudante = await usuarioTemRole(usuarioId, "estudante");
     if (isEstudante) {
+      const [estudante] = await db
+        .select({ id: estudantesTable.id })
+        .from(estudantesTable)
+        .where(and(eq(estudantesTable.usuarioId, usuarioId), eq(estudantesTable.id, existente.estudanteId), isNull(estudantesTable.deletadoEm)))
+        .limit(1);
+      if (!estudante) return res.status(403).json({ error: "Acesso negado." });
+
       const menor = await getEstudanteMenorDeIdade(existente.estudanteId);
       if (menor) {
         return res.status(403).json({
           error: "Estudante menor de idade não pode registrar ciência. A ciência deve ser feita pelo pai ou responsável.",
         });
+      }
+    } else {
+      // Pai/responsável deve estar vinculado ao estudante da ocorrência
+      const isPai = await usuarioTemRole(usuarioId, "pai_responsavel");
+      if (isPai) {
+        const [vinculo] = await db
+          .select({ id: responsaveisEstudantesTable.id })
+          .from(responsaveisEstudantesTable)
+          .where(and(
+            eq(responsaveisEstudantesTable.usuarioId, usuarioId),
+            eq(responsaveisEstudantesTable.estudanteId, existente.estudanteId),
+          ))
+          .limit(1);
+        if (!vinculo) return res.status(403).json({ error: "Acesso negado." });
+      } else {
+        // Staff com ocorrencias:view pode também dar ciência? Não — ciência é ato do responsável/estudante.
+        // Qualquer outro perfil é bloqueado.
+        return res.status(403).json({ error: "Apenas o estudante ou seu responsável pode registrar ciência." });
       }
     }
 
