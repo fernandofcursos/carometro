@@ -50,12 +50,14 @@ function descriptografarArquivo(iv: string, dados: Buffer): Buffer {
 ## Token do Cartão de Saída
 
 ```typescript
-function gerarTokenCartaoSaida(id: string, estudanteId: string, dataSaida: Date | string): string {
-  const secret = process.env.SESSION_SECRET!;
-  const payload = `cartao_saida:${id}:${estudanteId}:${dataSaida}:${Date.now()}`;
-  const assinatura = createHmac("sha256", secret).update(payload).digest("hex");
-  return Buffer.from(JSON.stringify({ payload, assinatura })).toString("base64url");
+// HMAC_KEY = process.env.SESSION_SECRET ?? "carometro-secret"
+function gerarTokenCartaoSaida(cartaoId: string, estudanteId: string, dataSaida: string): string {
+  const payload = JSON.stringify({ cartaoId, estudanteId, dataSaida, ts: Date.now() });
+  const encoded = Buffer.from(payload).toString("base64url");
+  const sig     = createHmac("sha256", HMAC_KEY).update(encoded).digest("base64url");
+  return `${encoded}.${sig}`;
 }
+// Formato: "<base64url-payload>.<base64url-assinatura>"
 ```
 
 ## Upload de Atestado (Frontend)
@@ -64,10 +66,19 @@ function gerarTokenCartaoSaida(id: string, estudanteId: string, dataSaida: Date 
 // Converter arquivo para base64 via FileReader
 const reader = new FileReader();
 reader.onload = (e) => {
-  const base64 = (e.target?.result as string).split(",")[1]; // remover prefixo data:...;base64,
-  // enviar { estudanteId, dataInicio, dataFim?, arquivo: { nome, tipo, dados: base64 } }
+  const base64 = e.target?.result as string; // data URL completa (mantém prefixo data:...;base64,)
+  arquivo = { nome: file.name, base64 };     // o backend extrai o dado via regex
 };
-reader.readAsDataURL(arquivo);
+reader.readAsDataURL(file);
+
+// Payload enviado (campos flat — não nested):
+postJson(`${BASE}/api/portal-responsavel/atestado`, {
+  estudanteId,
+  dataInicio,
+  dataFim: dataFim || undefined,
+  nomeArquivo: arquivo.nome,
+  arquivoBase64: arquivo.base64,   // data URL completa; backend tolera ambos os formatos
+});
 ```
 
 ## Estrutura da Página
@@ -75,19 +86,23 @@ reader.readAsDataURL(arquivo);
 ```
 PortalResponsavelPage  (/portal-responsavel — "Meus Filhos")
 ├── Cabeçalho: foto + nome do responsável + contagem de filhos
-└── Accordion (type="multiple") — todos os filhos visíveis simultaneamente:
-    └── [AccordionItem por estudante]
-        ├── Header: foto + nome + turma + curso
-        └── Tabs:
-            ├── DadosEstudanteTab — matrícula + carteira de estudante com QR
-            ├── OcorrenciasTab — lista + dar ciência (sem restrição de idade)
-            ├── CartaoSaidaTab — form de solicitação + lista com QR se aprovado
-            └── AtestadosTab — upload + lista + download
+├── Accordion (type="multiple") — todos os filhos visíveis simultaneamente:
+│   └── [AccordionItem por estudante]
+│       ├── Header: foto + nome + turma + curso
+│       └── Tabs:
+│           ├── DadosEstudanteTab — matrícula + carteira de estudante com QR
+│           ├── OcorrenciasTab — lista + dar ciência (sem restrição de idade)
+│           ├── CartaoLiberacaoTab — duas sub-abas (Semestral / Diário);
+│           │   cartão diário solicitado via Requerimentos (não há form inline)
+│           └── AtestadosTab — upload + lista + download
+├── AvisosWidget (perfil="pai_responsavel", limite=5)
+└── CardapioWidget
 ```
 
 - **Não há Select de seleção** — todos os filhos aparecem ao mesmo tempo
 - Primeiro filho aberto por padrão (`openItems = [estudantes[0].id]`)
 - Estudantes não enturmados (`turmaId = null`) aparecem com "Não enturmado"
+- `CartaoLiberacaoTab` exibe cartões semestral e diário no mesmo modelo visual CIE do portal do estudante; o endpoint `POST /api/portal-responsavel/cartao-saida` existe no backend mas **não é chamado pelo frontend** — o fluxo de solicitação passou para Requerimentos
 
 ## Armadilhas
 
@@ -148,8 +163,20 @@ const vinculo = await db
     eq(responsaveisEstudantesTable.usuarioId, responsavelId),
     eq(responsaveisEstudantesTable.estudanteId, estudanteId),
   ));
-if (!vinculo.length) return res.status(403).json({ error: "Sem vínculo com este estudante." });
+// Desestruturação de item único — não usa .length
+const [vinculo] = await db.select()...
+if (!vinculo) return res.status(403).json({ error: "Acesso negado." });
+// POST /cartao-saida e GET /ocorrencias/:estudanteId usam "Acesso negado a este estudante."
 ```
+
+## GET /api/portal-responsavel/dashboard
+
+Retorna `{ hoje, diaSemana, estudantes[] }` onde cada estudante inclui:
+- `agenda[]` — horários da semana atual (da tabela `horarios_aulas`; `agendaDisponivel: false` se a tabela não existir)
+- `ocorrencias.resumo[]` — ocorrências agrupadas por `tipoDescricao` com contagem
+- `ocorrencias.totalGeral` — total de ocorrências do estudante
+
+Usado pelo `DashboardResponsavel` (`/dashboard`) — não é o portal `/portal-responsavel`, mas o componente compartilha a mesma rota de API.
 
 ## Arquivos-chave
 
