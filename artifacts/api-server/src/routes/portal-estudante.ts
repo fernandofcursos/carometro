@@ -140,15 +140,7 @@ router.get("/ocorrencias", async (req: Request, res: Response) => {
   try {
     const usuarioId = req.usuarioId!;
 
-    // Buscar estudanteId vinculado ao usuário
-    const estRows = await db
-      .select({ id: matriculasTable.usuarioId })
-      .from(matriculasTable)
-      .where(eq(matriculasTable.usuarioId, usuarioId))
-      .limit(1);
-
     // Buscar ocorrências via estudante_id = estudante.id onde estudante.usuario_id = eu
-    // Precisamos do estudante na tabela estudantes
     const { estudantesTable } = await import("@workspace/db");
     const [est] = await db
       .select({ id: estudantesTable.id })

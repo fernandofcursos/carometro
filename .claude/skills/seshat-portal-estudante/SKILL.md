@@ -64,9 +64,15 @@ Ocorrências vinculadas via `estudantes.usuario_id`. Inclui `cienteEm` e `ciente
 - 403 se ocorrência não pertence ao estudante
 - 409 se já tem ciência
 
-### GET /api/portal/carteira
-Retorna a Carteira do Estudante ativa (`tipo = 'carteira'`) com token HMAC-SHA256.
+### GET /api/portal/carteiras
+Retorna **todas** as carteiras do estudante logado (todos os tipos e status). A UI filtra `status === 'ativa'` no frontend para exibir a carteira de estudante, e filtra `tipo === 'cartao-semestral'` para o cartão semestral. Revalida a cada **30s** (`refetchInterval: 30_000`).
 O Cartão de Liberação Semestral (`tipo = 'cartao-semestral'`) é um documento separado, emitido manualmente pelo coordenador após pedido formal — nunca automático.
+
+### GET /api/portal/cartoes-saida
+Cartões diários `aprovados` do estudante logado. Revalida a cada **30s** (`refetchInterval: 30_000`).
+
+### GET /api/portal/dashboard
+Retorna `{ hoje, diaSemana, ocorrencias[], agendaDisponivel, agenda[] }` com os horários da semana atual. O frontend **não consome este endpoint atualmente** — o dashboard do estudante usa `/api/portal/me` e queries separadas. Quando a tabela `horarios_aulas` não existir, retorna `agendaDisponivel: false`.
 
 ### GET /api/verificar/:token (público)
 Verifica cartão sem autenticação. Retorna `{ valido, tipo, validade, nome, fotoUrl, emitidoEm }`.
@@ -205,6 +211,19 @@ function dentroJanelaHorario(dataSaida: string, horarioSaida: string | null): bo
 
 ### QR Code
 Lido pelo app Seshat para validar saída e registrar ocorrência de saída antecipada automaticamente.
+
+## Abas do Portal (`/portal`)
+
+O portal possui 6 abas:
+
+| Aba | Chave | Endpoint(s) |
+|---|---|---|
+| Matrículas / Disciplinas | `matriculas` | `GET /api/portal/me` |
+| Ocorrências | `ocorrencias` | `GET /api/portal/ocorrencias` |
+| Carteira | `carteira` | `GET /api/portal/carteiras` |
+| Cartão de Liberação | `cartao-liberacao` | `GET /api/portal/carteiras` + `GET /api/portal/cartoes-saida` |
+| Atendimentos SOE | `soe` | `GET /api/soe/portal/meus-atendimentos` + `GET /api/soe/portal/minhas-acoes` |
+| Plano AEE | `plano-aee` | `GET /api/sala-recursos/portal/plano` |
 
 ## OcorrenciasTab — padrão de ciência
 
