@@ -31,10 +31,11 @@ Módulo para digitalizar o trabalho da Orientação Educacional (OE) em cursos t
 | GET/PUT/DELETE | `/api/soe/atendimentos/:id` | manage |
 | GET/POST | `/api/soe/encaminhamentos` | encaminhar+ |
 | PUT | `/api/soe/encaminhamentos/:id/status` | manage |
-| GET/POST | `/api/soe/acoes` | encaminhar+ |
+| GET/POST | `/api/soe/acoes` | view+ (POST usa `soeGuard("view")` — encaminhar pode criar; ações individuais requerem `soe:manage` em check adicional) |
 | PUT | `/api/soe/acoes/:id/status` | responsável ou manage |
 | DELETE | `/api/soe/acoes/:id` | manage |
-| GET/POST/PUT | `/api/soe/estudos-de-caso` | view/manage |
+| GET | `/api/soe/estudos-de-caso` | view+ |
+| POST/PUT | `/api/soe/estudos-de-caso` | manage |
 | GET | `/api/soe/portal/meus-atendimentos` | self |
 | GET | `/api/soe/portal/minhas-acoes` | self |
 | GET | `/api/soe/auditoria` | manage |
