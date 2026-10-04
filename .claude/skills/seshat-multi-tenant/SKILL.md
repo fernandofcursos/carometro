@@ -15,7 +15,7 @@ Todas as demais: `usuarios`, `estudantes`, `matriculas`, `turmas`, `ocorrencias`
 ## Middleware
 
 ```typescript
-// artifacts/api-server/src/middleware/tenant.ts
+// Em uma rota (ex: artifacts/api-server/src/routes/alguma-rota.ts):
 import { withTenant, withSuperAdmin, requireTenant } from "../middleware/tenant.js";
 
 // Em rotas normais:
@@ -30,14 +30,30 @@ await withTenant(req.escolaId!, async (tx) => {
 ## JWT com escolaId
 
 ```typescript
-// Payload do JWT inclui escolaId
+// Payload do JWT
 interface JWTPayload {
-  sub: string;     // usuarioId
-  escolaId: string; // tenant
+  sub: string;          // usuarioId
+  escolaId?: string;    // tenant — OPCIONAL (pode estar ausente em tokens antigos)
+  roles: string[];      // array de nomes de role
   iat: number;
   exp: number;
 }
 ```
+
+> **`escolaId` é opcional no JWT** — código que o usa deve tratar ausência (ex.: superadmin sem escola).
+> **`roles` não está documentado em outros SKILLs**: vem no JWT mas não é confiável para autorização granular — sempre usar `buscarRoles(usuarioId)` de `lib/permissions.ts` para queries que exigem precisão (TTL 60s).
+
+## withSuperAdmin e withTenant
+
+```typescript
+// withSuperAdmin: seta app.is_super_admin = 'true' → RLS permite todas as linhas
+await withSuperAdmin(async (tx) => { ... });
+
+// withTenant: seta app.is_super_admin = 'false' (explícito) + app.tenant_id = escolaId
+await withTenant(req.escolaId!, async (tx) => { ... });
+```
+
+`requireTenant` também escreve em `res.locals.escolaId` (além de `req.escolaId`) para acesso em middlewares subsequentes.
 
 ## Migração
 

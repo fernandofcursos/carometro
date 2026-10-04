@@ -21,9 +21,9 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 | **Até 2 matrículas ativas** | Estudante pode ter **no máximo 2 matrículas ativas** no mesmo curso. |
 | **Proibido cursos diferentes** | Se já existe matrícula ativa, a nova turma deve pertencer ao mesmo curso. → 422 se curso diferente. |
 | **Segunda enturmação: módulo inferior** | A segunda enturmação deve ser em **módulo numericamente inferior** ao módulo da turma já matriculada. Ex.: já está em Módulo II → pode adicionar Módulo I; não pode adicionar Módulo II ou III. Verificado comparando `turmas.modulo` (romano). → 422 se módulo ≥ existente. |
-| **Módulo inferior — máx. 3 disciplinas** | Quando enturmado em módulo inferior como segunda enturmação, o estudante pode cursar **no máximo 3 disciplinas** desse módulo. UI força modo checkbox com limite; label "Disciplinas (módulo inferior — máx. 3)". |
-| **Turno diferente — verificado na matrícula** | O conflito de turno é verificado na **matrícula** (`turnoId`). A API resolve o `turnoEfetivo` da nova matrícula e rejeita se já existe matrícula ativa com o mesmo turno (`turnoEfetivo === mat.turnoId`). → 422 "Este estudante já está enturmado na turma '&lt;sigla&gt;' neste turno." |
-| **Módulo menor (flag de curso) — max 3 disciplinas** | Cursos com `moduloMenor = true` limitam a seleção a **3 disciplinas por turno**. Validado na API (PUT usuario-disciplinas) e reforçado na UI. |
+| **Módulo inferior — máx. 3 disciplinas** | Quando enturmado em módulo inferior como segunda enturmação (`moduloInferiorSecundario=true`), o estudante pode cursar **no máximo 3 disciplinas**. UI força modo checkbox com limite; label `"Disciplinas (módulo inferior — máx. 3)"`. |
+| **Turno diferente — verificado na matrícula** | A segunda enturmação deve ser em turno diferente do módulo principal. Verificado via `turnoId` da matrícula existente no POST/PATCH. → 422: `"O estudante já está enturmado neste turno (turma <sigla>). A segunda enturmação deve ser em turno diferente do módulo principal."` |
+| **Módulo menor (flag de curso) — max 3 disciplinas** | Cursos com `moduloMenor = true` limitam a seleção a **3 disciplinas por turno**. Validado na API (PUT usuario-disciplinas) e reforçado na UI; label `"Disciplinas (módulo menor)"`. |
 | **Módulo maior — 1 ou todas** | Cursos com `moduloMenor = false` exigem que o estudante curse **uma única disciplina ou todas** do turno. Seleção parcial → 422. |
 | **Registro** | varchar(20), somente dígitos, fornecido externamente |
 | **Visibilidade** | A página lista **todos os estudantes** — com ou sem matrícula ativa |
@@ -31,10 +31,11 @@ Não há item "Estudantes" separado neste grupo — a página de enturmação É
 ### Comparação de Módulos (Roman → Int)
 
 ```typescript
-const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8 };
+const ROMANOS: Record<string, number> = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8, IX:9, X:10 };
 function moduloNumerico(m: string | null | undefined): number {
   if (!m) return 0;
-  return ROMANOS[m.toUpperCase().trim()] ?? parseInt(m ?? "", 10) || 0;
+  const up = m.toUpperCase().trim();
+  return ROMANOS[up] ?? (parseInt(m, 10) || 0);
 }
 // moduloNumerico("I") → 1, moduloNumerico("II") → 2
 // Ambos devem ser > 0 para que a validação seja aplicada (se um é nulo, permite)
@@ -62,9 +63,10 @@ matriculasTable: {
   id, usuarioId (FK → usuarios, restrict),
   turmaId (FK → turmas, restrict),
   turnoId (FK → turnos, set null),  // turno ESPECÍFICO do estudante nesta matrícula
+  escolaId (FK → escolas, restrict, nullable),
   registro (varchar 20, NOT NULL),
   ano (integer NOT NULL), semestre (smallint NOT NULL, CHECK IN (1,2)),
-  ativo (boolean, default true),
+  ativo (boolean NOT NULL, default true),
   criadoEm, atualizadoEm, deletadoEm
   UNIQUE (usuarioId, turmaId) WHERE deletadoEm IS NULL  → "uq_matricula_usuario_turma"
 }
@@ -77,8 +79,8 @@ matriculasTable: {
 
 ### Exibição do Turno na Tabela
 ```typescript
-// Mostrar turno específico (turnoNome) ou fallback para todos os turnos da turma
-{m.turnoNome ?? m.turnos.map(t => t.nome).join(", ") || "—"}
+// Mostrar turno específico; "—" se não definido — NUNCA exibe todos os turnos da turma
+{m.turnoNome ?? "—"}
 ```
 
 ## GET /api/matriculas — query
@@ -119,9 +121,8 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 3. Resolve usuário (por usuarioId ou email; cria se não existir)
 4. getOrCreateEstudanteRoleId() — cria a role 'estudante' automaticamente se ausente
 5. Atribui role 'estudante' ao usuário (INSERT ON CONFLICT skip)
-6. Verifica regras de negócio (cursoId, limite 2 matrículas, mesmo turno) — 422 se violado
-7. INSERT matriculas
-8. Sincroniza estudantes (try/catch tolerante a falha)
+6. INSERT matriculas (unicidade garantida pelo índice parcial uq_matricula_usuario_turma → 23505 → 409)
+7. Sincroniza estudantes (try/catch tolerante a falha)
 ```
 
 ## Tratamento de Erros — `matriculaErrorMessage(err)`
@@ -133,17 +134,18 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 | ZodError `registro` | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes. Remova a enturmação atual primeiro." |
-| Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
-| Mesmo turno (app-level) | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente do módulo principal." |
-| Módulo menor > 3 disciplinas/turno | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
-| Módulo maior — seleção parcial | 422 | "Módulo maior: selecione uma ou todas as disciplinas do turno." |
+| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso "${cursoNome}". Não é possível enturmar em cursos diferentes. Remova a enturmação atual primeiro." |
+| Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso "${cursoNome}" (limite máximo). Remova uma enturmação antes de adicionar outra." |
+| Mesmo turno POST (app-level) | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente do módulo principal." |
+| Mesmo turno PATCH (app-level) | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente." |
+| Módulo menor > 2 disciplinas | 422 | "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso." — validado em `PUT /api/usuario-disciplinas` (não em `matriculaErrorMessage`) |
 | 23505 + uq_matricula_usuario_turma | 409 | "Este estudante já está matriculado nesta turma." |
 | 23505 genérico | 409 | "Este estudante já está enturmado nesta turma neste período." |
-| 23503 (FK) | 400 | "Turma ou estudante inválidos." |
-| 23502 (NOT NULL) | 400 | "Dados obrigatórios não informados." |
-| 42703 (coluna inexistente) | 500 | "Erro de schema no banco. Execute as migrações." |
-| Outros | 500 | "Erro interno ao salvar a enturmação. [code=X detalhe]" (dev only) |
+| 23503 (FK) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |
+| 23502 (NOT NULL) | 400 | "Dados obrigatórios não informados. Verifique turma, registro, ano e semestre." |
+| 42703 (coluna inexistente) | 500 | "Erro de schema no banco de dados. Execute as migrações pendentes." |
+| Outros (produção) | 500 | "Erro interno ao salvar a enturmação. Tente novamente." |
+| Outros (dev) | 500 | "Erro interno ao salvar a enturmação. [code=X detalhe]" |
 
 ## Frontend (`artifacts/seshat/src/pages/enturmacao/index.tsx`)
 
@@ -152,7 +154,7 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 - `EnturmarForm`: formulário em cascata Curso→Módulo→Turma→Turno→Disciplinas; suporta POST (novo) e PATCH (edição)
 - `DisciplinasSeletor`: seletor de disciplinas por módulo menor/maior
 - Remoção via AlertDialog com 3 botões (Cancelar/Não/Sim)
-- `apiMsg(err, fallback)`: extrai `err.data?.error` para exibir no toast
+- `apiMsg(err, fallback)`: extrai mensagem de erro para toast — trata `ApiError` (`.data.error`), `Error` genérico (`.data?.error` → `.message`) e retorna `fallback` se nenhum
 
 ### EstudanteCard — tabela de enturmações
 
@@ -172,6 +174,8 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 
 Ordem correta dentro do componente:
 ```
+modulosDisponiveis (useMemo)      ← usado antes de turmaAtual na cascata
+turmasFiltradas (useMemo)         ← filtradas por cursoId + modulo
 turmaAtual (useMemo)
 moduloInferiorSecundario (useMemo)
 turnosOcupados (useMemo)
@@ -222,9 +226,10 @@ const modulosDisponiveis = useMemo(() => {
 ### AlertDialog de exclusão — 3 botões
 
 ```typescript
-<Button onClick={() => { setDeleteTarget(null); setOpen(false); }}>Cancelar</Button>  // fecha + colapsa
-<Button onClick={() => setDeleteTarget(null)}>Não</Button>                           // fecha apenas
-<Button onClick={handleDelete}>Sim</Button>                                          // deleta
+<Button onClick={() => { setDeleteTarget(null); setExpanded(false); }}>Cancelar</Button>  // fecha + colapsa accordion
+<Button onClick={() => setDeleteTarget(null)}>Não</Button>                                // fecha apenas
+<Button variant="destructive" disabled={excluir.isPending}
+  onClick={handleDelete}>{excluir.isPending ? "Removendo…" : "Sim, remover"}</Button>
 ```
 
 ## Cópia de senha — tratamento de erro obrigatório
@@ -247,5 +252,5 @@ navigator.clipboard.writeText(senhaGerada)
 | `artifacts/seshat/src/pages/enturmacao/index.tsx` | UI accordion |
 | `artifacts/seshat/src/App.tsx` | Rota `/enturmacao` |
 | `artifacts/seshat/src/components/layout.tsx` | Menu |
-| `scripts/migrate-matriculas.sql` | DDL da tabela |
+| `scripts/migrate-matriculas.sql` + `scripts/migrate-matriculas-turno.sql` | DDL da tabela e campo turnoId |
 | `.specs/features/enturmacao.md` | Spec completa |

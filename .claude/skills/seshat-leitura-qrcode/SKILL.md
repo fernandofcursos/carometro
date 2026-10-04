@@ -1,5 +1,10 @@
 # Skill: Leitura de QR Code — Carteira e Cartão de Liberação
 
+> ⚠️ **FEATURE NÃO IMPLEMENTADA** — Este SKILL.md é uma spec de design.
+> Arquivos que **existem**: `scripts/migrate-leitura-qrcode.sql` (SQL de migração).
+> Arquivos que **NÃO existem** ainda: `artifacts/api-server/src/routes/leitura-qr.ts`, `artifacts/api-server/src/lib/ocorrencia-helper.ts`, `artifacts/seshat/src/pages/leitura-qr/index.tsx`.
+> Os campos `lidoEm`/`lidoPorId` no SQL de migração **não estão** nos schemas Drizzle de `carteiras.ts`, `cartoes-saida.ts`.
+
 ## Spec de referência
 `.specs/features/leitura-qrcode.md`
 

@@ -9,9 +9,11 @@ Feature de importação em lote de disciplinas e suas ofertas no Seshat.
 ## Template CSV
 
 ```csv
-nome,cursoNome,turnoNome,ativo
-Programação Web,Técnico em Informática,Manhã,true
+nome,sigla,codigoModulacao,cursoNome,turnoNome,ativo
+Programação Web,PROGWEB,PROGWEB01,Técnico em Informática,Manhã,true
 ```
+
+- `sigla` e `codigoModulacao` são opcionais no CSV — omitidos, fazem fallback para `nome.substring(0,20)` e `nome.substring(0,50)` respectivamente
 
 ## Arquivos-chave
 
@@ -23,14 +25,14 @@ Programação Web,Técnico em Informática,Manhã,true
 
 ## Regras
 
-1. Upsert disciplina por `nome` — `onConflictDoNothing`, depois select pelo nome
+1. Upsert disciplina por `nome` — `onConflictDoNothing`, depois select pelo nome (case-sensitive — nomes com casing diferente criam duplicatas)
 2. Lookup `cursoId` por `cursoNome` (case-insensitive)
 3. Lookup `turnoId` por `turnoNome` (case-insensitive)
 4. Upsert em `disciplina_ofertas` pelo índice `uq_disciplina_oferta` (disciplinaId, cursoId, turnoId)
 
 ## Dependências em Ordem
 
-Cursos e turnos devem existir antes de importar disciplinas.
+Ordem na UI: **Cursos → Disciplinas → Professores → Turmas → Estudantes**. Cursos e turnos devem existir antes de importar disciplinas.
 
 ## Casos de Uso Comuns
 

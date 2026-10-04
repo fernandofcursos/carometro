@@ -27,6 +27,7 @@ disciplinaOfertasTable: {
   cursoId (FK → cursos, cascade delete),
   turnoId (FK → turnos, cascade delete),
   ativo (boolean, default true)
+  criadoEm (timestamptz, defaultNow, notNull)
   UNIQUE (disciplinaId, cursoId, turnoId)
 }
 ```
@@ -37,7 +38,18 @@ Atribuída ao role `administrador` via `seedPermissoes`.
 
 **Menu não aparece?** Executar `docker compose run --rm dev db:seed` para sincronizar.
 
-## GET /api/disciplinas — estrutura de resposta
+## Endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/disciplinas` | Lista todas com `ofertas[]` |
+| GET | `/api/disciplinas/:id` | Detalhe com `ofertas[]`; 404 se não encontrada |
+| POST | `/api/disciplinas` | Cria disciplina |
+| PUT | `/api/disciplinas/:id` | Edita disciplina |
+| DELETE | `/api/disciplinas/:id` | Hard delete com cascade em `disciplina_ofertas` + auditoria |
+| PUT | `/api/disciplinas/:id/ofertas` | Substitui ofertas completamente |
+
+### GET /api/disciplinas — estrutura de resposta
 
 ```typescript
 Array<{
@@ -46,7 +58,7 @@ Array<{
 }>
 ```
 
-## POST / PUT /api/disciplinas — body
+### POST / PUT /api/disciplinas — body
 
 ```typescript
 { nome: string; sigla: string; codigoModulacao: string }
@@ -54,10 +66,14 @@ Array<{
 
 Todos os três campos são **obrigatórios**.
 
-## PUT /api/disciplinas/:id/ofertas
+### PUT /api/disciplinas/:id/ofertas
 
 ```typescript
+// body
 { ofertas: [{ cursoId, turnoId }] }
+
+// response
+{ ok: true, total: number, ofertas: Array<{ id, disciplinaId, cursoId, turnoId, ... }> }
 ```
 
 Substitui completamente. Array vazio remove todos os vínculos.
@@ -67,10 +83,10 @@ Substitui completamente. Array vazio remove todos os vínculos.
 | Erro | Mensagem |
 |---|---|
 | Zod `nome` | "Informe o nome da unidade curricular." |
-| Zod `sigla` | "Informe a sigla." / "Sigla deve ter no máximo 20 caracteres." |
+| Zod `sigla` | Passa `first.message` do Zod (default: `"Informe a sigla."` / `"Sigla deve ter no máximo 20 caracteres."`) |
 | Zod `codigoModulacao` | "Informe o código de modulação." |
 | 23505 + disciplinas_sigla | "Já existe uma unidade curricular com esta sigla." |
-| 23505 / `disciplinas_nome` | "Já existe uma unidade curricular com este nome." |
+| 23505 (não capturado pela sigla) | "Já existe uma unidade curricular com este nome." — **atenção:** condição usa `\|\|` então captura qualquer 23505 não tratado pelo check de sigla, não apenas `disciplinas_nome` |
 | 23503 | "Curso ou turno referenciado não existe. Atualize a página e tente novamente." |
 | Outros | "Erro interno ao salvar a unidade curricular. Tente novamente." |
 
