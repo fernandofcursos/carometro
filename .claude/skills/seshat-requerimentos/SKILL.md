@@ -76,19 +76,32 @@ slug === 'saida-eventual':
 
 ## API Endpoints
 
+### Endpoints do Requerente / Analisador
+
+| Método | Endpoint | Verificação de Acesso | Obs |
+|---|---|---|---|
+| GET | `/api/requerimentos/tipos` | autenticado | — |
+| GET | `/api/requerimentos/elegibilidade` | autenticado + `buscarRoles` | — |
+| GET | `/api/requerimentos` | autenticado + `buscarRoles` | analisador vê tudo; `?status=` aplica só para analisadores; requerente vê só os seus |
+| POST | `/api/requerimentos` | autenticado + `buscarRoles` | `estudante` ≥18 ou `pai_responsavel` |
+| GET | `/api/requerimentos/:id` | autenticado + `buscarRoles` | — |
+| POST | `/api/requerimentos/:id/assinar` | autenticado + `buscarRoles` | sem restrição de status |
+| PUT | `/api/requerimentos/:id/analisar` | autenticado + `buscarRoles` | `secretaria` ou `supervisao_pedagogica`; usa `analisarSchema` local |
+| POST | `/api/requerimentos/:id/assinar-analise` | autenticado + `buscarRoles` | `secretaria` ou `supervisao_pedagogica` |
+
+### Endpoints Admin (tipos e assuntos)
+
 | Método | Endpoint | Verificação de Acesso |
 |---|---|---|
-| GET | `/api/requerimentos/tipos` | autenticado |
-| GET | `/api/requerimentos/elegibilidade` | autenticado + `buscarRoles` |
-| GET | `/api/requerimentos` | autenticado + `buscarRoles` (analisador vê tudo; requerente vê só os seus) |
-| POST | `/api/requerimentos` | autenticado + `buscarRoles` (`estudante` ≥18 ou `pai_responsavel`) |
-| GET | `/api/requerimentos/:id` | autenticado + `buscarRoles` |
-| POST | `/api/requerimentos/:id/assinar` | autenticado + `buscarRoles` |
-| PUT | `/api/requerimentos/:id/analisar` | autenticado + `buscarRoles` (`secretaria` ou `supervisao_pedagogica`) |
-| POST | `/api/requerimentos/:id/assinar-analise` | autenticado + `buscarRoles` (`secretaria` ou `supervisao_pedagogica`) |
+| GET | `/api/requerimentos/admin/tipos` | `requirePermissao("roles", "manage")` |
+| POST | `/api/requerimentos/admin/tipos` | `requirePermissao("roles", "manage")` |
+| PUT | `/api/requerimentos/admin/tipos/:id` | `requirePermissao("roles", "manage")` |
+| POST | `/api/requerimentos/admin/assuntos` | `requirePermissao("roles", "manage")` |
+| PUT | `/api/requerimentos/admin/assuntos/:id` | `requirePermissao("roles", "manage")` |
+| DELETE | `/api/requerimentos/admin/assuntos/:id` | `requirePermissao("roles", "manage")` |
 
-> **IMPORTANTE:** Nenhum endpoint usa `requirePermissao` — todos usam `requireAuth` + `buscarRoles` (cache 60s).
-> `requirePermissao` depende de seed na tabela `roles_permissoes` que pode não existir.
+> **IMPORTANTE:** Endpoints do requerente/analisador usam `requireAuth` + `buscarRoles` (cache 60s) — nunca `requirePermissao`.
+> Endpoints admin usam `requirePermissao("roles", "manage")`.
 > `buscarRoles` consulta `usuarios_roles JOIN roles` — independente de seed de permissões.
 
 ## Numeração
@@ -96,7 +109,7 @@ slug === 'saida-eventual':
 ```
 REQ-AAAA-NNNN  ex: REQ-2026-0001
 ```
-Gerada via `COUNT(*) WHERE EXTRACT(year FROM criado_em) = anoAtual` + lpad.
+Gerada via query `WHERE numero LIKE 'REQ-AAAA-%'` para contar requerimentos do ano + lpad para 4 dígitos.
 
 ## Assinatura Digital
 
@@ -167,12 +180,13 @@ queryFn: async () => {
 ```
 
 ```typescript
-function calcularIdade(dataNasc: Date | null): number {
+function calcularIdade(dataNasc: string | null): number {
   if (!dataNasc) return 99; // assume adulto se sem data
+  const nasc = new Date(dataNasc);
   const hoje = new Date();
-  let idade = hoje.getFullYear() - dataNasc.getFullYear();
-  const m = hoje.getMonth() - dataNasc.getMonth();
-  if (m < 0 || (m === 0 && hoje.getDate() < dataNasc.getDate())) idade--;
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const m = hoje.getMonth() - nasc.getMonth();
+  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
   return idade;
 }
 ```
@@ -269,10 +283,47 @@ psql $DATABASE_URL -f scripts/migrate-requerimentos.sql
 
 Idempotente: usa `CREATE TABLE IF NOT EXISTS` + seed em bloco `DO $$ ... $$`.
 
+## Schema de Análise — analisarSchema local
+
+O endpoint `PUT /:id/analisar` usa um schema **local** na rota, diferente do `analisarRequerimentoSchema` exportado pela `lib/db`:
+
+```typescript
+// Schema LOCAL na rota (inclui 'em_analise'):
+const analisarSchema = z.object({
+  status: z.enum(["em_analise", "deferido", "indeferido"]),
+  parecer: z.string().optional(),
+});
+
+// Schema na lib/db (omite 'em_analise' — só decisões finais):
+export const analisarRequerimentoSchema = z.object({
+  status: z.enum(["deferido", "indeferido"]),
+  parecer: z.string().optional(),
+});
+```
+
+**Comportamento do campo `parecer`:**
+- `status = "deferido"` → `parecer` é explicitamente nullificado (`null`) independente do valor enviado
+- `status = "em_analise"` → `parecer` é explicitamente nullificado
+- `status = "indeferido"` → `parecer` é obrigatório (validado na rota — 422 se ausente)
+
+## Erros de Negócio
+
+| Status | Mensagem | Quando |
+|---|---|---|
+| 422 | `"Indeferimento requer a motivação."` | `PUT /:id/analisar` com `status=indeferido` sem `parecer` |
+| 422 | `"Analise o requerimento (deferir ou indeferir) antes de assinar."` | `POST /:id/assinar-analise` sem decisão final |
+| 403 | `"Estudante não vinculado ao responsável."` | `POST /` por pai que não é responsável do estudante informado |
+| 403 | `"Nenhum estudante vinculado."` | `POST /` por pai sem nenhum filho vinculado |
+
+## `cartoes_saida.responsavelId` ao deferir `saida-eventual`
+
+Ao inserir `cartoes_saida` via `processarDeferimento`, o campo `responsavel_id` é preenchido com o `requerenteId` do requerimento — que pode ser o próprio estudante adulto (≥18 anos), não necessariamente um pai/responsável.
+
 ## Autorização — padrão buscarRoles
 
-Todos os endpoints de requerimentos usam `requireAuth` + `buscarRoles` internamente.
-**Nunca usar `requirePermissao`** nos endpoints de requerimentos — depende de seed externo.
+Endpoints do requerente/analisador usam `requireAuth` + `buscarRoles` internamente.
+Endpoints admin usam `requirePermissao("roles", "manage")`.
+**Nunca usar `requirePermissao`** nos endpoints de requerente/analisador — depende de seed externo.
 
 ```typescript
 // Padrão correto para endpoints de análise (secretaria/supervisão):
