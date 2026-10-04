@@ -23,7 +23,7 @@ Retorna:
     ocorrenciasHoje: number; ocorrenciasSemana: number;
   };
   ocorrenciasRecentes: Array<{ id, estudanteNome, tipoDescricao, dataOcorrencia, criadoEm }>;  // limit 10
-  avisos: Array<{ id, titulo, tipo, publicoAlvo, publicado, criadoEm }>;  // limit 10, filtrado por autorId
+  avisos: Array<{ id, titulo, tipo, publicoAlvo, turmaSigla, criadoEm }>;  // limit 10, todos os não-deletados (sem filtro por autorId)
 }
 ```
 
@@ -72,7 +72,7 @@ PortalGestoraPage (/portal-gestora)
 │   │   └── CardapioWidget
 │   ├── OcorrenciasTab — lista paginada + busca local por nome
 │   ├── AvisosTab — CRUD de avisos (cria/edita/exclui via Dialog)
-│   └── PerfilTab — dados da gestora (avatar por inicial; fotoUrl não renderizada)
+│   └── PerfilTab — dados da gestora (exibe `<img>` quando `fotoUrl` não é null; fallback: ícone `<User>`)
 ```
 
 Query keys: `["gestora-me"]`, `["gestora-dashboard"]`, `["gestora-ocorrencias", offset]`, `["gestora-avisos"]`.
