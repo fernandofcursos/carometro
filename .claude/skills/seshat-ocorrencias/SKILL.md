@@ -89,16 +89,17 @@ if (menor || enviarEmailPais) {
 Incluído no GET `/api/ocorrencias` e usado no frontend:
 
 ```typescript
-// seshat.tsx — botão de notificação
+// seshat.tsx — botão de notificação (3 estados dependendo de isMenor e notificação prévia)
 <Button
   onClick={() => notificarMutation.mutate(ocorrencia.id)}
-  title={ocorrencia.notificacaoPaisEnviadaEm
-    ? `Notificado em ${format(new Date(ocorrencia.notificacaoPaisEnviadaEm), "dd/MM/yyyy HH:mm")} — clique para reenviar`
-    : "Enviar e-mail aos responsáveis"}
+  title={jaNotificado
+    ? `Notificado em ${format(...)} — clique para reenviar`
+    : isMenor ? "Enviar e-mail para responsáveis" : "Enviar e-mail para o estudante"}
 >
   <Send className="w-3 h-3 mr-1" />
-  {ocorrencia.notificacaoPaisEnviadaEm ? "Reenviar e-mail" : "Notificar responsáveis"}
+  {jaNotificado ? "Reenviar e-mail" : isMenor ? "Notificar responsáveis" : "Notificar estudante"}
 </Button>
+// jaNotificado = notificacaoPaisEnviadaEm (menor) ou notificacaoEstudanteEnviadaEm (maior)
 ```
 
 - Sempre visível para usuários com `ocorrencias:create`
