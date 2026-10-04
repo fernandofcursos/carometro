@@ -290,11 +290,14 @@ if (responsavelIds.length > 0 && roleIds.length > 0) {
 
 ### Chave de criptografia de email
 
-Todos os endpoints que criptografam ou descriptografam `email_encrypted` de `usuarios` usam:
+`PUT /api/usuarios/:id` usa:
 ```typescript
-const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
+const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
 ```
-**Nunca usar** `ENCRYPTION_KEY` para emails de usuários. Usar `ENCRYPTION_KEY` causa descriptografia com chave errada → email retorna como string vazia.
+
+Os demais endpoints de leitura (`GET /api/usuarios`, `GET /api/usuarios/:id`, `GET /api/estudantes/:id`) usam apenas `SESSION_SECRET`.
+
+> ⚠️ **Bug latente**: se `ENCRYPTION_KEY` estiver definida e diferente de `SESSION_SECRET`, o `PUT` criptografa com `ENCRYPTION_KEY` mas os `GET`s descriptografam com `SESSION_SECRET` → retornam string vazia silenciosamente. Não definir `ENCRYPTION_KEY` separadamente em produção até que a inconsistência seja corrigida. Ver skill `seshat-email-rules` para detalhes.
 
 ### Componente ResponsaveisSelector (UI)
 

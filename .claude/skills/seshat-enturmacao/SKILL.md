@@ -134,12 +134,11 @@ Ao enturmar (POST /api/matriculas), a função `emitirCarteirasParaMatricula` é
 | ZodError `registro` | 400 | "Registro inválido — deve ser numérico e ter no máximo 20 dígitos." |
 | ZodError `semestre` | 400 | "Semestre deve ser 1 ou 2." |
 | Turma não encontrada | 400 | "Turma não encontrada." |
-| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso '&lt;curso&gt;'. Não é possível enturmar em cursos diferentes." |
-| Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso '&lt;curso&gt;' (limite máximo)." |
+| Curso diferente (app-level) | 422 | "Este estudante já está enturmado no curso "${cursoNome}". Não é possível enturmar em cursos diferentes. Remova a enturmação atual primeiro." |
+| Limite 2 matrículas (app-level) | 422 | "Este estudante já possui 2 enturmações ativas no curso "${cursoNome}" (limite máximo). Remova uma enturmação antes de adicionar outra." |
 | Mesmo turno POST (app-level) | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente do módulo principal." |
 | Mesmo turno PATCH (app-level) | 422 | "O estudante já está enturmado neste turno (turma &lt;sigla&gt;). A segunda enturmação deve ser em turno diferente." |
-| Módulo menor > 3 disciplinas/turno | 422 | "Módulo menor: máximo 3 disciplinas por turno." |
-| Módulo maior — seleção parcial | 422 | "Módulo maior: selecione uma ou todas as disciplinas do turno." |
+| Módulo menor > 2 disciplinas | 422 | "Estudantes de módulo menor não podem cursar mais de 2 disciplinas por curso." — validado em `PUT /api/usuario-disciplinas` (não em `matriculaErrorMessage`) |
 | 23505 + uq_matricula_usuario_turma | 409 | "Este estudante já está matriculado nesta turma." |
 | 23505 genérico | 409 | "Este estudante já está enturmado nesta turma neste período." |
 | 23503 (FK) | 400 | "Turma ou estudante inválidos. Atualize a página e tente novamente." |

@@ -27,6 +27,7 @@ disciplinaOfertasTable: {
   cursoId (FK → cursos, cascade delete),
   turnoId (FK → turnos, cascade delete),
   ativo (boolean, default true)
+  criadoEm (timestamptz, defaultNow, notNull)
   UNIQUE (disciplinaId, cursoId, turnoId)
 }
 ```
