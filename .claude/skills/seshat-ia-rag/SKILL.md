@@ -2,8 +2,8 @@
 
 ## Modelos
 
-- **Complexo**: `claude-opus-5` (chat pedagógico, análise)
-- **Rápido**: `claude-haiku-4-5-20251001` (embeddings, sugestões, chatbot)
+- **Complexo**: `claude-opus-4-5` (chat pedagógico, análise) — único modelo usado no código
+- **Rápido**: não implementado — apenas `claude-opus-4-5` é referenciado em `rag-engine.ts`
 
 ## Endpoints
 
@@ -11,9 +11,11 @@
 |---|---|---|
 | POST | `/api/ia/chat` | `ia:use` |
 | POST | `/api/ia/busca` | `ia:use` |
-| POST | `/api/ia/sugestao-ocorrencia` | `ocorrencias:create` |
-| POST | `/api/ia/documentos` | `ia:manage` |
+| GET | `/api/ia/conversas` | `ia:use` |
+| DELETE | `/api/ia/conversas/:id` | `ia:use` |
 | GET | `/api/ia/documentos` | `ia:manage` |
+
+> **Rotas inexistentes:** `POST /api/ia/sugestao-ocorrencia` e `POST /api/ia/documentos` não existem no código.
 
 ## SDK Anthropic
 
@@ -24,9 +26,9 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Chat com streaming (SSE)
 const stream = await client.messages.stream({
-  model: "claude-opus-5",
+  model: "claude-opus-4-5",
   max_tokens: 64000,
-  thinking: { type: "adaptive" },
+  thinking: { type: "adaptive", display: "summarized" },
   system: SYSTEM_BASE,
   messages: [{ role: "user", content: pergunta }],
 });
@@ -40,7 +42,9 @@ for await (const chunk of stream) {
 
 ## Tabelas IA
 
-`ia_documentos`, `ia_chunks`, `ia_embeddings`, `ia_conversas`, `ia_mensagens`, `ia_cache`
+`ia_documentos`, `ia_chunks`, `ia_conversas`, `ia_mensagens`, `ia_cache`
+
+> **Tabela inexistente:** `ia_embeddings` não existe no schema — os chunks guardam embeddings diretamente.
 
 Todas com `escola_id` (RLS isolado por tenant).
 
