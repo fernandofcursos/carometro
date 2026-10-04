@@ -9,9 +9,11 @@ Feature de importação em lote de estudantes no Seshat.
 ## Template CSV
 
 ```csv
-nome,registro,emailProprio,emailResponsavel,turmaSigla
-João Silva,2024001,joao@escola.edu.br,responsavel@email.com,INF1A
+nome,registro,turma,observacao
+João Silva,2024001,INF1A,Transferido em março
 ```
+
+> **Atenção:** `emailProprio` e `emailResponsavel` são enviados pelo frontend mas **ignorados pelo backend** — não são persistidos.
 
 ## Arquivos-chave
 
@@ -25,9 +27,9 @@ João Silva,2024001,joao@escola.edu.br,responsavel@email.com,INF1A
 - Upsert por `registro`:
   - Existe → atualiza `nome`, `turmaId`, `observacao`, `atualizadoEm`
   - Não existe → insere novo
-- Lookup de turma por `turmaSigla` ou `turma` (case-insensitive)
+- Lookup de turma por `turma` ou `turmaSigla` ou `Turma` (nessa ordem, case-insensitive)
 - Foto existente não é afetada pela importação
-- Variantes de campo: `registro`/`Registro`/`Matrícula`/`Matricula`
+- Variantes de campo: `registro`/`Registro`/`Matrícula`/`Matricula`; `observacao`/`Observação`/`Observacao`
 
 ## Dependências
 
