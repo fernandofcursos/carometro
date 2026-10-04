@@ -30,18 +30,25 @@ Visível para:
 ```typescript
 import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
 
-function criptografarArquivo(dados: Buffer): { iv: string; dados: Buffer; hash: string } {
+// Recebe a data URL base64 completa (ex: "data:application/pdf;base64,...")
+function criptografarArquivo(dadosBase64: string): {
+  dadosCriptografados: Buffer; iv: string; hash: string; mimeType: string; tamanhoBytes: number;
+} {
   const chave = getChaveEncriptacao();
   const iv = randomBytes(16);
+  // extrai o buffer bruto da data URL
+  const buffer = Buffer.from(dadosBase64.replace(/^data:[^;]+;base64,/, ""), "base64");
+  const mimeType = dadosBase64.match(/^data:([^;]+);/)?.[1] ?? "application/octet-stream";
   const cipher = createCipheriv("aes-256-cbc", chave, iv);
-  const criptografado = Buffer.concat([cipher.update(dados), cipher.final()]);
-  const hash = createHash("sha256").update(dados).digest("hex");
-  return { iv: iv.toString("base64"), dados: criptografado, hash };
+  const dadosCriptografados = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const hash = createHash("sha256").update(buffer).digest("hex");
+  return { dadosCriptografados, iv: iv.toString("base64"), hash, mimeType, tamanhoBytes: buffer.length };
 }
 
-function descriptografarArquivo(iv: string, dados: Buffer): Buffer {
+// ATENÇÃO: parâmetros são (dados, ivBase64) — dados primeiro, iv segundo
+function descriptografarArquivo(dados: Buffer, ivBase64: string): Buffer {
   const chave = getChaveEncriptacao();
-  const ivBuf = Buffer.from(iv, "base64");
+  const ivBuf = Buffer.from(ivBase64, "base64");
   const decipher = createDecipheriv("aes-256-cbc", chave, ivBuf);
   return Buffer.concat([decipher.update(dados), decipher.final()]);
 }
@@ -100,9 +107,26 @@ PortalResponsavelPage  (/portal-responsavel — "Meus Filhos")
 ```
 
 - **Não há Select de seleção** — todos os filhos aparecem ao mesmo tempo
-- Primeiro filho aberto por padrão (`openItems = [estudantes[0].id]`)
+- Primeiro filho aberto por padrão: `openItems` inicia como `[]` e é setado para `[estudantes[0].id]` via `useEffect` após a query resolver, com guard `openItems.length === 0` (não reabre se o usuário fechar manualmente)
 - Estudantes não enturmados (`turmaId = null`) aparecem com "Não enturmado"
 - `CartaoLiberacaoTab` exibe cartões semestral e diário no mesmo modelo visual CIE do portal do estudante; o endpoint `POST /api/portal-responsavel/cartao-saida` existe no backend mas **não é chamado pelo frontend** — o fluxo de solicitação passou para Requerimentos
+- Queries `resp-carteiras` e `resp-cartoes-saida` em `CartaoLiberacaoTab` usam `refetchInterval: 30_000` — polling a cada 30s para detectar entrada/saída da janela de validade sem reload
+
+## Endpoints do Portal
+
+Todos protegidos por `requireAuth`. O responsável só pode acessar estudantes vinculados via `responsaveis_estudantes`.
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/portal-responsavel/me` | Dados do responsável + estudantes vinculados |
+| GET | `/api/portal-responsavel/carteiras/:estudanteId` | Todas as carteiras do estudante (todos os tipos/status) |
+| GET | `/api/portal-responsavel/cartoes-saida/:estudanteId` | Cartões de saída aprovados do estudante |
+| GET | `/api/portal-responsavel/atestados/:estudanteId` | Lista de atestados do estudante |
+| GET | `/api/portal-responsavel/atestados/:estudanteId/:id/download` | Download descriptografado de um atestado |
+| POST | `/api/portal-responsavel/atestado` | Upload de atestado médico |
+| POST | `/api/portal-responsavel/ocorrencias/:id/ciencia` | Dar ciência em ocorrência |
+| POST | `/api/portal-responsavel/cartao-saida` | Solicitar cartão diário (existe no backend; **não chamado pelo frontend**) |
+| GET | `/api/portal-responsavel/dashboard` | Dashboard para `DashboardResponsavel` |
 
 ## Armadilhas
 
@@ -171,10 +195,11 @@ if (!vinculo) return res.status(403).json({ error: "Acesso negado." });
 
 ## GET /api/portal-responsavel/dashboard
 
-Retorna `{ hoje, diaSemana, estudantes[] }` onde cada estudante inclui:
+Retorna `{ hoje, diaSemana, estudantes[], cardapioDisponivel, cardapio[] }` onde cada estudante inclui:
 - `agenda[]` — horários da semana atual (da tabela `horarios_aulas`; `agendaDisponivel: false` se a tabela não existir)
-- `ocorrencias.resumo[]` — ocorrências agrupadas por `tipoDescricao` com contagem
+- `ocorrencias.resumo[]` — ocorrências agrupadas por **`tipoId`** (não `tipoDescricao`); cada item tem `{ tipoId, tipoDescricao, total, semCiencia, ids[] }`
 - `ocorrencias.totalGeral` — total de ocorrências do estudante
+- `cardapioDisponivel` (boolean) e `cardapio[]` — retornados quando a tabela `cardapios` existe
 
 Usado pelo `DashboardResponsavel` (`/dashboard`) — não é o portal `/portal-responsavel`, mas o componente compartilha a mesma rota de API.
 
