@@ -6,40 +6,64 @@ description: Spec do carômetro de Administração
 
 ## Spec
 
-Retorna os membros da equipe administrativa da instituição. Os dados são exibidos em formato de carômetro (grade de fotos com nome). Quando os membros estiverem vinculados a turno ou curso específico, o agrupamento é feito por turno/curso.
+Exibe os membros da equipe administrativa em formato de carômetro (grade de fotos com nome), agrupados por turno e curso. O agrupamento é feito **no frontend** — a API retorna um array plano.
 
 ## Endpoint
 
 `GET /api/carometro/administracao`
 
-## Response Shape
+Implementado em `artifacts/api-server/src/routes/seshat.ts` via `getUsuariosPorRoles(["secretaria"])`.
 
-```json
-{
-  "grupos": [
-    {
-      "turno": "Manhã",
-      "curso": null,
-      "membros": [
-        {
-          "id": 2,
-          "nome": "João Santos",
-          "foto_url": "https://example.com/fotos/joao-santos.jpg",
-          "role": "secretaria"
-        }
-      ]
-    }
-  ]
+## Response Shape (API)
+
+A API retorna um **array plano** de `UsuarioCardAPI[]` — **não** um objeto agrupado:
+
+```typescript
+type UsuarioCardAPI = {
+  id: string;               // UUID (não número)
+  nome: string | null;
+  email: string;
+  fotoUrl: string | null;   // camelCase
+  codigoAcesso: string;
+  roles: { id: string; nome: string }[];
+  ofertas: {
+    ofertaId: string; disciplinaId: string; disciplinaNome: string;
+    cursoId: string; cursoNome: string;
+    turnoId: string; turnoNome: string;
+  }[];
+  cursosCoordenados: { id: string; nome: string }[];
 }
 ```
 
-## Regras de Negócio
+> **Nota:** O filtro "apenas usuários ativos" está documentado como regra de negócio mas **não está implementado** na query — todos os usuários com as roles matching são retornados.
 
-- Roles incluídas: `secretaria`, `administracao`
-- Exibe apenas: nome e foto
-- Agrupamento por turno/curso quando o membro estiver vinculado a um turno ou curso específico
-- Membros sem vínculo de turno/curso aparecem em grupo geral sem agrupamento
-- Apenas usuários ativos devem ser retornados
+## Agrupamento (Frontend)
+
+O frontend usa `buildGroups(usuarios)` em `seshat-grupo.tsx` — mesmo padrão de equipe-pedagogica e equipe-gestora.
+
+## Componente Frontend
+
+```tsx
+// artifacts/seshat/src/pages/seshat-grupo.tsx
+export function CarometroAdministracao() {
+  return (
+    <CarometroGrupoPage
+      endpoint="/api/carometro/administracao"
+      titulo="Administração"
+      descricao="Membros da equipe administrativa."
+      showDisciplinas={false}
+    />
+  );
+}
+```
+
+## Roles incluídas
+
+`secretaria`
+
+## Permissão
+
+`carometro:view`
 
 ## Padrão Visual dos Cards
 
