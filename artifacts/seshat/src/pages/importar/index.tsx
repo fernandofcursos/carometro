@@ -180,7 +180,7 @@ export default function ImportarPage() {
 
   const handleImportTurmas = (rows: Record<string, string>[]) => {
     importTurmas.mutate(
-      { data: { rows: rows.map((r) => ({ data: { sigla: r.sigla ?? "", descricao: r.descricao ?? "", cursoNome: r.cursoNome ?? "", turnoNome: r.turnoNome ?? "", ano: r.ano ?? "", semestre: r.semestre ?? "" } })) } },
+      { data: { rows: rows.map((r) => ({ data: { sigla: r.sigla ?? "", descricao: r.descricao ?? "", cursoNome: r.cursoNome ?? "", turnoNomes: r.turnoNomes ?? r.turnoNome ?? "", ano: r.ano ?? "", semestre: r.semestre ?? "" } })) } },
       {
         onSuccess: (res) => {
           setTurmasResult(res);

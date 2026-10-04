@@ -29,8 +29,10 @@ INF1B,Informática 1º Ano B,Técnico em Informática,Manhã|Tarde,2025,1
 
 ## Regras
 
-- `sigla` + `cursoNome` obrigatórios
-- `turnoNomes` obrigatório (ao menos 1)
+- `sigla` obrigatório (validado up-front)
+- `cursoNome` obrigatório na prática — linha sem `cursoNome` falha no lookup com erro, não em validação up-front
+- `turnoNomes` obrigatório (ao menos 1, validado up-front)
+- Frontend envia campo como `turnoNomes`; backend aceita também alias `turnoNome` (singular) como fallback
 - `onConflictDoNothing` em turmas e turma_turnos
 - Turno não encontrado → erro na linha, demais turnos processados
 
