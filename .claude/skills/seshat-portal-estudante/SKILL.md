@@ -14,14 +14,18 @@ O Portal do Estudante (`/portal`) é o espaço de autoatendimento para usuários
 Verificação dupla: backend (autorização real) + frontend (UX/UI).
 
 ```typescript
-// Backend: isMaiorDeIdade calcula com base em usuarios.data_nascimento
-function isMaiorDeIdade(dataNascimento: string | null): boolean {
-  if (!dataNascimento) return false;
+// Backend e frontend: dois helpers complementares
+function calcularIdade(dataNascimento: string | null): number | null {
+  if (!dataNascimento) return null;
   const hoje = new Date(), nasc = new Date(dataNascimento);
   let idade = hoje.getFullYear() - nasc.getFullYear();
   const m = hoje.getMonth() - nasc.getMonth();
   if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
-  return idade >= 18;
+  return idade;
+}
+function isMaiorDeIdade(dataNascimento: string | null): boolean {
+  const idade = calcularIdade(dataNascimento);
+  return idade !== null && idade >= 18;
 }
 ```
 
@@ -60,6 +64,7 @@ Retorna dados próprios do estudante logado: `{ usuario, matriculas[], disciplin
 Ocorrências vinculadas via `estudantes.usuario_id`. Inclui `cienteEm` e `cientePorId`.
 
 ### POST /api/portal/ocorrencias/:id/ciencia
+- 403 se nenhum registro `estudantes` encontrado para o usuário logado (`"Estudante não encontrado."`)
 - 403 se `isMaiorDeIdade(usuario.dataNascimento) === false`
 - **404** se ocorrência não encontrada ou não pertence ao estudante (`"Ocorrência não encontrada."`)
 - 409 se já tem ciência
@@ -69,7 +74,7 @@ Retorna **todas** as carteiras do estudante logado (todos os tipos e status). A 
 O Cartão de Liberação Semestral (`tipo = 'cartao-semestral'`) é um documento separado, emitido manualmente pelo coordenador após pedido formal — nunca automático.
 
 ### GET /api/portal/cartoes-saida
-Cartões diários `aprovados` do estudante logado. Revalida a cada **30s** (`refetchInterval: 30_000`).
+Cartões diários `aprovados` do estudante logado. Revalida a cada **30s** (`refetchInterval: 30_000`) — o polling só está ativo enquanto o componente `CartaoLiberacao` está montado (tab aberta).
 
 ### GET /api/portal/dashboard
 Retorna `{ hoje, diaSemana, ocorrencias, agendaDisponivel, agenda[], cardapioDisponivel, cardapio[] }` com os horários da semana atual. O frontend **não consome este endpoint atualmente** — o dashboard do estudante usa `/api/portal/me` e queries separadas.
