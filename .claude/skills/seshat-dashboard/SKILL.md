@@ -28,7 +28,7 @@ O dia/data atual vem **sempre do servidor** (`hoje: string`), nunca de `new Date
   agendaDisponivel: boolean;
   agenda: Array<{
     dia: number; diaNome: string;
-    aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string | null; sala: string | null }>;
+    aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null }>;
   }>;
   ocorrencias: {
     resumo: Array<{ tipoId: string; tipoDescricao: string; total: number; semCiencia: number; ids: string[] }>;
@@ -48,7 +48,7 @@ O dia/data atual vem **sempre do servidor** (`hoje: string`), nunca de `new Date
     id: string; nome: string; fotoUrl: string | null;
     turmaSigla: string; cursoNome: string;
     agendaDisponivel: boolean;
-    agenda: Array<{ dia: number; diaNome: string; aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string | null; sala: string | null }> }>;
+    agenda: Array<{ dia: number; diaNome: string; aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null }> }>;
     ocorrencias: { resumo: OcorrenciaResumo[]; totalGeral: number };
   }>;
   cardapioDisponivel: boolean;
@@ -74,8 +74,9 @@ const aulas = await db
     dia:            horariosAulasTable.diaSemana,
     horaInicio:     horariosAulasTable.horaInicio,
     horaFim:        horariosAulasTable.horaFim,
-    disciplinaNome: disciplinasTable.nome,
-    sala:           horariosAulasTable.sala,
+    disciplinaNome:  disciplinasTable.nome,
+    disciplinaSigla: disciplinasTable.sigla,
+    sala:            horariosAulasTable.sala,
   })
   .from(matriculasTable)
   .innerJoin(
@@ -145,7 +146,7 @@ const vinculados = await db
 Tabela HTML: linhas = horários únicos; colunas = dias (Seg–Sex).
 - Chave do mapa: `"${dia}-${horaInicio.slice(0,5)}"`
 - Dia atual destacado com `ring` no header + `bg-indigo-50/60` nas células
-- Célula preenchida: pill colorido com disciplinaNome + sala
+- Célula preenchida: pill colorido com `{aula.disciplinaSigla ?? aula.disciplinaNome}` + sala
 - Célula vazia: `—`
 - Estado indisponível: mensagem "Em breve"
 
