@@ -93,15 +93,15 @@ slug === 'saida-eventual':
 
 | Método | Endpoint | Verificação de Acesso |
 |---|---|---|
-| GET | `/api/requerimentos/admin/tipos` | `requirePermissao("roles", "manage")` |
-| POST | `/api/requerimentos/admin/tipos` | `requirePermissao("roles", "manage")` |
-| PUT | `/api/requerimentos/admin/tipos/:id` | `requirePermissao("roles", "manage")` |
-| POST | `/api/requerimentos/admin/assuntos` | `requirePermissao("roles", "manage")` |
-| PUT | `/api/requerimentos/admin/assuntos/:id` | `requirePermissao("roles", "manage")` |
-| DELETE | `/api/requerimentos/admin/assuntos/:id` | `requirePermissao("roles", "manage")` |
+| GET | `/api/requerimentos/admin/tipos` | `requirePermissao("roles:manage")` |
+| POST | `/api/requerimentos/admin/tipos` | `requirePermissao("roles:manage")` |
+| PUT | `/api/requerimentos/admin/tipos/:id` | `requirePermissao("roles:manage")` |
+| POST | `/api/requerimentos/admin/assuntos` | `requirePermissao("roles:manage")` |
+| PUT | `/api/requerimentos/admin/assuntos/:id` | `requirePermissao("roles:manage")` |
+| DELETE | `/api/requerimentos/admin/assuntos/:id` | `requirePermissao("roles:manage")` |
 
 > **IMPORTANTE:** Endpoints do requerente/analisador usam `requireAuth` + `buscarRoles` (cache 60s) — nunca `requirePermissao`.
-> Endpoints admin usam `requirePermissao("roles", "manage")`.
+> Endpoints admin usam `requirePermissao("roles:manage")`.
 > `buscarRoles` consulta `usuarios_roles JOIN roles` — independente de seed de permissões.
 
 ## Numeração
@@ -322,7 +322,7 @@ Ao inserir `cartoes_saida` via `processarDeferimento`, o campo `responsavel_id` 
 ## Autorização — padrão buscarRoles
 
 Endpoints do requerente/analisador usam `requireAuth` + `buscarRoles` internamente.
-Endpoints admin usam `requirePermissao("roles", "manage")`.
+Endpoints admin usam `requirePermissao("roles:manage")`.
 **Nunca usar `requirePermissao`** nos endpoints de requerente/analisador — depende de seed externo.
 
 ```typescript
