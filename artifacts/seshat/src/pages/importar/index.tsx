@@ -166,7 +166,7 @@ export default function ImportarPage() {
 
   const handleImportCursos = (rows: Record<string, string>[]) => {
     importCursos.mutate(
-      { data: { rows: rows.map((r) => ({ data: { nome: r.nome ?? "", descricao: r.descricao ?? "", turnoNome: r.turnoNome ?? "", ativo: r.ativo ?? "true" } })) } },
+      { data: { rows: rows.map((r) => ({ data: { sigla: r.sigla ?? "", nome: r.nome ?? "", descricao: r.descricao ?? "", turnoNome: r.turnoNome ?? "", ativo: r.ativo ?? "true" } })) } },
       {
         onSuccess: (res) => {
           setCursosResult(res);
@@ -256,7 +256,7 @@ export default function ImportarPage() {
           note="turnoNome é informativo — use para referência ao importar disciplinas"
           templateName="template_cursos.csv"
           templateContent="sigla,nome,descricao,turnoNome,ativo\nINFO,Técnico em Informática,Curso técnico de TI,Manhã,true\nADM,Técnico em Administração,Curso técnico de Administração,Tarde,true"
-          headers={["nome", "descricao", "turnoNome", "ativo"]}
+          headers={["sigla", "nome", "descricao", "turnoNome", "ativo"]}
           onImport={handleImportCursos}
           isPending={importCursos.isPending}
           result={cursosResult}
