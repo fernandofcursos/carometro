@@ -48,7 +48,7 @@ O item está dentro do grupo Modulação — não existe grupo separado "Calend�
   - `iconeOverride` (valor bruto do banco) determina se o checkbox inicia marcado
   - Salvar envia `icone: null` quando sem personalização → backend usa `getIcone(categoria, null)`
 - **GET `/api/calendario`**: retorna `icone` (resolvido) e `iconeOverride` (bruto, null = sem override)
-- **ImportarModal**: preview + confirmação antes de importar SEEDF 2026
+- **ImportarModal** (não `ImportacaoModal`): preview + confirmação antes de importar SEEDF 2026
 - Dias fora dos semestres: fundo opaco e opacidade reduzida
 - Dia atual: borda indigo + ponto indicador
 - Dias selecionados: fundo indigo claro com ring
@@ -70,15 +70,11 @@ export const calendarioSemestresTable = pgTable("calendario_semestres", {
   semestre: smallint("semestre").notNull(),
   inicio:   date("inicio").notNull(),
   fim:      date("fim").notNull(),
-  criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow(),
-  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow(),
-}, (t) => ({
-  uqAnoSem: uniqueIndex("uq_calendario_ano_semestre").on(t.ano, t.semestre),
-}));
-
-const CATEGORIAS = ['letivo','feriado_nacional','feriado_distrital','recesso',
-  'evento','formacao','atividade_pedagogica','nao_letivo','semana_pedagogica'] as const;
-export type CategoriaCalendario = typeof CATEGORIAS[number];
+  criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("uq_calendario_ano_semestre").on(t.ano, t.semestre),
+]);
 
 export const calendarioDiasTable = pgTable("calendario_dias", {
   id:           uuid("id").primaryKey().defaultRandom(),
@@ -88,12 +84,12 @@ export const calendarioDiasTable = pgTable("calendario_dias", {
   descricao:    text("descricao"),
   corOverride:  varchar("cor_override", { length: 7 }),
   icone:        varchar("icone", { length: 10 }),
-  criadoPor:    uuid("criado_por").references(() => usuariosTable.id),
-  criadoEm:     timestamp("criado_em", { withTimezone: true }).defaultNow(),
-  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow(),
-}, (t) => ({
-  idxData: index("idx_calendario_dias_data").on(t.data),
-}));
+  criadoPor:    uuid("criado_por").references(() => usuariosTable.id, { onDelete: "set null" }),
+  criadoEm:     timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_calendario_dias_data").on(t.data),
+]);
 ```
 
 ---
@@ -102,20 +98,20 @@ export const calendarioDiasTable = pgTable("calendario_dias", {
 
 ```typescript
 // artifacts/api-server/src/lib/calendario-categorias.ts
-export const CATEGORIAS_CONFIG: Record<string, { cor: string; icone: string; label: string }> = {
-  letivo:               { cor: "#4ade80", icone: "📗", label: "Dia letivo" },
-  feriado_nacional:     { cor: "#f87171", icone: "🇧🇷", label: "Feriado nacional" },
-  feriado_distrital:    { cor: "#fb923c", icone: "🏛️", label: "Feriado distrital" },
-  recesso:              { cor: "#fbbf24", icone: "☀️", label: "Recesso / Férias" },
-  evento:               { cor: "#60a5fa", icone: "📅", label: "Evento escolar" },
-  formacao:             { cor: "#a78bfa", icone: "📚", label: "Formação de professores" },
-  atividade_pedagogica: { cor: "#f472b6", icone: "🎓", label: "Atividade pedagógica" },
-  nao_letivo:           { cor: "#94a3b8", icone: "🚫", label: "Dia não letivo" },
-  semana_pedagogica:    { cor: "#c084fc", icone: "🗓️", label: "Semana pedagógica" },
+export const CATEGORIAS_CONFIG: Record<string, { cor: string; icone: string; nome: string }> = {
+  letivo:               { cor: "#4ade80", icone: "📗", nome: "Dia letivo" },
+  feriado_nacional:     { cor: "#f87171", icone: "🇧🇷", nome: "Feriado nacional" },
+  feriado_distrital:    { cor: "#fb923c", icone: "🏛️", nome: "Feriado distrital" },
+  recesso:              { cor: "#fbbf24", icone: "☀️", nome: "Recesso / Férias" },
+  evento:               { cor: "#60a5fa", icone: "📅", nome: "Evento escolar" },
+  formacao:             { cor: "#a78bfa", icone: "📚", nome: "Formação de professores" },
+  atividade_pedagogica: { cor: "#f472b6", icone: "🎓", nome: "Atividade pedagógica" },
+  nao_letivo:           { cor: "#94a3b8", icone: "🚫", nome: "Dia não letivo" },
+  semana_pedagogica:    { cor: "#c084fc", icone: "🗓️", nome: "Semana pedagógica" },
 };
 
 export function getCor(categoria: string, override?: string | null): string {
-  return override ?? CATEGORIAS_CONFIG[categoria]?.cor ?? "#e5e7eb";
+  return override ?? CATEGORIAS_CONFIG[categoria]?.cor ?? "#94a3b8";  // fallback cinza (não #e5e7eb)
 }
 ```
 
@@ -218,50 +214,66 @@ export const SEMESTRES_SEEDF_2026 = [
 ```typescript
 // POST /api/calendario/importar-seedf
 router.post("/importar-seedf", requirePermissao("calendario:manage"), async (req, res) => {
-  const { ano } = z.object({ ano: z.number().int().min(2024).max(2030) }).parse(req.body);
+  const { ano } = z.object({ ano: z.number().int().min(2020).max(2100) }).parse(req.body);
   
   if (ano !== 2026) return res.status(400).json({ error: "Apenas 2026 disponível para importação automática." });
 
   const dados = CALENDARIO_SEEDF_2026;
   let importados = 0, atualizados = 0;
 
+  // Sem UNIQUE em (data, categoria) — verificar existência antes de inserir/atualizar
   for (const d of dados) {
-    const result = await db.insert(calendarioDiasTable)
-      .values({ data: d.data, categoria: d.categoria, titulo: d.titulo, descricao: d.descricao })
-      .onConflictDoUpdate({
-        // Sem UNIQUE em (data, categoria) — usar insert sem conflito ou verificar antes
-        target: [calendarioDiasTable.id],
-        set: { titulo: d.titulo, descricao: d.descricao, atualizadoEm: new Date() },
-      })
-      .returning({ id: calendarioDiasTable.id });
-    importados++;
+    const existing = await db.select({ id: calendarioDiasTable.id })
+      .from(calendarioDiasTable)
+      .where(and(eq(calendarioDiasTable.data, d.data), eq(calendarioDiasTable.categoria, d.categoria)))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(calendarioDiasTable)
+        .set({ titulo: d.titulo, descricao: d.descricao, atualizadoEm: new Date() })
+        .where(eq(calendarioDiasTable.id, existing[0].id));
+      atualizados++;
+    } else {
+      await db.insert(calendarioDiasTable)
+        .values({ data: d.data, categoria: d.categoria, titulo: d.titulo, descricao: d.descricao });
+      importados++;
+    }
   }
 
-  // Semestres
+  // Semestres — UNIQUE em (ano, semestre)
+  let semestresConfigurados = 0;
   for (const s of SEMESTRES_SEEDF_2026) {
     await db.insert(calendarioSemestresTable)
       .values({ ano, semestre: s.semestre, inicio: s.inicio, fim: s.fim })
       .onConflictDoUpdate({
-        target: [calendarioSemestresTable.id],
+        target: [calendarioSemestresTable.ano, calendarioSemestresTable.semestre],
         set: { inicio: s.inicio, fim: s.fim, atualizadoEm: new Date() },
       });
+    semestresConfigurados++;
   }
 
-  res.json({ ok: true, importados, message: `${importados} eventos importados para ${ano}` });
+  res.json({
+    ok: true,
+    importados,
+    atualizados,
+    semestresConfigurados,
+    resumo: `${importados} eventos importados, ${atualizados} atualizados para ${ano}`,
+  });
 });
 ```
 
 ---
 
-## Frontend — CalendarioMes
+## Frontend — MesGrid
+
+> Todos os componentes estão inline em `artifacts/seshat/src/pages/calendario/index.tsx` — não existe diretório `components/calendario/`.
 
 ```tsx
-// artifacts/seshat/src/components/calendario/CalendarioMes.tsx
+// artifacts/seshat/src/pages/calendario/index.tsx (inline)
 
 const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
                "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-function CalendarioMes({ ano, mes, dias, selecionados, onSelect, onDblClick }: Props) {
+function MesGrid({ ano, mes, dias, selecionados, onSelect, onEventoClick }: Props) {
   const primeiroDia = new Date(ano, mes - 1, 1).getDay(); // 0=dom
   const totalDias = new Date(ano, mes, 0).getDate();
 
@@ -283,10 +295,10 @@ function CalendarioMes({ ano, mes, dias, selecionados, onSelect, onDblClick }: P
           const sel = selecionados.includes(dataStr);
 
           return (
-            <CalendarioDia key={dia} dia={dia} dataStr={dataStr} eventos={eventos}
+            <CelulaDia key={dia} dia={dia} dataStr={dataStr} eventos={eventos}
               fimDeSemana={fds} selecionado={sel}
               onClick={() => onSelect(dataStr)}
-              onDoubleClick={() => onDblClick(dataStr)} />
+              onEventoClick={(eventoId) => onEventoClick(eventoId)} />
           );
         })}
       </div>
@@ -297,10 +309,10 @@ function CalendarioMes({ ano, mes, dias, selecionados, onSelect, onDblClick }: P
 
 ---
 
-## Frontend — CalendarioDia
+## Frontend — CelulaDia
 
 ```tsx
-function CalendarioDia({ dia, dataStr, eventos, fimDeSemana, selecionado, onClick, onDoubleClick }) {
+function CelulaDia({ dia, dataStr, eventos, fimDeSemana, selecionado, onClick, onEventoClick }) {
   const hoje = new Date().toISOString().substring(0, 10);
   const isHoje = dataStr === hoje;
 
@@ -312,7 +324,6 @@ function CalendarioDia({ dia, dataStr, eventos, fimDeSemana, selecionado, onClic
   return (
     <button
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
       title={eventos.map(e => e.titulo).join(" | ")}
       className="relative flex flex-col items-center rounded p-0.5 transition-all hover:scale-105"
       style={{
@@ -330,7 +341,10 @@ function CalendarioDia({ dia, dataStr, eventos, fimDeSemana, selecionado, onClic
       </span>
       <div className="flex gap-0.5 flex-wrap justify-center">
         {eventos.slice(0, 3).map((e, i) => (
-          <span key={i} className="text-[10px] leading-none">{e.icone ?? "📅"}</span>
+          <span key={i} className="text-[10px] leading-none cursor-pointer"
+            onClick={(ev) => { ev.stopPropagation(); onEventoClick(e.id); }}>
+            {e.icone ?? "📅"}
+          </span>
         ))}
         {eventos.length > 3 && <span className="text-[8px] text-slate-400">+{eventos.length - 3}</span>}
       </div>
@@ -377,10 +391,6 @@ function BarraSelecionados({ count, onClear, onAdicionar }: { count: number; onC
 | `artifacts/api-server/src/lib/seedf-2026.ts` | `CALENDARIO_SEEDF_2026` + `SEMESTRES_SEEDF_2026` |
 | `artifacts/api-server/src/lib/calendario-categorias.ts` | `CATEGORIAS_CONFIG`, `getCor()` |
 | `artifacts/api-server/src/routes/calendario.ts` | CRUD + `POST /importar-seedf` |
-| `artifacts/seshat/src/pages/calendario/index.tsx` | Página principal com seletor de ano |
-| `artifacts/seshat/src/components/calendario/CalendarioMes.tsx` | Grade mensal |
-| `artifacts/seshat/src/components/calendario/CalendarioDia.tsx` | Célula de dia |
-| `artifacts/seshat/src/components/calendario/EventoModal.tsx` | Modal criação/edição |
-| `artifacts/seshat/src/components/calendario/ImportacaoModal.tsx` | Preview + confirmação SEEDF |
+| `artifacts/seshat/src/pages/calendario/index.tsx` | Página completa: `MesGrid`, `CelulaDia`, `EventoModal`, `ImportarModal` (tudo inline) |
 | `scripts/migrate-calendario.sql` | DDL |
 | `.specs/features/calendario-pedagogico.md` | Spec completa |
