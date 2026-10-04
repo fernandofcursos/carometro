@@ -22,7 +22,7 @@ Visível para:
 | **Vínculo obrigatório** | Responsável só vê estudantes em `responsaveis_estudantes` |
 | **Ciência sem restrição** | Responsável sempre pode dar ciência (diferente de estudante menor) |
 | **Atestado criptografado** | AES-256-CBC, IV único, hash de integridade — LGPD art. 11 |
-| **Token cartão de saída** | HMAC-SHA256 gerado ao aprovar, armazenado no DB |
+| **Token cartão de saída** | HMAC-SHA256 gerado ao **aprovar** (pelo coordenador), não ao solicitar; `POST /cartao-saida` insere sem token |
 | **Status cartão** | `pendente` → `aprovado`/`recusado` por coordenador |
 
 ## Padrão de Criptografia de Arquivos
@@ -124,6 +124,7 @@ Todos protegidos por `requireAuth`. O responsável só pode acessar estudantes v
 | GET | `/api/portal-responsavel/atestados/:estudanteId` | Lista de atestados do estudante |
 | GET | `/api/portal-responsavel/atestados/:estudanteId/:id/download` | Download descriptografado de um atestado |
 | POST | `/api/portal-responsavel/atestado` | Upload de atestado médico |
+| GET | `/api/portal-responsavel/ocorrencias/:estudanteId` | Listar ocorrências de um estudante vinculado |
 | POST | `/api/portal-responsavel/ocorrencias/:id/ciencia` | Dar ciência em ocorrência |
 | POST | `/api/portal-responsavel/cartao-saida` | Solicitar cartão diário (existe no backend; **não chamado pelo frontend**) |
 | GET | `/api/portal-responsavel/dashboard` | Dashboard para `DashboardResponsavel` |
