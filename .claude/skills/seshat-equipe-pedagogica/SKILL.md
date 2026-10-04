@@ -30,6 +30,7 @@ type UsuarioCardAPI = {
   codigoAcesso: string;
   roles: { id: string; nome: string }[];   // array, não string única
   ofertas: {
+    ofertaId: string;   // disciplinaOfertasTable.id
     disciplinaId: string; disciplinaNome: string;
     cursoId: string; cursoNome: string;
     turnoId: string; turnoNome: string;
