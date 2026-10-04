@@ -98,6 +98,7 @@ Array<{
 - `GET /avisos` retorna **todos** os avisos do professor incluindo rascunhos (`publicado = false`) — é um endpoint de gestão, não de publicação.
 - Dashboard `avisos`: limitado a 20 registros, sem filtro `publicado=true`. O frontend usa `<AvisosWidget perfil="professores" limite={5} />` em vez de renderizar `dash.avisos`.
 - DELETE `/avisos/:id`: retorna 403 com mensagem `"Sem permissão."` (não `"Sem permissão para excluir este aviso."`)
+- DELETE `/ocorrencias/:id`: retorna 403 com mensagem `"Sem permissão para excluir esta ocorrência."` (diferente do aviso)
 
 ## Frontend
 
@@ -105,7 +106,7 @@ Array<{
 
 4 tabs:
 - **Dashboard** — `QuadroHorariosCurso` por curso + `<AvisosWidget perfil="professores" limite={5} />` + `<CardapioWidget />`
-- **Ocorrências** — lista + criar/editar/excluir via Dialog; ao editar pre-popula `tipoOcorrenciaId` e `disciplinaId` da ocorrência existente
+- **Ocorrências** — lista + criar/editar/excluir via Dialog; ao editar pre-popula `tipoOcorrenciaId` (campo UUID texto); `disciplinaId` é carregado no estado mas **não é renderizado** no formulário de edição
 - **Avisos** — lista + criar/editar/excluir via Dialog
 - **Perfil** — dados do professor + disciplinas vinculadas agrupadas por curso; avatar por inicial (fotoUrl não renderizada)
 
