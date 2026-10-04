@@ -61,7 +61,7 @@ Ocorrências vinculadas via `estudantes.usuario_id`. Inclui `cienteEm` e `ciente
 
 ### POST /api/portal/ocorrencias/:id/ciencia
 - 403 se `isMaiorDeIdade(usuario.dataNascimento) === false`
-- 403 se ocorrência não pertence ao estudante
+- **404** se ocorrência não encontrada ou não pertence ao estudante (`"Ocorrência não encontrada."`)
 - 409 se já tem ciência
 
 ### GET /api/portal/carteiras
@@ -72,7 +72,12 @@ O Cartão de Liberação Semestral (`tipo = 'cartao-semestral'`) é um documento
 Cartões diários `aprovados` do estudante logado. Revalida a cada **30s** (`refetchInterval: 30_000`).
 
 ### GET /api/portal/dashboard
-Retorna `{ hoje, diaSemana, ocorrencias[], agendaDisponivel, agenda[] }` com os horários da semana atual. O frontend **não consome este endpoint atualmente** — o dashboard do estudante usa `/api/portal/me` e queries separadas. Quando a tabela `horarios_aulas` não existir, retorna `agendaDisponivel: false`.
+Retorna `{ hoje, diaSemana, ocorrencias, agendaDisponivel, agenda[], cardapioDisponivel, cardapio[] }` com os horários da semana atual. O frontend **não consome este endpoint atualmente** — o dashboard do estudante usa `/api/portal/me` e queries separadas.
+
+- `ocorrencias` é um objeto `{ resumo: [{ tipoId, tipoDescricao, total, semCiencia, ids[] }], totalGeral: number }` — **não** um array plano
+- `cardapioDisponivel` (boolean) e `cardapio[]` também são retornados quando a tabela `cardapios` existe
+- Quando a tabela `horarios_aulas` não existir, retorna `agendaDisponivel: false`
+- O endpoint também aceita perfil `pai_responsavel`: resolve estudantes vinculados via `responsaveisEstudantesTable`
 
 ### GET /api/verificar/:token (público)
 Verifica cartão sem autenticação. Retorna `{ valido, tipo, validade, nome, fotoUrl, emitidoEm }`.
@@ -124,11 +129,11 @@ Fundo lavanda `#eaecf8`, faixa azul escuro `#1a2f7a` de 14px na borda direita, c
 **Corpo (3 colunas):**
 1. **Foto** — `me.usuario.fotoUrl`, 72×88px `objectFit: cover`; fallback `<UserCircle>`. O backend resolve a URL com prioridade: `usuarios.foto_id` → `estudantes.foto_id` (tabela fotos) → `estudantes.foto_storage_key` (legado inline)
 2. **Campos** — Instituição, Curso, Turma, Turno (específico da matrícula), Matrícula, Data Nasc., Validade
-3. **QR Code** — 76px + COD CIE (últimos 12 chars do token)
+3. **QR Code** — 76px + COD CIE (últimos 12 chars do **primeiro segmento** do token: `token.split(".")[0]?.slice(-12).toUpperCase()`)
 
 **Rodapé:**
 - Esquerda: texto LGPD
-- Direita: ano em 26px bold `#1a2f7a`
+- Direita: ano em 26px `fontWeight: 900` `#1a2f7a`
 
 > **IMPORTANTE:** As logos são embutidas em base64 diretamente no componente `CarteiraEstudante`. Nunca usar URL externa — a carteira deve renderizar offline e em impressão.
 
@@ -179,6 +184,7 @@ Dois tipos, ambos no padrão visual CIE com paletas de cor distintas.
 - Cor: verde (`#dcfce7` / `#166534`)
 - Exibido após aprovação do requerimento pela coordenação/supervisão/direção
 - Emitido via `POST /api/carteiras/emitir-liberacao/:usuarioId`
+- **Janela de validade**: também sujeito à função `dentroJanelaSemestral(horarioSaida)` — exibe o cartão somente se `|agora - horarioSaida| <= 5 min` (sem verificação de data, diferente do diário)
 
 ### Diário
 - Fonte: `cartoes_saida` (status = `aprovado`)
@@ -218,19 +224,23 @@ O portal possui 6 abas:
 
 | Aba | Chave | Endpoint(s) |
 |---|---|---|
-| Matrículas / Disciplinas | `matriculas` | `GET /api/portal/me` |
+| Minha enturmação | `matriculas` | `GET /api/portal/me` |
 | Ocorrências | `ocorrencias` | `GET /api/portal/ocorrencias` |
 | Carteira | `carteira` | `GET /api/portal/carteiras` |
 | Cartão de Liberação | `cartao-liberacao` | `GET /api/portal/carteiras` + `GET /api/portal/cartoes-saida` |
 | Atendimentos SOE | `soe` | `GET /api/soe/portal/meus-atendimentos` + `GET /api/soe/portal/minhas-acoes` |
 | Plano AEE | `plano-aee` | `GET /api/sala-recursos/portal/plano` |
 
+Abaixo das abas, a página renderiza sempre:
+- `<AvisosWidget perfil="estudantes" limite={5} />` — avisos relevantes ao estudante
+- `<CardapioWidget />` — cardápio da semana
+
 ## OcorrenciasTab — padrão de ciência
 
 ```tsx
 const cienciaMut = useMutation({
   mutationFn: (id: string) => postJson(`${BASE}/api/portal/ocorrencias/${id}/ciencia`),
-  onSuccess: () => { toast({ title: "Ciência registrada." }); qc.invalidateQueries(...); },
+  onSuccess: () => { toast({ title: "Ciência registrada com sucesso." }); qc.invalidateQueries(...); },
   onError:   (e: Error) => toast({ variant: "destructive", title: e.message }),
   onSettled: () => setConfirming(null),
 });
