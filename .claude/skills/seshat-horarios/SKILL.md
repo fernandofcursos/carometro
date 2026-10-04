@@ -44,7 +44,7 @@ export const horariosAulasTable = pgTable("horarios_aulas", {
 Importar de `@workspace/db` (nunca direto de `drizzle-orm`):
 ```typescript
 import { db, horariosAulasTable, turmaTurnosTable, turnosTable, turmasTable, cursosTable,
-         disciplinaOfertasTable, disciplinasTable, eq, and } from "@workspace/db";
+         disciplinaOfertasTable, disciplinasTable, eq, and, ilike, or } from "@workspace/db";
 ```
 
 ### Permissão por endpoint
@@ -66,6 +66,7 @@ import { db, horariosAulasTable, turmaTurnosTable, turnosTable, turmasTable, cur
 ```typescript
 {
   id, diaSemana, horaInicio, horaFim, sala,
+  disciplinaOfertaId: string | null,   // necessário para pré-selecionar disciplina no SlotModal
   disciplinaNome: string | null,
   disciplinaSigla: string | null,
   cursoNome: string | null,   // retornado mas não usado no tipo Slot do frontend
