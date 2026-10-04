@@ -10,7 +10,7 @@ Feature de importação em lote de cursos no Seshat.
 
 ```csv
 sigla,nome,descricao,turnoNome,ativo
-Técnico em Informática,Curso técnico de TI,Manhã,true
+INFO,Técnico em Informática,Curso técnico de TI,Manhã,true
 ```
 
 - `turnoNome` é informativo — cursos não têm turnoId no banco
@@ -25,8 +25,9 @@ Técnico em Informática,Curso técnico de TI,Manhã,true
 
 ## Regras
 
-- Upsert por `nome` via `onConflictDoNothing`
-- Campos normalizados: `nome`/`Curso`/`curso`, `descricao`/`Descrição`/`Descricao`
+- `sigla` é **obrigatória** — linhas sem sigla são rejeitadas com erro "sigla é obrigatória"; truncada em 4 chars e convertida para maiúsculas
+- Upsert por `(sigla, nome)` via `onConflictDoNothing`
+- Campos normalizados: `sigla`/`Sigla`, `nome`/`Curso`/`curso`, `descricao`/`Descrição`/`Descricao`
 - Auditoria registrada ao final
 
 ## Casos de Uso Comuns para Desenvolvimento
