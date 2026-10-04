@@ -60,19 +60,54 @@ avisosTable: {
   }>;
   cardapioDisponivel: boolean;
   cardapio: Array<{ dia, diaNome, data, itens: Array<{ refeicao, descricao }> }>;
+  // avisos retornados pelo dashboard (limit 20, filtrado por autorId, sem filtro publicado=true)
+  // NOTE: o frontend NÃO renderiza dash.avisos — usa AvisosWidget no lugar
   avisos: Array<{ id, titulo, conteudo, tipo, publicoAlvo, turmaSigla, criadoEm }>;
 }
 ```
+
+## GET /ocorrencias — Response Shape
+
+```typescript
+Array<{
+  id: string; estudanteId: string; estudanteNome: string | null;
+  tipoOcorrenciaId: string;   // necessário para pre-popular o form de edição
+  tipoDescricao: string;
+  disciplinaId: string | null; // necessário para pre-popular o form de edição
+  disciplinaNome: string | null;
+  dataOcorrencia: string; observacao: string | null;
+  cienteEm: string | null; criadoEm: string;
+}>
+```
+
+## GET /avisos — Response Shape
+
+```typescript
+Array<{
+  id, titulo, conteudo, tipo, publicoAlvo,
+  turmaId: string | null,   // ID da turma (além de turmaSigla)
+  turmaSigla: string | null,
+  publicado: boolean,       // inclui rascunhos (publicado=false) — endpoint de gestão
+  criadoEm: string
+}>
+```
+
+## Notas de Implementação
+
+- `fotoUrl` em `GET /me`: construída como `/api/fotos/${usuarioId}` (usa `usuarioId`, não `fotoId`); pode ser `null` se `usuario.fotoId` for falsy. O frontend **não renderiza** `fotoUrl` — usa avatar por inicial em todas as abas.
+- `GET /avisos` retorna **todos** os avisos do professor incluindo rascunhos (`publicado = false`) — é um endpoint de gestão, não de publicação.
+- Dashboard `avisos`: limitado a 20 registros, sem filtro `publicado=true`. O frontend usa `<AvisosWidget perfil="professores" limite={5} />` em vez de renderizar `dash.avisos`.
+- DELETE `/avisos/:id`: retorna 403 com mensagem `"Sem permissão."` (não `"Sem permissão para excluir este aviso."`)
 
 ## Frontend
 
 `artifacts/seshat/src/pages/portal-professor/index.tsx`
 
 4 tabs:
-- **Dashboard** — QuadroHorariosCurso por curso, avisos recentes, cardápio
-- **Ocorrências** — lista + criar/editar/excluir via Dialog
+- **Dashboard** — `QuadroHorariosCurso` por curso + `<AvisosWidget perfil="professores" limite={5} />` + `<CardapioWidget />`
+- **Ocorrências** — lista + criar/editar/excluir via Dialog; ao editar pre-popula `tipoOcorrenciaId` e `disciplinaId` da ocorrência existente
 - **Avisos** — lista + criar/editar/excluir via Dialog
-- **Perfil** — dados do professor + disciplinas vinculadas agrupadas por curso
+- **Perfil** — dados do professor + disciplinas vinculadas agrupadas por curso; avatar por inicial (fotoUrl não renderizada)
 
 ## Menu (layout.tsx)
 
