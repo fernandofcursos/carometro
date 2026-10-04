@@ -117,7 +117,7 @@ const byTurno: Record<string, Record<string, CarometroGroup[]>> = {};
 for (const g of groups) { byTurno[g.turnoNome][g.cursoNome].push(g); }
 ```
 
-O parâmetro `?busca=texto` é filtrado **server-side em memória** após a query ao DB — não é filtro client-side. O servidor faz `toLowerCase().includes()` no nome e registro antes de montar os grupos.
+O parâmetro `?busca=texto` é filtrado **server-side em memória** após a query ao DB — não é filtro client-side. O servidor faz `toLowerCase().includes()` no **nome**; para **registro** usa apenas `includes()` (sem `.toLowerCase()`). Também aceita `?turmaId=uuid`, `?cursoId=uuid`, `?turnoId=uuid` como filtros server-side antes de montar os grupos.
 
 ## Perfil Completo do Estudante — detail.tsx (`/estudantes/:id`)
 
@@ -180,7 +180,7 @@ JOIN via `turmaTurnosTable` (não mais `turmasTable.turnoId`):
 .leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
 ```
 
-Deduplica estudantes em Map por `estudante.id` (turma multi-turno gera N linhas).
+Deduplica estudantes por `estudante.id` dentro de cada turma (turma multi-turno gera N linhas); estudante em turmas diferentes aparece em cada grupo de turma separadamente.
 
 ## Ocorrências — Schema
 
@@ -206,6 +206,7 @@ Deduplica estudantes em Map por `estudante.id` (turma multi-turno gera N linhas)
 | Método | Rota | Permissão | Descrição |
 |---|---|---|---|
 | GET | `/api/ocorrencias?estudanteId=` | `ocorrencias:view` | Lista com joins completos |
+| GET | `/api/ocorrencias/:id` | `ocorrencias:view` | Detalhe completo de uma ocorrência |
 | GET | `/api/ocorrencias/estudante/:id` | requireAuth | Lista resumida (pais/estudantes) |
 | POST | `/api/ocorrencias` | `ocorrencias:create` | Cria; aceita `turnoId`, `enviarEmailPais` |
 | PUT | `/api/ocorrencias/:id` | `ocorrencias:create` | Edita |
@@ -262,7 +263,8 @@ O card inteiro é um `<button>` único — não há botão separado por role. O 
 ```typescript
 await enviarEmailOcorrencia({
   para, estudanteNome, tipoOcorrencia,
-  dataOcorrencia, turnoNome?, disciplinaNome?, observacao?
+  dataOcorrencia, turnoNome?, disciplinaNome?, observacao?,
+  textoPadrao,  // buscado de textos_padrao_ocorrencias (ativo=true, não deletado)
 });
 ```
 
@@ -283,9 +285,14 @@ Campo adicionado: `estudantes.usuario_id uuid FK usuarios NULL UNIQUE`
 ## Menor de Idade — Ciência e Notificação
 
 ```typescript
-// POST /api/ocorrencias — auto-notifica se menor de idade OU enviarEmailPais=true
+// POST /api/ocorrencias — auto-notifica ao criar
 const menor = await getEstudanteMenorDeIdade(data.estudanteId);
-if (menor || enviarEmailPais) await notificarPais(...);
+if (menor || enviarEmailPais) {
+  await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
+} else {
+  // estudante adulto sem flag → notifica o próprio estudante
+  await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
+}
 
 // POST /api/ocorrencias/:id/ciente — bloqueia estudante menor
 const isEstudante = await usuarioTemRole(req.usuarioId, "estudante");
