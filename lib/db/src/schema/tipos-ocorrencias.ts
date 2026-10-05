@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, pgEnum, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -8,6 +8,7 @@ export const tiposOcorrenciasTable = pgTable("tipos_ocorrencias", {
   id: uuid("id").primaryKey().defaultRandom(),
   descricao: text("descricao").notNull().unique(),
   status: statusEnum("status").notNull().default("ativo"),
+  slug: varchar("slug", { length: 60 }),
   criadoEm: timestamp("criado_em", { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
 });
