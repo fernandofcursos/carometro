@@ -89,6 +89,7 @@ Todos os carômetros usam proporção **3:4** (retrato) para maximizar fotos por
   <p className="text-[10px] font-semibold truncate">nome</p>
   <p className="text-[9px] text-muted-foreground truncate">registro</p>
 </div>
+// Botão ocorrência: h-5 text-[9px]
 ```
 
 ### Cards de equipe (`seshat-grupo.tsx`)
@@ -116,8 +117,6 @@ Todos os carômetros usam proporção **3:4** (retrato) para maximizar fotos por
 const byTurno: Record<string, Record<string, CarometroGroup[]>> = {};
 for (const g of groups) { byTurno[g.turnoNome][g.cursoNome].push(g); }
 ```
-
-O parâmetro `?busca=texto` é filtrado **server-side em memória** após a query ao DB — não é filtro client-side. O servidor faz `toLowerCase().includes()` no **nome**; para **registro** usa apenas `includes()` (sem `.toLowerCase()`). Também aceita `?turmaId=uuid`, `?cursoId=uuid`, `?turnoId=uuid` como filtros server-side antes de montar os grupos.
 
 ## Perfil Completo do Estudante — detail.tsx (`/estudantes/:id`)
 
@@ -169,8 +168,8 @@ Retorna por turma:
 
 `fotoUrl` é uma URL de endpoint — **não data URL inline**:
 - `/api/fotos/:fotoId` quando `foto_id` preenchido na tabela `estudantes`
-- `/api/estudantes/:id/foto` quando `fotoStorageKey` preenchido (dados legados com arquivo no storage)
-- `null` quando nem `fotoId` nem `fotoStorageKey` estão preenchidos
+- `/api/estudantes/:id/foto` como fallback para dados legados (ainda sem `foto_id`)
+- `null` para estudantes sem foto
 
 A descriptografia ocorre sob demanda por request de foto, não em lote no carômetro. O browser faz cache `private, max-age=86400` automaticamente.
 
@@ -180,7 +179,7 @@ JOIN via `turmaTurnosTable` (não mais `turmasTable.turnoId`):
 .leftJoin(turnosTable, eq(turmaTurnosTable.turnoId, turnosTable.id))
 ```
 
-Deduplica estudantes por `estudante.id` dentro de cada turma (turma multi-turno gera N linhas); estudante em turmas diferentes aparece em cada grupo de turma separadamente.
+Deduplica estudantes em Map por `estudante.id` (turma multi-turno gera N linhas).
 
 ## Ocorrências — Schema
 
@@ -192,7 +191,6 @@ Deduplica estudantes por `estudante.id` dentro de cada turma (turma multi-turno 
 | `ciente_em` | timestamptz NULL |
 | `ciente_por_id` | uuid FK usuarios NULL |
 | `notificacao_pais_enviada_em` | timestamptz NULL |
-| `notificacao_estudante_enviada_em` | timestamptz NULL |
 | `observacao` | varchar(300) — era text |
 
 ### `estudantes` (coluna adicionada)
@@ -206,14 +204,12 @@ Deduplica estudantes por `estudante.id` dentro de cada turma (turma multi-turno 
 | Método | Rota | Permissão | Descrição |
 |---|---|---|---|
 | GET | `/api/ocorrencias?estudanteId=` | `ocorrencias:view` | Lista com joins completos |
-| GET | `/api/ocorrencias/:id` | `ocorrencias:view` | Detalhe completo de uma ocorrência |
 | GET | `/api/ocorrencias/estudante/:id` | requireAuth | Lista resumida (pais/estudantes) |
 | POST | `/api/ocorrencias` | `ocorrencias:create` | Cria; aceita `turnoId`, `enviarEmailPais` |
 | PUT | `/api/ocorrencias/:id` | `ocorrencias:create` | Edita |
 | DELETE | `/api/ocorrencias/:id` | `ocorrencias:create` | Soft delete |
 | POST | `/api/ocorrencias/:id/ciente` | requireAuth | Marca ciência (409 se já registrada) |
 | POST | `/api/ocorrencias/:id/notificar-pais` | `ocorrencias:create` | Envia e-mail aos responsáveis |
-| POST | `/api/ocorrencias/:id/notificar-estudante` | `ocorrencias:create` | Envia e-mail ao estudante adulto (≥18) |
 
 ## Formulário — Campos
 
@@ -251,20 +247,18 @@ const isPaiResp = useHasRole("pai_responsavel");
 
 ## Visibilidade do Botão por Role
 
-O card inteiro é um `<button>` único — não há botão separado por role. O modal aberto pelo clique diferencia o que é exibido:
-
-- `ocorrencias:create` → modal mostra aba "Registrar" + histórico
-- `pai_responsavel` ou `estudante` → modal mostra apenas histórico
-
-`showOcorrenciaBtn` é calculado (`canCreate || isPaiResp || isEstudante`) mas não guarda o botão do card — todos os usuários com `carometro:view` podem clicar.
+| Condição | Botão |
+|---|---|
+| `ocorrencias:create` | "Ocorrência" (âmbar) |
+| `pai_responsavel` ou `estudante` | "Ver ocorrências" (neutro) |
+| Demais | Sem botão |
 
 ## Mailer — enviarEmailOcorrencia()
 
 ```typescript
 await enviarEmailOcorrencia({
   para, estudanteNome, tipoOcorrencia,
-  dataOcorrencia, turnoNome?, disciplinaNome?, observacao?,
-  textoPadrao,  // buscado de textos_padrao_ocorrencias (ativo=true, não deletado)
+  dataOcorrencia, turnoNome?, disciplinaNome?, observacao?
 });
 ```
 
@@ -285,14 +279,9 @@ Campo adicionado: `estudantes.usuario_id uuid FK usuarios NULL UNIQUE`
 ## Menor de Idade — Ciência e Notificação
 
 ```typescript
-// POST /api/ocorrencias — auto-notifica ao criar
+// POST /api/ocorrencias — auto-notifica se menor de idade OU enviarEmailPais=true
 const menor = await getEstudanteMenorDeIdade(data.estudanteId);
-if (menor || enviarEmailPais) {
-  await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
-} else {
-  // estudante adulto sem flag → notifica o próprio estudante
-  await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
-}
+if (menor || enviarEmailPais) await notificarPais(...);
 
 // POST /api/ocorrencias/:id/ciente — bloqueia estudante menor
 const isEstudante = await usuarioTemRole(req.usuarioId, "estudante");
@@ -301,17 +290,9 @@ if (isEstudante && menor) return res.status(403).json({ error: "..." });
 
 Frontend:
 ```typescript
-// Ocorrencia type inclui campo opcional:
-estudanteMenor?: boolean;  // usado em OcorrenciaItem para lógica de ciência/notificação
-
 // OcorrenciaItem — botão visível somente se:
 const podeMarcarCiente = isPaiResponsavel || (isEstudante && !estudanteMenor);
 // Para menor: exibe aviso "A ciência deve ser registrada pelo responsável"
-
-// notificacaoEstudanteEnviadaEm: campo em Ocorrencia para estudante adulto
-// Exibe "Estudante notificado" quando preenchido
-// Exibe botão "Notificar estudante" (→ POST .../notificar-estudante) quando não preenchido
-notificacaoEstudanteEnviadaEm: string | null;
 ```
 
 ## Migration

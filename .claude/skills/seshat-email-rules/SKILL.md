@@ -11,7 +11,7 @@ Nunca existem dois e-mails "próprios" distintos para o mesmo estudante. Qualque
 ## Armazenamento
 
 ```
-usuarios.email_encrypted  →  AES-256-CBC, chave varia por endpoint (ver bug abaixo)
+usuarios.email_encrypted  →  AES-256-CBC, chave = ENCRYPTION_KEY ?? SESSION_SECRET
 usuarios.email_hash       →  SHA-256(email.toLowerCase()), UNIQUE no banco
 estudante_emails.tipo='proprio'    →  espelho de usuarios.email_encrypted (sincronizado)
 estudante_emails.tipo='responsavel' →  email de contato do pai/responsável (independente)
@@ -113,22 +113,6 @@ function decryptEmail(encrypted: string, secret: string): string {
 | Email inválido (formato) | 400 | "E-mail inválido" (Zod) |
 | Email já existe (POST criar) | 400 | "O e-mail informado já está cadastrado para outro usuário." |
 | Email já existe (PUT atualizar) | 409 | "Este e-mail já está cadastrado para outro usuário." |
-
----
-
-## Bug Latente — Chave de Criptografia Inconsistente
-
-> ⚠️ **Bug conhecido, não corrigido.** Documentado para que novos endpoints não repitam o padrão.
-
-| Endpoint | Chave usada |
-|---|---|
-| `PUT /api/usuarios/:id` (escrita) | `ENCRYPTION_KEY ?? SESSION_SECRET` |
-| `GET /api/estudantes/:id` (leitura em `estudantes.ts`) | `SESSION_SECRET` apenas |
-| `GET /api/usuarios` / `GET /api/usuarios/:id` (leitura) | `SESSION_SECRET` apenas |
-
-**Consequência:** Se `ENCRYPTION_KEY` estiver definida e diferente de `SESSION_SECRET`, o `PUT` criptografa com `ENCRYPTION_KEY` mas os `GET`s descriptografam com `SESSION_SECRET` — retornando string vazia silenciosamente (o `try/catch` em `decryptEmail` retorna `""`).
-
-**Workaround atual:** em produção, `ENCRYPTION_KEY` não é definida, então ambos usam `SESSION_SECRET`. Não definir `ENCRYPTION_KEY` separadamente até que a inconsistência seja corrigida.
 
 ---
 

@@ -34,6 +34,7 @@ import fotosRouter from "./routes/fotos.js";
 import biometriaRouter from "./routes/biometria.js";
 import portalEstudanteRouter from "./routes/portal-estudante.js";
 import carteirasRouter, { criarRotaVerificacaoCarteira } from "./routes/carteiras.js";
+import verificarRouter from "./routes/verificar.js";
 import portalResponsavelRouter from "./routes/portal-responsavel.js";
 import gestaoResponsaveisRouter from "./routes/gestao-responsaveis.js";
 import calendarioRouter from "./routes/calendario.js";
@@ -51,6 +52,7 @@ import soeRouter from "./routes/soe.js";
 import salaRecursosRouter from "./routes/sala-recursos.js";
 import iaRouter from "./routes/ia.js";
 import adminEscolasRouter from "./routes/admin-escolas.js";
+import leituraQrRouter from "./routes/leitura-qr.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -133,6 +135,7 @@ app.use("/api/portal", portalEstudanteRouter);
 app.use("/api/carteiras", carteirasRouter);
 // Verificação pública de QR Code (sem auth) — verifica status real no banco
 app.use("/api/verificar", criarRotaVerificacaoCarteira());
+app.use("/api/verificar/v2", verificarRouter);
 // Portal do responsável (pais/responsáveis)
 app.use("/api/portal-responsavel", portalResponsavelRouter);
 // Gestão de vínculos responsável↔estudante, cartões de saída e atestados (coordenadores)
@@ -161,6 +164,8 @@ app.use("/api/sala-recursos", salaRecursosRouter);
 app.use("/api/ia", iaRouter);
 // Super-admin: gestão de escolas
 app.use("/api/admin/escolas", adminEscolasRouter);
+// Leitura interna de QR Code (portaria/coordenação)
+app.use("/api/leitura-qr", leituraQrRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos

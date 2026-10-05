@@ -4,52 +4,42 @@ description: Spec do carômetro de Equipe Gestora
 
 # Equipe Gestora
 
-## Conceito
+## Spec
 
-Carômetro da equipe gestora da instituição. Exibe grade fotográfica agrupada por turno → curso, usando o mesmo componente e padrão de API de todos os carômetros de grupo.
+Retorna os membros da equipe gestora da instituição. Os dados são exibidos em formato de carômetro (grade de fotos com nome). Quando os membros estiverem vinculados a turno ou curso específico, o agrupamento é feito por turno/curso.
 
 ## Endpoint
 
 `GET /api/carometro/equipe-gestora`
 
-**Permissão:** `carometro:view` (+ `requireAuth`)
-
-**Implementação:** `getUsuariosPorRoles(["equipe_gestora"])` — retorna **array plano** `UsuarioCardAPI[]`.
-
 ## Response Shape
 
-```typescript
-// Array plano — agrupamento feito no frontend
-UsuarioCardAPI[]
-
-interface UsuarioCardAPI {
-  id: string;
-  nome: string | null;
-  email: string;
-  fotoUrl: string | null;  // /api/fotos/:fotoId | /api/usuarios/:id/foto | null
-  codigoAcesso: string;
-  roles: { id: string; nome: string }[];
-  ofertas: {
-    ofertaId: string;   // disciplinaOfertasTable.id
-    disciplinaId: string; disciplinaNome: string;
-    cursoId: string; cursoNome: string;
-    turnoId: string; turnoNome: string;
-  }[];
-  cursosCoordenados: { id: string; nome: string }[];
+```json
+{
+  "grupos": [
+    {
+      "turno": "Manhã",
+      "curso": "Ensino Médio",
+      "membros": [
+        {
+          "id": 1,
+          "nome": "Maria Silva",
+          "foto_url": "https://example.com/fotos/maria-silva.jpg",
+          "role": "equipe_gestora"
+        }
+      ]
+    }
+  ]
 }
 ```
 
-## Roles incluídas
+## Regras de Negócio
 
-`equipe_gestora`
-
-## Agrupamento (Frontend)
-
-`buildGroups(usuarios)` em `seshat-grupo.tsx` agrupa por `turnoId + cursoId` de cada `ofertas[]`. Membros sem ofertas ficam em `{ turnoNome: "Sem turno", cursoNome: "Sem curso" }`.
-
-## Componente
-
-`CarometroEquipeGestora` em `artifacts/seshat/src/pages/seshat-grupo.tsx`
+- Roles incluídas: `equipe_gestora`
+- Exibe apenas: nome e foto
+- Agrupamento por turno/curso quando o membro estiver vinculado a um turno ou curso específico
+- Membros sem vínculo de turno/curso aparecem em grupo geral sem agrupamento
+- Apenas usuários ativos devem ser retornados
 
 ## Padrão Visual dos Cards
 

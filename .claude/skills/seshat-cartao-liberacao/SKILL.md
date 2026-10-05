@@ -23,7 +23,8 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 - Requer requerimento "Pedido de Saída Antecipada (Semestral)" com `requer_data_hora = true`
   → o horário informado no requerimento é armazenado em `carteiras.horario_saida`
 - Pode ser emitido manualmente via `POST /api/carteiras/emitir-liberacao/:usuarioId { ano, semestre }`
-  (neste caso `horario_saida` fica null e o cartão nunca aparece — é necessário definir o horário)
+  → `horario_saida` **não é recebido** por esse endpoint — fica null após a emissão
+  → Após emitir, defina o horário via `PATCH /api/carteiras/:id/horario { horarioSaida: "HH:MM" }`
 - **Refetch a cada 30 s** para detectar entrada/saída da janela automaticamente
 
 ### Diário
@@ -33,7 +34,7 @@ O Cartão de Liberação autoriza saída antecipada do estudante. Dois tipos com
 - Fora da janela: exibe informação do próximo cartão aprovado, mas **não exibe o cartão** — nova solicitação necessária
 - QR Code lido pelo app Seshat → registra ocorrência de saída antecipada automaticamente
 
-> **CRÍTICO:** O frontend revalida **ambas** as queries a cada **30 segundos** (`refetchInterval: 30_000`) para detectar entrada/saída da janela sem reload: `portal-cartoes-saida` (diário) e `portal-carteiras` (semestral).
+> **CRÍTICO:** O frontend revalida **ambas** as queries (`portal-cartoes-saida` e `portal-carteiras`) a cada **30 segundos** (`refetchInterval: 30_000`) para detectar entrada/saída da janela sem reload.
 
 ---
 
@@ -62,25 +63,25 @@ Estudante: preenche Requerimento "Pedido de Saída Antecipada (Eventual)" em /re
 
 Componente `CartaoLiberacaoCard` — idêntico à `CarteiraEstudante` (560×320px horizontal), exceto pela paleta de cores.
 
-### Paleta Semestral
-```
-bg: "#dcfce7"  strip: "#166534"  curves: verde
-text: "#14532d"  label: "Semestral"
+### Paleta Semestral (`COR_SEMESTRAL` — constante separada)
+```typescript
+const COR_SEMESTRAL = { bg: "#dcfce7", strip: "#166534", curve1: "#16a34a", curve2: "#4ade80", curve3: "#86efac", text: "#14532d", label: "Semestral" };
 ```
 
 ### Paleta Diário — por dia da semana (`data_saida`)
 
-Shape completo: `{ bg, strip, curve1, curve2, curve3, text, label }` — `curve1/2/3` são cores SVG decorativas, `text` é a cor do texto do corpo do card.
-
 ```typescript
+// Paleta completa — 7 campos por entrada (usados no SVG e no layout)
+type Paleta = { bg: string; strip: string; curve1: string; curve2: string; curve3: string; text: string; label: string };
+
 const COR_DIA: Record<number, Paleta> = {
-  1: { bg:"#dbeafe", strip:"#1d4ed8", curve1:"#3b82f6", curve2:"#60a5fa", curve3:"#93c5fd", text:"#1e3a8a", label:"Segunda-feira" },
-  2: { bg:"#fee2e2", strip:"#991b1b", curve1:"#dc2626", curve2:"#f87171", curve3:"#fca5a5", text:"#7f1d1d", label:"Terça-feira"   },
-  3: { bg:"#fefce8", strip:"#a16207", curve1:"#ca8a04", curve2:"#facc15", curve3:"#fde047", text:"#713f12", label:"Quarta-feira"  },
-  4: { bg:"#ede9fe", strip:"#3730a3", curve1:"#6d28d9", curve2:"#8b5cf6", curve3:"#a78bfa", text:"#1e1b4b", label:"Quinta-feira"  },
-  5: { bg:"#fdf2f8", strip:"#9d174d", curve1:"#db2777", curve2:"#f472b6", curve3:"#f9a8d4", text:"#831843", label:"Sexta-feira"   },
+  1: { bg: "#dbeafe", strip: "#1d4ed8", curve1: "#3b82f6", curve2: "#60a5fa", curve3: "#93c5fd", text: "#1e3a8a", label: "Segunda-feira" }, // Lua — azul
+  2: { bg: "#fee2e2", strip: "#991b1b", curve1: "#dc2626", curve2: "#f87171", curve3: "#fca5a5", text: "#7f1d1d", label: "Terça-feira"   }, // Marte — vermelho
+  3: { bg: "#fefce8", strip: "#a16207", curve1: "#ca8a04", curve2: "#facc15", curve3: "#fde047", text: "#713f12", label: "Quarta-feira"  }, // Mercúrio — amarelo
+  4: { bg: "#ede9fe", strip: "#3730a3", curve1: "#6d28d9", curve2: "#8b5cf6", curve3: "#a78bfa", text: "#1e1b4b", label: "Quinta-feira"  }, // Júpiter — roxo
+  5: { bg: "#fdf2f8", strip: "#9d174d", curve1: "#db2777", curve2: "#f472b6", curve3: "#f9a8d4", text: "#831843", label: "Sexta-feira"   }, // Vênus — rosa
 };
-// 0=Dom e 6=Sab usam fallback do índice 1 (azul-claro)
+// 0=Dom e 6=Sab usam fallback do índice 1 (azul)
 ```
 
 ### Logos
@@ -104,10 +105,8 @@ function dentroJanelaHorario(dataSaida: string, horarioSaida: string | null): bo
   return Math.abs(totalMin - alvoMin) <= 5;      // ±5 min
 }
 
-// horarioJaPassou é função interna do componente CartaoLiberacao —
-// captura `hoje` do escopo do componente (calculado uma vez no render)
 function horarioJaPassou(dataSaida: string, horarioSaida: string | null): boolean {
-  if (!horarioSaida || dataSaida !== hoje) return false; // hoje = escopo externo
+  if (!horarioSaida || dataSaida !== hoje) return false;
   const [hh, mm] = horarioSaida.split(":").map(Number);
   const agora = new Date();
   const totalMin = agora.getHours() * 60 + agora.getMinutes();
@@ -177,25 +176,30 @@ SENÃO:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/portal/carteiras` | Todas as carteiras do estudante (inclui semestral) |
-| GET | `/api/portal/cartoes-saida` | Cartões diários `aprovados` do estudante logado |
+| GET | `/api/portal/carteiras` | Todas as carteiras do estudante — **todos os status** (ativa, cancelada, revogada). A UI filtra `status === 'ativa'` no frontend para exibir o semestral. Refetch a cada **30 s** (`refetchInterval: 30_000`). |
+| GET | `/api/portal/cartoes-saida` | Cartões diários `aprovados` do estudante logado. Refetch a cada **30 s** (`refetchInterval: 30_000`). |
 
 ### Gestão (requer `estudantes:manage`)
 
-| Método | Rota | Arquivo | Descrição |
-|---|---|---|---|
-| POST | `/api/carteiras/emitir-liberacao/:usuarioId` | `carteiras.ts` | Emite cartão semestral `{ ano, semestre }` |
-| POST | `/api/gestao-responsaveis/cartoes-saida/:id/aprovar` | `gestao-responsaveis.ts` | Aprova + gera token `{ observacao? }` |
-| POST | `/api/gestao-responsaveis/cartoes-saida/:id/recusar` | `gestao-responsaveis.ts` | Recusa `{ observacao? }` |
-| GET  | `/api/gestao-responsaveis/cartoes-saida` | `gestao-responsaveis.ts` | Lista todas as solicitações (filtros: estudanteId, status) |
+| Método | Rota | Descrição |
+|---|---|---|
+| GET  | `/api/carteiras` | Lista carteiras (filtros: usuarioId, ano, semestre, status). Inclui `horario_saida`. |
+| GET  | `/api/carteiras/:id` | Detalhe completo incluindo `horario_saida` e `token` |
+| POST | `/api/carteiras/emitir-liberacao/:usuarioId` | Emite cartão semestral `{ ano, semestre }` — `horario_saida` fica null após emissão |
+| PATCH | `/api/carteiras/:id/horario` | Define/atualiza horário do cartão semestral `{ horarioSaida: "HH:MM" }` |
+| POST | `/api/carteiras/:id/cancelar` | Cancela carteira (sem body necessário) |
+| POST | `/api/carteiras/:id/revogar` | Revoga carteira |
+| POST | `/api/carteiras/renovar/:usuarioId` | Emite nova carteira de estudante padrão (tipo=`carteira`) |
+| POST | `/api/cartoes-saida/:id/aprovar` | Aprova + gera token `{ observacao? }` |
+| POST | `/api/cartoes-saida/:id/recusar` | Recusa `{ observacao? }` |
+| GET  | `/api/cartoes-saida` | Lista todas as solicitações (filtros: estudanteId, status) |
 
 ### Portal do Responsável
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/api/portal-responsavel/cartao-saida` | Solicitar cartão diário `{ estudanteId, dataSaida, horarioSaida?, motivo? }` |
+| POST | `/api/portal-responsavel/cartao-saida` | Solicitar cartão diário `{ estudanteId, dataSaida, horarioSaida, motivo }` |
 | GET  | `/api/portal-responsavel/cartoes-saida/:estudanteId` | Listar solicitações do responsável |
-| GET  | `/api/portal-responsavel/carteiras/:estudanteId` | Listar carteiras (inclui semestral) do filho |
 
 ---
 
@@ -204,15 +208,15 @@ SENÃO:
 ### `carteiras` — semestral
 ```
 tipo = 'cartao-semestral' | status: 'ativa'|'cancelada'|'revogada'
-token: base64url(payload).base64url(hmac-sha256)  |  ano + semestre
-horario_saida (time, nullable) — null silencia exibição do card
+token: HMAC-SHA256  |  ano + semestre  |  horario_saida (time)
+cancelado_em / cancelado_por_id  → usado em cancelamento
+revogado_em  / revogado_por_id   → usado em revogação
 ```
 
 ### `cartoes_saida` — diário
 ```
-estudante_id (NOT NULL) | responsavel_id (NOT NULL) | data_saida (date)
-horario_saida (time, nullable) — null → dentroJanelaHorario() retorna false
-motivo (nullable) | status: 'pendente'|'aprovado'|'recusado'
+estudante_id | responsavel_id | data_saida (date) | horario_saida (time)
+motivo | status: 'pendente'|'aprovado'|'recusado'
 aprovado_por_id | aprovado_em | observacao_aprovador | token (varchar 400)
 ```
 

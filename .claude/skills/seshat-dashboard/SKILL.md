@@ -9,9 +9,7 @@ O componente `Dashboard` (export default) roteia por role:
 |---|---|---|
 | `estudante` | `DashboardEstudante` | `GET /api/portal/dashboard` |
 | `pai_responsavel` | `DashboardResponsavel` | `GET /api/portal-responsavel/dashboard` |
-| outros (admin, etc.) | `DashboardAdmin` | `GET /api/stats` + `GET /api/hoje` |
-
-> **Nota:** `GET /api/portal/dashboard` também aceita `pai_responsavel` como fallback (quando não existe `estudanteProprio`), retornando dados dos dependentes via `responsaveis_estudantes`. Nesse caminho, a query de agenda usa `matriculasTable.usuarioId` — anti-padrão para estudantes sem `usuarioId` (ver Armadilha abaixo).
+| outros (admin, etc.) | `DashboardAdmin` | `GET /api/stats` |
 
 O dia/data atual vem **sempre do servidor** (`hoje: string`), nunca de `new Date()` no cliente.
 
@@ -24,11 +22,11 @@ O dia/data atual vem **sempre do servidor** (`hoje: string`), nunca de `new Date
 ```typescript
 {
   hoje: string;       // "YYYY-MM-DD" — usar para destacar dia
-  diaSemana: number;  // 1=seg … 6=sab / 7=dom (dom JS 0 → 7; sem aula fora de 1–5)
+  diaSemana: number;  // 1=seg … 5=sex (0=dom/6=sab → sem aula)
   agendaDisponivel: boolean;
   agenda: Array<{
     dia: number; diaNome: string;
-    aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null }>;
+    aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; sala: string | null }>;
   }>;
   ocorrencias: {
     resumo: Array<{ tipoId: string; tipoDescricao: string; total: number; semCiencia: number; ids: string[] }>;
@@ -48,7 +46,7 @@ O dia/data atual vem **sempre do servidor** (`hoje: string`), nunca de `new Date
     id: string; nome: string; fotoUrl: string | null;
     turmaSigla: string; cursoNome: string;
     agendaDisponivel: boolean;
-    agenda: Array<{ dia: number; diaNome: string; aulas: Array<{ horaInicio: string; horaFim: string; disciplinaNome: string; disciplinaSigla: string; sala: string | null }> }>;
+    agenda: Array<{ dia: number; diaNome: string; aulas: AulaItem[] }>;
     ocorrencias: { resumo: OcorrenciaResumo[]; totalGeral: number };
   }>;
   cardapioDisponivel: boolean;
@@ -74,9 +72,8 @@ const aulas = await db
     dia:            horariosAulasTable.diaSemana,
     horaInicio:     horariosAulasTable.horaInicio,
     horaFim:        horariosAulasTable.horaFim,
-    disciplinaNome:  disciplinasTable.nome,
-    disciplinaSigla: disciplinasTable.sigla,
-    sala:            horariosAulasTable.sala,
+    disciplinaNome: disciplinasTable.nome,
+    sala:           horariosAulasTable.sala,
   })
   .from(matriculasTable)
   .innerJoin(
@@ -122,13 +119,12 @@ const vinculados = await db
 ### `DashboardResponsavel`
 
 - Saudação com nome do responsável
-- Quando há mais de 1 dependente: pill-nav para selecionar o estudante ativo (`estAtual`)
-- Apenas **um** `EstudanteCard` renderizado por vez (o do `estAtual` selecionado), com:
+- Para cada estudante: `EstudanteCard` com:
   - Foto circular + nome + turmaSigla + cursoNome
   - Badge de ocorrências pendentes
   - `QuadroHorariosWidget` (tabela grade horária)
   - `OcorrenciasWidget` (com botão de ciência — pai sempre pode)
-- `CardapioWidget` compartilhado ao final (busca dados independentemente — não usa `cardapio` do endpoint)
+- `CardapioWidget` compartilhado ao final
 - `CalendarioMesWidget` ao final
 - Estado vazio: card orientando a contatar a coordenação
 
@@ -136,8 +132,7 @@ const vinculados = await db
 
 - Saudação com nome do estudante
 - `QuadroHorariosWidget` (largura total)
-- `OcorrenciasWidget` (standalone)
-- `AvisosWidget` + `CardapioWidget` na seção "Comunicados & Cardápio"
+- Grid 2 cols: `OcorrenciasWidget` + `CardapioWidget`
 - `CalendarioMesWidget`
 - Atalho "Meu Perfil"
 
@@ -146,7 +141,7 @@ const vinculados = await db
 Tabela HTML: linhas = horários únicos; colunas = dias (Seg–Sex).
 - Chave do mapa: `"${dia}-${horaInicio.slice(0,5)}"`
 - Dia atual destacado com `ring` no header + `bg-indigo-50/60` nas células
-- Célula preenchida: pill colorido com `{aula.disciplinaSigla ?? aula.disciplinaNome}` + sala
+- Célula preenchida: pill colorido com disciplinaNome + sala
 - Célula vazia: `—`
 - Estado indisponível: mensagem "Em breve"
 
@@ -156,7 +151,7 @@ Tabela HTML: linhas = horários únicos; colunas = dias (Seg–Sex).
 function OcorrenciasWidget({ resumo, podeDarCiencia, onDarCiencia }) { ... }
 ```
 
-- `podeDarCiencia = isPaiResponsavel || isEstudante` — frontend mostra o botão para qualquer estudante; a verificação de idade é feita **no endpoint** (servidor retorna 403 para menor)
+- `podeDarCiencia = true` sempre para pai_responsavel; para estudante depende de `isMaior`
 - Botão "Ciência (N)" chama `onDarCiencia(r.ids)` → Dialog de confirmação
 
 ---
@@ -165,8 +160,8 @@ function OcorrenciasWidget({ resumo, podeDarCiencia, onDarCiencia }) { ... }
 
 | Perfil | Pode dar ciência |
 |---|---|
-| Estudante < 18 | ❌ (servidor retorna 403) — botão é exibido, mas servidor bloqueia |
-| Estudante ≥ 18 | ✅ |
+| Estudante < 18 (`isMaior = false`) | ❌ |
+| Estudante ≥ 18 (`isMaior = true`) | ✅ |
 | Pai/Responsável | ✅ sempre |
 
 ---
@@ -217,8 +212,7 @@ await db.from(matriculasTable).where(inArray(matriculasTable.usuarioId, ids));
 - ❌ `turmaTurnosTable` para exibir turno do estudante — retorna todos os turnos da turma; usar `matriculasTable.turnoId`
 - ❌ Misturar ocorrências de estudantes distintos no portal do responsável
 - ❌ Mostrar cardápio não publicado (`publicado = false`)
-- ❌ Assumir que o frontend esconde o botão de ciência para menores — a verificação real é server-side
-- ❌ Usar `diaSemana = 0` para domingo — o servidor mapeia domingo JS (0) para `7`
+- ❌ Exibir botão de ciência para estudante com `isMaior = false`
 
 ---
 

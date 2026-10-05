@@ -4,6 +4,7 @@ import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
 import { db, escolasTable, eq } from "@workspace/db";
 import { withSuperAdmin } from "../middleware/tenant.js";
+import { cifrarChavePrivada } from "../lib/token.js";
 
 const router = Router();
 router.use(requireAuth, requirePermissao("admin-escolas:manage"));
@@ -94,6 +95,36 @@ router.delete("/:id", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Erro ao desativar escola" });
   }
+});
+
+// POST /api/admin/escolas/:id/gerar-chave — gera par Ed25519 para a escola
+// Na rotação, preserva a chave pública anterior para grace period
+router.post("/:id/gerar-chave", async (req, res) => {
+  const [escola] = await db.select({
+    id: escolasTable.id,
+    signingPublicKey: escolasTable.signingPublicKey,
+  }).from(escolasTable)
+    .where(eq(escolasTable.id, req.params.id))
+    .limit(1);
+
+  if (!escola) return res.status(404).json({ erro: "Escola não encontrada." });
+
+  const { privateKey, publicKey } = await crypto.subtle.generateKey(
+    { name: "Ed25519" }, true, ["sign", "verify"],
+  ) as CryptoKeyPair;
+
+  const pubRaw   = Buffer.from(await crypto.subtle.exportKey("raw", publicKey)).toString("base64");
+  const privRaw  = Buffer.from(await crypto.subtle.exportKey("pkcs8", privateKey)).toString("base64");
+  const privCifrada = cifrarChavePrivada(privRaw, process.env.SESSION_SECRET!);
+
+  await db.update(escolasTable).set({
+    signingPublicKeyAnterior: escola.signingPublicKey ?? null,
+    signingPublicKey:         pubRaw,
+    signingPrivateKey:        privCifrada,
+    atualizadoEm:             new Date(),
+  }).where(eq(escolasTable.id, req.params.id));
+
+  return res.json({ escolaId: req.params.id, publicKey: pubRaw, algoritmo: "Ed25519" });
 });
 
 export default router;

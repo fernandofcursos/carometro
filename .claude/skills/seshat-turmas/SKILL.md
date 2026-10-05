@@ -13,10 +13,9 @@ turmas (N) >── cursos (1)
 
 ```typescript
 turmasTable: {
-  id, sigla (varchar 30, NOT NULL, único por (sigla, cursoId)),
+  id, sigla (varchar 30, NOT NULL, único por curso),
   descricao (text, NOT NULL), cursoId (FK → cursos),
-  escolaId (uuid, FK → escolas, restrict, nullable),  // multi-tenant
-  modulo (varchar 4, nullable in DB, required in API via Zod override — enum 'I'|'II'|'III'|'IV'|'V'|'VI'),
+  modulo (varchar 4, nullable in DB, required in API — enum 'I'|'II'|'III'|'IV'|'V'|'VI'),
   ano (integer, nullable), semestre (smallint, nullable),
   ativo (boolean, default true), criadoEm, atualizadoEm, deletadoEm
   // constraint ck_turma_modulo CHECK modulo IN ('I','II','III','IV','V','VI')
@@ -30,27 +29,9 @@ turmaTurnosTable: {
 }
 ```
 
-`insertTurmaSchema` (Zod) estende o insert do drizzle com `turnoIds: string[].min(1)`. O campo `escolaId` não é omitido — é aceito como input opcional nos endpoints de criação/edição.
+`insertTurmaSchema` (Zod) estende o insert do drizzle com `turnoIds: string[].min(1)`.
 
-## Endpoints
-
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/api/turmas` | Lista todas as turmas ativas com `turnos: [{id, nome}]` e `cursoNome` |
-| GET | `/api/turmas/:id` | Detalhe de uma turma com `turnos: [{id, nome}]` |
-| POST | `/api/turmas` | Cria turma |
-| PUT | `/api/turmas/:id` | Edita turma |
-| DELETE | `/api/turmas/:id` | Soft delete (sets `deletadoEm` + `ativo: false`); **não remove** `turma_turnos` — FK cascade só dispara em hard DELETE |
-
-### GET response shape
-
-```typescript
-// GET /api/turmas e GET /api/turmas/:id retornam:
-{ ...turma, turnos: Array<{ id: string; nome: string }> }
-// (não turnoIds — são objetos com id+nome)
-```
-
-### POST /api/turmas
+## Endpoint POST /api/turmas
 
 ```typescript
 // body
@@ -64,7 +45,7 @@ turmaTurnosTable: {
 5. res.status(201).json({ ...turma, turnoIds })
 ```
 
-### PUT /api/turmas/:id
+## Endpoint PUT /api/turmas/:id
 
 Substitui os turnos completamente: `DELETE turma_turnos WHERE turmaId = id` → `INSERT` com os novos `turnoIds`.
 
@@ -83,7 +64,7 @@ Substitui os turnos completamente: `DELETE turma_turnos WHERE turmaId = id` → 
 | 23503 + `curso` | "O curso selecionado não existe. Atualize a página e tente novamente." |
 | Outros | "Erro interno ao salvar a turma. Tente novamente." |
 
-O backend usa `turmaErrorMessage(err)` que retorna `{ status, error }` — chamada nos catches de POST e PUT. O catch do DELETE não usa essa função (retorna mensagem raw diretamente).
+O backend usa `turmaErrorMessage(err)` que retorna `{ status, error }` — todos os catches de POST e PUT chamam essa função.
 
 ## Frontend (`artifacts/seshat/src/pages/turmas/index.tsx`)
 

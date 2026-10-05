@@ -82,42 +82,51 @@ Cards usam proporção 3:4 (retrato), tamanhos `w-16 h-[85px]` (small) / `w-20 h
 Ao criar ou editar um usuário com role `estudante` na página de administração de Usuários (`/usuarios`), o formulário exibe um painel/modal de disciplinas com as seguintes regras:
 
 ### Agrupamento
-Disciplinas exibidas agrupadas por **nome da disciplina** (ex.: "Programação Web"). Cada disciplina lista suas ofertas (curso + turno) como sub-itens.
+Disciplinas exibidas em dois níveis de agrupamento:
+1. **Curso** (ex.: "Técnico em Informática")
+2. **Turno** dentro do curso (ex.: "Manhã", "Tarde", "Noite")
 
-> **Atenção:** a estrutura real é o inverso do que a spec original descrevia. Não há agrupamento por Curso→Turno nem opção "Todas as disciplinas".
+### Opção "Todas as disciplinas"
+- Exibida como **primeira opção** dentro de cada grupo Curso/Turno
+- **Marcada por padrão** ao abrir o modal sem seleção prévia
+- Comportamento toggle:
+  - Marcar → seleciona todos os checkboxes do grupo
+  - Desmarcar → remove toda a seleção do grupo
+  - Grupo com seleção parcial → "Todas" em estado **indeterminate**
 
-### Seleção
-- Checkbox por **oferta** (disciplina + turno) dentro do agrupamento por nome de disciplina
-- Não há opção "Todas as disciplinas" nem estado indeterminate
-- Seleção de qualquer subconjunto é permitida (restrições de módulo menor/maior são validadas na API)
+### Seleção Individual
+- Checkbox por disciplina dentro do agrupamento Curso/Turno
+- Pode selecionar qualquer subconjunto de disciplinas de um curso
+- Selecionar todas individualmente → "Todas" fica marcado automaticamente
 
 ### Persistência
 - Campo `disciplinaOfertaIds: string[]` no corpo do POST/PATCH
-- Ou `PUT /api/usuario-disciplinas/:usuarioId` para atualização isolada (bulk replace)
+- Ou `PUT /api/usuario-disciplinas` para atualização isolada (bulk replace)
 - Backend salva em `usuario_disciplinas` (um registro por `disciplina_oferta_id`)
-
-### Validações na API (PUT /api/usuario-disciplinas/:usuarioId)
-
-| Condição | Status | Mensagem |
-|---|---|---|
-| Curso `moduloMenor = true` com > 3 disciplinas no mesmo turno | 422 | `"Módulo menor: máximo 3 disciplinas por turno."` |
-| Curso `moduloMenor = false` com seleção parcial no turno (nem 1 nem todas) | 422 | `"Módulo maior: selecione uma ou todas as disciplinas do turno."` |
 
 ### Estrutura visual de referência
 
 ```
 [ Modal: Selecionar Disciplinas ]
 
-▸ Programação Web
-    [✓] Técnico em Informática — Manhã
-    [ ] Técnico em Informática — Tarde
+▸ Técnico em Informática
+  ▸ Manhã
+    [✓] Todas as disciplinas
+    [✓] Programação Web
+    [✓] Banco de Dados
+  ▸ Tarde
+    [~] Todas as disciplinas    ← indeterminate (parcial)
+    [✓] Redes de Computadores
+    [ ] Segurança da Informação
 
-▸ Banco de Dados
-    [✓] Técnico em Informática — Manhã
-
-▸ Contabilidade
-    [ ] Técnico em Administração — Noite
+▸ Técnico em Administração
+  ▸ Noite
+    [ ] Todas as disciplinas
+    [ ] Contabilidade
+    [ ] Marketing
 ```
+
+> "Todas as disciplinas" é um atalho de UI — não é salvo como entidade própria. Resulta em múltiplos registros em `usuario_disciplinas`, um por oferta do grupo.
 
 ---
 
@@ -127,7 +136,7 @@ Disciplinas exibidas agrupadas por **nome da disciplina** (ex.: "Programação W
 
 | Campo | Tipo | Editável | Observação |
 |---|---|---|---|
-| `nome` | text | ✅ criação + edição | Opcional; min 1 char na criação (POST), min 2 chars na edição (PUT) |
+| `nome` | text | ✅ criação + edição | Opcional |
 | `email` | criptografado | ✅ criação | Indexado por hash SHA-256 |
 | `dataNascimento` | date (`YYYY-MM-DD`) | ✅ criação + edição | Obrigatório para role `estudante` |
 | `codigoAcesso` | texto | ❌ gerado | Imutável |
@@ -135,31 +144,21 @@ Disciplinas exibidas agrupadas por **nome da disciplina** (ex.: "Programação W
 
 ### PUT /api/usuarios/:id
 
-Aceita qualquer combinação dos campos abaixo. Campos omitidos **não são alterados**.
+Aceita qualquer combinação de `nome` e/ou `dataNascimento`. Campos omitidos **não são alterados**.
 
 ```typescript
 // body (todos opcionais)
 {
-  nome?: string;                   // min 2 chars
-  email?: string;                  // e-mail válido; recriptografado com SESSION_SECRET
+  nome?: string;           // min 2 chars
   dataNascimento?: string | null;  // "YYYY-MM-DD" ou null para limpar
-  primeiroAcesso?: boolean;        // força flag de primeiro acesso
 }
 // resposta
-{ id: string; nome: string | null; email: string; dataNascimento: string | null; primeiroAcesso: boolean | null }
+{ id: string; nome: string | null; dataNascimento: string | null }
 ```
-
-> **Criptografia do email no PUT:** o handler usa `process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET`. Apenas o PUT faz isso — todos os demais endpoints usam exclusivamente `SESSION_SECRET`.
 
 ### GET /api/usuarios (lista) e GET /api/usuarios/:id
 
-Ambos incluem `dataNascimento`, `bloqueadoAte`, `ultimoLoginEm`, `criadoEm`, `disciplinas[]`, `cursosCoordenados[]` e `roles[]` na resposta.
-
-`GET /api/usuarios/:id` retorna adicionalmente:
-```typescript
-permissions: string[]  // ex: ["usuarios:manage", "carometro:view"]
-```
-Este campo está ausente no endpoint de lista.
+Ambos incluem `dataNascimento: string | null` na resposta.
 
 ### Modal de edição (EditarUsuarioModal)
 
@@ -230,7 +229,7 @@ Função declarada fora dos componentes (reutilizada em `EditarUsuarioModal` e `
 router.get("/responsaveis", requirePermissao("usuarios:manage"), async (req, res) => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
   const [rolePai] = await db.select({ id: rolesTable.id }).from(rolesTable)
-    .where(eq(rolesTable.nome, "pai_responsavel"));
+    .where(and(eq(rolesTable.nome, "pai_responsavel"), isNull(rolesTable.deletadoEm)));
   if (!rolePai) return res.json([]);
 
   const usersWithRole = await db.select({ usuarioId: usuariosRolesTable.usuarioId })
@@ -290,14 +289,11 @@ if (responsavelIds.length > 0 && roleIds.length > 0) {
 
 ### Chave de criptografia de email
 
-`PUT /api/usuarios/:id` usa:
+Todos os endpoints que criptografam ou descriptografam `email_encrypted` de `usuarios` usam:
 ```typescript
-const secret = process.env.ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "";
+const secret = process.env["SESSION_SECRET"] ?? "default-dev-secret-change-in-production";
 ```
-
-Os demais endpoints de leitura (`GET /api/usuarios`, `GET /api/usuarios/:id`, `GET /api/estudantes/:id`) usam apenas `SESSION_SECRET`.
-
-> ⚠️ **Bug latente**: se `ENCRYPTION_KEY` estiver definida e diferente de `SESSION_SECRET`, o `PUT` criptografa com `ENCRYPTION_KEY` mas os `GET`s descriptografam com `SESSION_SECRET` → retornam string vazia silenciosamente. Não definir `ENCRYPTION_KEY` separadamente em produção até que a inconsistência seja corrigida. Ver skill `seshat-email-rules` para detalhes.
+**Nunca usar** `ENCRYPTION_KEY` para emails de usuários. Usar `ENCRYPTION_KEY` causa descriptografia com chave errada → email retorna como string vazia.
 
 ### Componente ResponsaveisSelector (UI)
 

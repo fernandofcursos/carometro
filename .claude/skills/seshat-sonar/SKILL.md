@@ -2,7 +2,7 @@
 
 ## Configuração inicial
 
-1. Criar projeto em https://sonarcloud.io (organização `fernandofcursos`, chave `fernandofcursos_carometro`, nome do projeto: `Seshat`)
+1. Criar projeto em https://sonarcloud.io (organização `fernandofcursos`, projeto `carometro`)
 2. Gerar token em https://sonarcloud.io/account/security
 3. Adicionar secret no GitHub: `SONAR_TOKEN` em Settings → Secrets → Actions
 

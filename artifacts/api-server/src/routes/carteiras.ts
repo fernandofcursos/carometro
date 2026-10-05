@@ -1,16 +1,31 @@
 import { Router, Request, Response } from "express";
 import { createHmac } from "crypto";
 import {
-  db, carteirasTable, usuariosTable, matriculasTable, turmasTable, cursosTable,
+  db, carteirasTable, usuariosTable, matriculasTable, turmasTable, cursosTable, escolasTable,
   eq, and, inArray,
 } from "@workspace/db";
 import { requireAuth } from "../lib/auth.js";
 import { requirePermissao } from "../lib/permissions.js";
+import { assinarEd25519, calcularExp, hashToken, type TokenPayload } from "../lib/token.js";
 
 const router = Router();
 router.use(requireAuth);
 
 const HMAC_KEY = process.env.SESSION_SECRET ?? "carometro-secret";
+
+// ── helper: buscar chave Ed25519 da escola ────────────────────────────────────
+
+async function buscarChaveEscola(escolaId: string) {
+  const [escola] = await db.select({
+    nome:                    escolasTable.nome,
+    signingPrivateKey:       escolasTable.signingPrivateKey,
+    signingPublicKey:        escolasTable.signingPublicKey,
+    signingPublicKeyAnterior: escolasTable.signingPublicKeyAnterior,
+  }).from(escolasTable).where(eq(escolasTable.id, escolaId)).limit(1);
+
+  if (!escola?.signingPrivateKey || !escola?.signingPublicKey) return null;
+  return escola;
+}
 
 // ── helper: gerar + armazenar carteira ───────────────────────────────────────
 
@@ -57,9 +72,42 @@ export async function emitirCarteirasParaMatricula(
 
   if (existente) return; // Já possui carteira ativa para este período
 
-  const token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
+  // Busca dados para o payload Ed25519
+  const [turmaInfo] = await db.select({
+    sigla:    turmasTable.sigla,
+    cursoNome: cursosTable.nome,
+    escolaId:  cursosTable.escolaId,
+  }).from(matriculasTable)
+    .innerJoin(turmasTable, eq(turmasTable.id, matriculasTable.turmaId))
+    .innerJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+    .where(eq(matriculasTable.id, matriculaId))
+    .limit(1);
+
+  const [usuario] = await db.select({ nome: usuariosTable.nome })
+    .from(usuariosTable).where(eq(usuariosTable.id, usuarioId)).limit(1);
+
+  const chave = turmaInfo ? await buscarChaveEscola(turmaInfo.escolaId) : null;
+
+  let token: string;
+  let tokenHashVal: string | undefined;
+
+  if (chave && turmaInfo) {
+    const payload: TokenPayload = {
+      v: 1, tipo, escolaId: turmaInfo.escolaId, escolaNome: chave.nome ?? "",
+      usuarioId, estudanteNome: usuario?.nome ?? "",
+      cursoNome: turmaInfo.cursoNome, turmaSigla: turmaInfo.sigla,
+      ano, semestre, ts: Date.now(), exp: calcularExp(ano, semestre),
+    };
+    token = await assinarEd25519(payload, chave.signingPrivateKey, process.env.SESSION_SECRET!);
+    tokenHashVal = hashToken(token);
+  } else {
+    // Escola sem chave Ed25519 — usa HMAC como fallback temporário
+    token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
+  }
+
   await db.insert(carteirasTable).values({
     usuarioId, matriculaId, tipo, ano, semestre, status: "ativa", token,
+    ...(tokenHashVal ? { tokenHash: tokenHashVal } : {}),
   });
 }
 
@@ -234,7 +282,35 @@ router.post("/emitir-liberacao/:usuarioId", requirePermissao("estudantes:manage"
       .where(and(eq(matriculasTable.usuarioId, usuarioId), eq(matriculasTable.ativo, true)))
       .limit(1);
 
-    const token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
+    // Busca dados para payload Ed25519
+    const turmaInfoLiberacao = mat?.id ? await db.select({
+      sigla: turmasTable.sigla, cursoNome: cursosTable.nome, escolaId: cursosTable.escolaId,
+    }).from(matriculasTable)
+      .innerJoin(turmasTable, eq(turmasTable.id, matriculasTable.turmaId))
+      .innerJoin(cursosTable, eq(cursosTable.id, turmasTable.cursoId))
+      .where(eq(matriculasTable.id, mat.id)).limit(1).then((r) => r[0]) : null;
+
+    const usuarioLib = await db.select({ nome: usuariosTable.nome })
+      .from(usuariosTable).where(eq(usuariosTable.id, usuarioId)).limit(1).then((r) => r[0]);
+
+    const chaveLib = turmaInfoLiberacao ? await buscarChaveEscola(turmaInfoLiberacao.escolaId) : null;
+
+    let token: string;
+    let tokenHashLib: string | undefined;
+
+    if (chaveLib && turmaInfoLiberacao) {
+      const payload: TokenPayload = {
+        v: 1, tipo, escolaId: turmaInfoLiberacao.escolaId, escolaNome: chaveLib.nome ?? "",
+        usuarioId, estudanteNome: usuarioLib?.nome ?? "",
+        cursoNome: turmaInfoLiberacao.cursoNome, turmaSigla: turmaInfoLiberacao.sigla,
+        ano, semestre, ts: Date.now(), exp: calcularExp(ano, semestre),
+      };
+      token = await assinarEd25519(payload, chaveLib.signingPrivateKey, process.env.SESSION_SECRET!);
+      tokenHashLib = hashToken(token);
+    } else {
+      token = gerarTokenCarteira(usuarioId, tipo, ano, semestre);
+    }
+
     const [cartao] = await db.insert(carteirasTable).values({
       usuarioId,
       matriculaId: mat?.id ?? null as unknown as string,
@@ -243,6 +319,7 @@ router.post("/emitir-liberacao/:usuarioId", requirePermissao("estudantes:manage"
       semestre,
       status: "ativa",
       token,
+      ...(tokenHashLib ? { tokenHash: tokenHashLib } : {}),
     }).returning();
 
     res.status(201).json({ ok: true, cartao });

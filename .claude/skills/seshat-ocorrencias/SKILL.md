@@ -4,77 +4,61 @@
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `artifacts/api-server/src/routes/ocorrencias.ts` | CRUD + ciente + notificar |
+| `artifacts/api-server/src/routes/ocorrencias.ts` | CRUD + notificar-pais + notificar-estudante |
 | `artifacts/seshat/src/pages/seshat.tsx` | Formulário de ocorrência no carômetro |
 | `artifacts/seshat/src/pages/ocorrencias/index.tsx` | Relatório de ocorrências |
 
 ## Endpoints
 
-| Método | Rota | Permissão | Descrição |
-|---|---|---|---|
-| GET | `/api/ocorrencias?estudanteId=uuid` | `ocorrencias:view` | Lista ocorrências; `estudanteId` opcional — sem ele retorna todas |
-| GET | `/api/ocorrencias/estudante/:estudanteId` | requireAuth | Lista resumida (sem dados de registro/notificação) — para estudantes e pais |
-| GET | `/api/ocorrencias/:id` | `ocorrencias:view` | Detalhe completo de uma ocorrência |
-| POST | `/api/ocorrencias` | `ocorrencias:create` | Cria ocorrência |
-| PUT | `/api/ocorrencias/:id` | `ocorrencias:create` | Edição parcial |
-| DELETE | `/api/ocorrencias/:id` | `ocorrencias:create` | Soft delete |
-| POST | `/api/ocorrencias/:id/ciente` | requireAuth | Marca ciência; 409 se já registrada; 403 se estudante menor |
-| POST | `/api/ocorrencias/:id/notificar-pais` | `ocorrencias:create` | Notifica responsáveis por e-mail |
-| POST | `/api/ocorrencias/:id/notificar-estudante` | `ocorrencias:create` | Notifica estudante adulto por e-mail |
-
-> **Retorno do GET /api/ocorrencias:** array plano `[]` — não um objeto `{ ocorrencias[] }`.
-
-### POST /:id/ciente — detalhes
-
-```typescript
-// 200 → { ok: true, cienteEm: <timestamp> }
-// 404 → { error: "Ocorrência não encontrada." }
-// 409 → { error: "Ciência já registrada." }
-// 403 → { error: "Estudante menor de idade não pode registrar ciência. A ciência deve ser feita pelo pai ou responsável." }
 ```
-
-### POST /:id/notificar-estudante — detalhes
-
-```typescript
-// 200 → { ok: true, mensagem: "E-mail enviado com sucesso." }
-// 422 → { error: "Este estudante não possui e-mail próprio cadastrado." }
-// Stamps notificacaoEstudanteEnviadaEm (não notificacaoPaisEnviadaEm)
+GET  /api/ocorrencias?estudanteId=uuid         → { ocorrencias[] }  // requer ocorrencias:view
+GET  /api/ocorrencias/estudante/:estudanteId   → { ocorrencias[] }  // sem permissão extra (ownership check)
+GET  /api/ocorrencias/:id                      → ocorrencia          // requer ocorrencias:view
+POST /api/ocorrencias                          → ocorrencia criada   // requer ocorrencias:create
+PUT  /api/ocorrencias/:id                      → partial update      // requer ocorrencias:create
+DELETE /api/ocorrencias/:id                    → soft delete         // requer ocorrencias:create
+POST /api/ocorrencias/:id/ciente               → estudante adulto ou responsável vinculado marca ciência
+POST /api/ocorrencias/:id/notificar-pais       → notifica responsáveis por e-mail  // requer ocorrencias:create
+POST /api/ocorrencias/:id/notificar-estudante  → notifica estudante adulto por e-mail  // requer ocorrencias:create
 ```
 
 ## Notificação por E-mail ao Registrar Ocorrência
 
-### Regra automática no POST /api/ocorrencias
+### Lógica opt-in no POST /api/ocorrencias
 
-| Condição | Destinatário |
+A notificação por e-mail **não é automática** — depende de flags explícitas no body.
+
+| Flag | Efeito |
 |---|---|
-| Estudante **menor de 18 anos** | Responsáveis (`estudante_emails.tipo = 'responsavel'`) |
-| Estudante **maior ou igual a 18 anos** | Próprio estudante (`estudante_emails.tipo = 'proprio'`) |
-| `enviarEmailPais: true` no body | Força envio para responsáveis (independente da idade) |
+| `enviarEmailPais: true` | Notifica responsáveis (somente se estudante for menor de 18) |
+| `enviarEmailEstudante: true` | Notifica o próprio estudante (somente se for maior ou igual a 18) |
+| Nenhuma flag | Nenhum e-mail é enviado |
 
 ```typescript
-// POST /api/ocorrencias — lógica de envio automático
+// POST /api/ocorrencias — lógica de envio opt-in
+const { enviarEmailPais, enviarEmailEstudante, ...ocorrenciaData } = data;
 const menor = await getEstudanteMenorDeIdade(data.estudanteId);
-if (menor || enviarEmailPais) {
+if (menor && enviarEmailPais) {
   await notificarPais(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
-} else {
+} else if (!menor && enviarEmailEstudante) {
   await notificarEstudante(ocorrencia.id, data.estudanteId, turnoNome, disciplinaNome);
 }
 ```
+
+**Schema:** `enviarEmailPais: boolean` e `enviarEmailEstudante: boolean` estão presentes em `criarSchema` mas são omitidos no `PUT /:id` (não se notifica ao editar).
 
 **Verificação de idade:**
 1. `estudantes.data_nascimento` (primária)
 2. Fallback: `usuarios.data_nascimento` do usuário vinculado
 3. Se nenhuma data → trata como maior (envia para e-mail próprio)
 
-**`notificacao_pais_enviada_em`** é atualizado quando envia para responsáveis — menores **ou** maiores com `enviarEmailPais: true`.
-**`notificacao_estudante_enviada_em`** é atualizado quando envia para o próprio estudante adulto (path automático ou via `POST /:id/notificar-estudante`).
-
-## Notificação Manual de Responsáveis
+## Notificação Manual
 
 ```typescript
-// POST /:id/notificar-pais
+// POST /:id/notificar-pais  — menores de idade
+// POST /:id/notificar-estudante — maiores de idade
 // 200 → { ok: true, enviados: number, mensagem: string }
-// 422 → { error: "Este estudante não possui e-mails de responsável cadastrados." }
+// 422 → { error: "Nenhum responsável com e-mail cadastrado..." }
 // 404 → { error: "Ocorrência não encontrada." }
 ```
 
@@ -84,26 +68,43 @@ if (menor || enviarEmailPais) {
 - Reenvio sempre permitido — sem bloqueio por `notificacaoPaisEnviadaEm`
 - Atualiza `notificacaoPaisEnviadaEm` se ao menos 1 envio teve sucesso
 
-## Campo notificacaoPaisEnviadaEm
+## Campos de Notificação
 
-Incluído no GET `/api/ocorrencias` e usado no frontend:
+Dois campos de timestamp retornados pelo GET e usados no frontend:
+
+| Campo | Atualizado por |
+|---|---|
+| `notificacaoPaisEnviadaEm` | `notificarPais()` — ao notificar responsáveis (menores) |
+| `notificacaoEstudanteEnviadaEm` | `notificarEstudante()` — ao notificar o próprio estudante (adultos) |
 
 ```typescript
-// seshat.tsx — botão de notificação (3 estados dependendo de isMenor e notificação prévia)
-<Button
-  onClick={() => notificarMutation.mutate(ocorrencia.id)}
-  title={jaNotificado
-    ? `Notificado em ${format(...)} — clique para reenviar`
-    : isMenor ? "Enviar e-mail para responsáveis" : "Enviar e-mail para o estudante"}
+// seshat.tsx — botão de notificação (rota e label dependem de estudanteMenor)
+const jaMenorNotif = !!ocorrencia.notificacaoPaisEnviadaEm;
+const jaAdultoNotif = !!ocorrencia.notificacaoEstudanteEnviadaEm;
+const jaNotificado = estudanteMenor ? jaMenorNotif : jaAdultoNotif;
+const dataNotif = estudanteMenor
+  ? ocorrencia.notificacaoPaisEnviadaEm
+  : ocorrencia.notificacaoEstudanteEnviadaEm;
+
+const notificarMutation = useMutation({
+  mutationFn: async (id: string) => {
+    const rota = estudanteMenor
+      ? `/api/ocorrencias/${id}/notificar-pais`
+      : `/api/ocorrencias/${id}/notificar-estudante`;
+    // POST sem body
+  },
+});
+
+<Button onClick={() => notificarMutation.mutate(ocorrencia.id)}
+  title={jaNotificado ? `Notificado em ${formatarData(dataNotif)} — clique para reenviar` : titlePrimeiro}
 >
   <Send className="w-3 h-3 mr-1" />
-  {jaNotificado ? "Reenviar e-mail" : isMenor ? "Notificar responsáveis" : "Notificar estudante"}
+  {jaNotificado ? "Reenviar e-mail" : (estudanteMenor ? "Notificar responsáveis" : "Notificar estudante")}
 </Button>
-// jaNotificado = notificacaoPaisEnviadaEm (menor) ou notificacaoEstudanteEnviadaEm (maior)
 ```
 
-- Sempre visível para usuários com `ocorrencias:create`
-- Label muda para "Reenviar e-mail" após primeiro envio
+- Visível apenas para usuários com `ocorrencias:create`
+- Label e rota variam conforme `estudanteMenor`
 - Toast exibe `data.mensagem` da API
 - Erro 422 → toast destrutivo
 
@@ -120,7 +121,6 @@ await enviarEmailOcorrencia({
   turnoNome: ocorrencia.turnoNome,
   disciplinaNome: ocorrencia.disciplinaNome,
   observacao: ocorrencia.observacao,
-  textoPadrao,  // buscado de textosPadraoOcorrenciasTable (ativo=true, não deletado)
 });
 ```
 
@@ -128,13 +128,7 @@ await enviarEmailOcorrencia({
 
 | Ação | Permissão |
 |---|---|
-| Ver ocorrências (lista + detalhe) | `ocorrencias:view` |
+| Ver ocorrências | `ocorrencias:view` |
 | Criar / editar / deletar / notificar | `ocorrencias:create` |
-| Marcar ciência (`POST /:id/ciente`) | requireAuth (qualquer usuário autenticado) |
-| Listar resumido por estudante (`GET /estudante/:id`) | requireAuth |
 | Gerenciar tipos | `tipos-ocorrencias:manage` |
 | Gerenciar textos padrão | `tipos-ocorrencias:manage` |
-
-### Schema — campo adicional
-
-`escolaId` (`uuid`, nullable) existe na tabela `ocorrencias` mas não é aceito via API (omitido do `criarSchema`) nem retornado nos GETs.

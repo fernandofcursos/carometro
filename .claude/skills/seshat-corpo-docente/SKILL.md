@@ -6,74 +6,49 @@ description: Spec do carômetro de Corpo Docente
 
 ## Spec
 
-Exibe professores e educadores da instituição em formato de carômetro (grade de fotos com nome e disciplinas), agrupados por turno e curso. O agrupamento é feito **no frontend** — a API retorna um array plano.
+Retorna os professores e educadores da instituição. Os dados são exibidos em formato de carômetro (grade de fotos com nome e disciplinas). O agrupamento é sempre por turno/curso.
 
 ## Endpoint
 
 `GET /api/carometro/corpo-docente`
 
-Implementado em `artifacts/api-server/src/routes/seshat.ts` via `getUsuariosPorRoles(["professor", "educador"])`.
+## Response Shape
 
-## Response Shape (API)
-
-A API retorna um **array plano** de `UsuarioCardAPI[]` — **não** um objeto agrupado:
-
-```typescript
-type UsuarioCardAPI = {
-  id: string;               // UUID (não número)
-  nome: string | null;
-  email: string;
-  fotoUrl: string | null;   // camelCase — construída com prioridade:
-                            //   1. fotoId → `/api/fotos/${fotoId}`
-                            //   2. fotoStorageKey → `/api/usuarios/${id}/foto`
-                            //   3. null
-  codigoAcesso: string;
-  roles: { id: string; nome: string }[];   // array, não string única
-  ofertas: {
-    ofertaId: string;   // disciplinaOfertasTable.id
-    disciplinaId: string; disciplinaNome: string;
-    cursoId: string; cursoNome: string;
-    turnoId: string; turnoNome: string;
-  }[];
-  cursosCoordenados: { id: string; nome: string }[];
+```json
+{
+  "grupos": [
+    {
+      "turno": "Manhã",
+      "curso": "Ensino Médio",
+      "membros": [
+        {
+          "id": 5,
+          "nome": "Roberto Lima",
+          "foto_url": "https://example.com/fotos/roberto-lima.jpg",
+          "role": "professor",
+          "disciplinas": ["Matemática", "Física"]
+        },
+        {
+          "id": 6,
+          "nome": "Fernanda Oliveira",
+          "foto_url": "https://example.com/fotos/fernanda-oliveira.jpg",
+          "role": "educador",
+          "disciplinas": ["Língua Portuguesa"]
+        }
+      ]
+    }
+  ]
 }
 ```
 
-> **Nota:** Não há campo `disciplinas` diretamente no membro — as disciplinas são derivadas de `ofertas[]` no frontend, filtradas por grupo (`turnoId + cursoId`).
+## Regras de Negócio
 
-> **Nota:** O filtro "apenas usuários ativos" está documentado como regra de negócio mas **não está implementado** na query.
-
-## Agrupamento (Frontend)
-
-O frontend usa `buildGroups(usuarios)` em `seshat-grupo.tsx`:
-
-- Cada usuário é inserido em **um grupo por combinação `turnoId + cursoId`** de suas `ofertas[]`
-- Um professor com múltiplas ofertas aparece em **múltiplos grupos** — correto e intencional
-- As disciplinas exibidas no card são filtradas para o `cursoId` do grupo em que o card aparece
-- Professores sem `ofertas` vão para o grupo `{ turnoNome: "Sem turno", cursoNome: "Sem curso" }`
-- Grupos ordenados por `turnoNome` depois `cursoNome` (`localeCompare "pt-BR"`)
-
-## Componente Frontend
-
-```tsx
-// artifacts/seshat/src/pages/seshat-grupo.tsx
-export function CarometroCorpoDocente() {
-  return (
-    <CarometroGrupoPage
-      endpoint="/api/carometro/corpo-docente"
-      titulo="Corpo Docente"
-      descricao="Professores e docentes agrupados por turno e curso."
-      // showDisciplinas não passado → herda default true (disciplinas visíveis)
-    />
-  );
-}
-```
-
-`CarometroGrupoPage` usa `useState` + `useEffect` + `fetch()` — **sem React Query**.
-
-## Roles incluídas
-
-`professor`, `educador`
+- Roles incluídas: `professor`, `educador`
+- Exibe: nome, foto e disciplinas que ministram
+- Agrupamento sempre por turno/curso (campo obrigatório para este grupo)
+- Um mesmo professor pode aparecer em múltiplos grupos caso ministre aulas em mais de um turno/curso
+- As disciplinas exibidas devem corresponder apenas às disciplinas do turno/curso do grupo em questão
+- Apenas usuários ativos devem ser retornados
 
 ## Padrão Visual dos Cards
 
