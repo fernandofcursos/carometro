@@ -52,6 +52,7 @@ import soeRouter from "./routes/soe.js";
 import salaRecursosRouter from "./routes/sala-recursos.js";
 import iaRouter from "./routes/ia.js";
 import adminEscolasRouter from "./routes/admin-escolas.js";
+import leituraQrRouter from "./routes/leitura-qr.js";
 
 // Criar aplicação com middlewares configurados
 const app = createApp();
@@ -163,6 +164,8 @@ app.use("/api/sala-recursos", salaRecursosRouter);
 app.use("/api/ia", iaRouter);
 // Super-admin: gestão de escolas
 app.use("/api/admin/escolas", adminEscolasRouter);
+// Leitura interna de QR Code (portaria/coordenação)
+app.use("/api/leitura-qr", leituraQrRouter);
 
 // Handler de erro global — nunca vazar stack trace em produção
 // ISO 27001 A.8.3 — proteção contra erros que revelam detalhes internos
