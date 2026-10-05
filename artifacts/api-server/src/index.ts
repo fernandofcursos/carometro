@@ -34,6 +34,7 @@ import fotosRouter from "./routes/fotos.js";
 import biometriaRouter from "./routes/biometria.js";
 import portalEstudanteRouter from "./routes/portal-estudante.js";
 import carteirasRouter, { criarRotaVerificacaoCarteira } from "./routes/carteiras.js";
+import verificarRouter from "./routes/verificar.js";
 import portalResponsavelRouter from "./routes/portal-responsavel.js";
 import gestaoResponsaveisRouter from "./routes/gestao-responsaveis.js";
 import calendarioRouter from "./routes/calendario.js";
@@ -133,6 +134,7 @@ app.use("/api/portal", portalEstudanteRouter);
 app.use("/api/carteiras", carteirasRouter);
 // Verificação pública de QR Code (sem auth) — verifica status real no banco
 app.use("/api/verificar", criarRotaVerificacaoCarteira());
+app.use("/api/verificar/v2", verificarRouter);
 // Portal do responsável (pais/responsáveis)
 app.use("/api/portal-responsavel", portalResponsavelRouter);
 // Gestão de vínculos responsável↔estudante, cartões de saída e atestados (coordenadores)
