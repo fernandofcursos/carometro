@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, char, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, char, boolean, timestamp, jsonb, text } from "drizzle-orm/pg-core";
 
 export const escolasTable = pgTable("escolas", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -21,6 +21,9 @@ export const escolasTable = pgTable("escolas", {
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
   config: jsonb("config").notNull().default({}),
+  signingPublicKey:         text("signing_public_key"),
+  signingPrivateKey:        text("signing_private_key"),
+  signingPublicKeyAnterior: text("signing_public_key_anterior"),
 });
 
 export type Escola = typeof escolasTable.$inferSelect;

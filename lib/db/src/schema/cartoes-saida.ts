@@ -18,6 +18,8 @@ export const cartoesSaidaTable = pgTable("cartoes_saida", {
   observacaoAprovador:  varchar("observacao_aprovador", { length: 300 }),
   // Token para QR code do cartão aprovado
   token:                varchar("token", { length: 400 }),
+  lidoEm:               timestamp("lido_em",        { withTimezone: true }),
+  lidoPorId:            uuid("lido_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
   criadoEm:             timestamp("criado_em",    { withTimezone: true }).defaultNow().notNull(),
   atualizadoEm:         timestamp("atualizado_em", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [

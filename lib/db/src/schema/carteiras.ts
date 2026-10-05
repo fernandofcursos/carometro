@@ -17,6 +17,9 @@ export const carteirasTable = pgTable("carteiras", {
   status:         varchar("status", { length: 20 }).notNull().default("ativa"),
   // Token HMAC-SHA256 armazenado para permitir revogação real
   token:          text("token").notNull(),
+  tokenHash:      varchar("token_hash", { length: 64 }),
+  lidoEm:         timestamp("lido_em",          { withTimezone: true }),
+  lidoPorId:      uuid("lido_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
   canceladoEm:    timestamp("cancelado_em",     { withTimezone: true }),
   canceladoPorId: uuid("cancelado_por_id").references(() => usuariosTable.id, { onDelete: "set null" }),
   revogadoEm:     timestamp("revogado_em",      { withTimezone: true }),
