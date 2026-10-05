@@ -1,9 +1,6 @@
 # Skill: Leitura de QR Code — Carteira e Cartão de Liberação
 
-> ⚠️ **FEATURE NÃO IMPLEMENTADA** — Este SKILL.md é uma spec de design.
-> Arquivos que **existem**: `scripts/migrate-leitura-qrcode.sql` (SQL de migração).
-> Arquivos que **NÃO existem** ainda: `artifacts/api-server/src/routes/leitura-qr.ts`, `artifacts/api-server/src/lib/ocorrencia-helper.ts`, `artifacts/seshat/src/pages/leitura-qr/index.tsx`.
-> Os campos `lidoEm`/`lidoPorId` no SQL de migração **não estão** nos schemas Drizzle de `carteiras.ts`, `cartoes-saida.ts`.
+> ✅ **FEATURE IMPLEMENTADA** com Ed25519 (assimetrico). Todos os arquivos existem.
 
 ## Spec de referência
 `.specs/features/leitura-qrcode.md`
@@ -298,28 +295,36 @@ Exibe (quando `valido: false`):
 
 ## Segurança do Token — Resumo
 
-| Fase | Algoritmo | Estado |
-|---|---|---|
-| Atual | HMAC-SHA256 | ✅ Implementado — `SESSION_SECRET` |
-| Futura | Ed25519 | 📋 Spec documentada — `SIGNING_PRIVATE_KEY` + chave pública em `/api/verificar/pubkey` |
+| Algoritmo | Estado |
+|---|---|
+| Ed25519 (assimétrico) | ✅ Ativo — chave privada por escola, cifrada com AES-256-GCM |
+| HMAC-SHA256 | ⚠️ Fallback para escolas sem chave Ed25519 ainda configurada |
 
-### Token HMAC-SHA256 (atual)
+### Token Ed25519 (ativo)
 ```
-base64url(payload) + "." + HMAC-SHA256(base64url(payload), SESSION_SECRET)
-payload = { usuarioId, tipo, ano, semestre, ts }
+base64url(payload) + "." + base64url(ed25519_signature_64bytes)
+payload = { v:1, tipo, escolaId, escolaNome, usuarioId, estudanteNome,
+            cursoNome, turmaSigla, ano, semestre, ts, exp }
 ```
 
-### `lib/token.ts` — função de verificação
+### Chave privada
+- Gerada com `crypto.subtle.generateKey({ name:"Ed25519" })`
+- Armazenada cifrada em `escolas.signing_private_key` (AES-256-GCM, PBKDF2 de SESSION_SECRET)
+- Rotação: `POST /api/admin/escolas/:id/gerar-chave` preserva chave anterior em `signing_public_key_anterior` (grace period)
+
+### Verificação pública
+- Chave pública em `GET /api/verificar/v2/pubkey/:escolaId`
+- Verificação browser: `crypto.subtle.verify({ name:"Ed25519" }, ...)`
+- Status no banco: `GET /api/verificar/v2/status/:token` (usa `token_hash` SHA-256)
+
+### `lib/token.ts` — funções principais
 ```typescript
-export function verificarTokenHMAC(token: string): TokenPayload | null {
-  const [b64, sig] = token.split(".");
-  if (!b64 || !sig) return null;
-  const expected = createHmac("sha256", process.env.SESSION_SECRET!)
-    .update(b64).digest("hex");
-  if (!timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"))) return null;
-  try { return JSON.parse(Buffer.from(b64, "base64url").toString()); }
-  catch { return null; }
-}
+assinarEd25519(payload, privKeyCifradaB64, secret): Promise<string>
+verificarEd25519(token, pubKeyB64, pubKeyAnteriorB64?): Promise<TokenPayload | null>
+hashToken(token): string          // SHA-256 hex, 64 chars
+calcularExp(ano, semestre): number // timestamp ms fim do semestre
+cifrarChavePrivada(privKeyB64, secret): string
+decifrarChavePrivada(cifrado, secret): string
 ```
 
 ---
@@ -336,14 +341,19 @@ carteiras:verificar  →  portaria, coordenacao, gestao, secretaria
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `scripts/migrate-leitura-qrcode.sql` | DDL colunas + seed permissão + tipo ocorrência |
-| `lib/db/src/schema/carteiras.ts` | + `lidoEm`, `lidoPorId` |
+| `scripts/migrate-qrcode-ed25519.sql` | DDL completo: escolas chaves, carteiras/cartoes lido_em, tipos slug, seeds |
+| `scripts/migrate-tokens-ed25519.ts` | Re-assina carteiras HMAC existentes com Ed25519 (idempotente) |
+| `lib/db/src/schema/escolas.ts` | + `signingPublicKey`, `signingPrivateKey`, `signingPublicKeyAnterior` |
+| `lib/db/src/schema/carteiras.ts` | + `tokenHash`, `lidoEm`, `lidoPorId` |
 | `lib/db/src/schema/cartoes-saida.ts` | + `lidoEm`, `lidoPorId` |
 | `lib/db/src/schema/tipos-ocorrencias.ts` | + `slug` |
-| `artifacts/api-server/src/routes/leitura-qr.ts` | Endpoints de leitura |
-| `artifacts/api-server/src/lib/ocorrencia-helper.ts` | Helper de ocorrência + e-mail |
-| `artifacts/api-server/src/lib/token.ts` | `verificarTokenHMAC` |
-| `artifacts/seshat/src/pages/leitura-qr/index.tsx` | UI scanner |
-| `artifacts/seshat/src/App.tsx` | Rota `/leitura-qr` |
-| `artifacts/seshat/src/components/layout.tsx` | Menu |
+| `artifacts/api-server/src/lib/token.ts` | Ed25519 sign/verify, AES-256-GCM encrypt/decrypt, hashToken |
+| `artifacts/api-server/src/routes/verificar.ts` | GET /api/verificar/v2/pubkey/:escolaId + status/:token (público) |
+| `artifacts/api-server/src/routes/admin-escolas.ts` | POST /api/admin/escolas/:id/gerar-chave |
+| `artifacts/api-server/src/routes/leitura-qr.ts` | POST /api/leitura-qr/carteira + cartao-liberacao |
+| `artifacts/api-server/src/lib/ocorrencia-helper.ts` | registrarOcorrenciaComEmail (busca por slug) |
+| `artifacts/seshat/src/pages/verificar/index.tsx` | Verificação pública /verificar/:token (WebCrypto) |
+| `artifacts/seshat/src/pages/leitura-qr/index.tsx` | Scanner interno @zxing/browser |
+| `artifacts/seshat/src/App.tsx` | Rotas /verificar (pública) + /leitura-qr |
+| `artifacts/seshat/src/components/layout.tsx` | Menu "Leitura de QR Code" para carteiras:verificar |
 | `.specs/features/leitura-qrcode.md` | Spec completa |
