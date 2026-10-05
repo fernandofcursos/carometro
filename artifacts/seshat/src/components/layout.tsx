@@ -15,7 +15,7 @@ import {
   ChevronDown, Check, GraduationCap, FileText,
   Wrench, Layers, School, Lock, Shield, ClipboardList, KeyRound,
   PanelLeft, Crown, Building2, Mail, CreditCard, CalendarDays, CalendarRange, Home, Bell, HeartHandshake,
-  BarChart2,
+  BarChart2, QrCode,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 import { Acessibilidade } from "@/components/acessibilidade";
@@ -74,6 +74,7 @@ export function AppSidebar() {
   const canViewEstudantes = hasAny("estudantes:view", "estudantes:manage");
   const canManageEstudantes = hasAny("estudantes:manage");
   const canManageCarteiras  = hasAny("estudantes:manage");
+  const canLeituraQr        = hasAny("carteiras:verificar");
   const canViewOcorrencias = hasAny("ocorrencias:view", "ocorrencias:create");
   const canManageTiposOcorrencias = hasAny("tipos-ocorrencias:manage");
   const canManageAvisos = hasAny("avisos:manage");
@@ -253,6 +254,7 @@ export function AppSidebar() {
       items: [
         nav("Estudantes", "/enturmacao", Users),
         nav("Carteiras e Cartões", "/carteiras", CreditCard),
+        ...(canLeituraQr ? [nav("Leitura de QR Code", "/leitura-qr", QrCode)] : []),
       ],
     }] : []),
     ...((canViewOcorrencias || canManageTiposOcorrencias) ? [{

@@ -16,6 +16,7 @@ import Layout from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login/index";
 import VerificarPage from "@/pages/verificar/index";
+import LeituraQrPage from "@/pages/leitura-qr/index";
 import Dashboard from "@/pages/dashboard";
 import Carometro from "@/pages/seshat";
 import CarometroUsuarios from "@/pages/seshat-usuarios";
@@ -125,6 +126,7 @@ function AppRoutes() {
           <Route path="/roles" component={RolesPage} />
           <Route path="/disciplinas" component={DisciplinasPage} />
           <Route path="/enturmacao" component={EnturmacaoPage} />
+          <Route path="/leitura-qr" component={LeituraQrPage} />
           <Route path="/portal" component={PortalEstudantePage} />
           <Route path="/portal-responsavel" component={PortalResponsavelPage} />
           <Route path="/carteiras" component={CarteirasPage} />
