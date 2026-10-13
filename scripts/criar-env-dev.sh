@@ -13,14 +13,11 @@ ENV_FILE="$(dirname "$0")/../.env"
 
 if [ -f "$ENV_FILE" ]; then
   echo "[env] .env já existe — verificando variáveis obrigatórias..."
-  # Docker Compose v5 usa Bake por padrão; o BuildKit v0.37.2 bloqueia leitura
-  # de Dockerfiles temporários gerados pelo devcontainer CLI em /var/folders/...
-  # COMPOSE_BAKE=false desabilita o Bake e restaura o comportamento anterior.
-  if ! grep -q "^COMPOSE_BAKE=" "$ENV_FILE"; then
-    echo "" >> "$ENV_FILE"
-    echo "# Desabilita Docker Compose Bake (compatibilidade com BuildKit v0.37.2 / Docker Desktop 4.95+)" >> "$ENV_FILE"
-    echo "COMPOSE_BAKE=false" >> "$ENV_FILE"
-    echo "[env] COMPOSE_BAKE=false adicionado ao .env."
+  # Garante que .env.local exista — necessário para --env-file no devcontainer
+  ENV_LOCAL="$(dirname "$0")/../.env.local"
+  if [ ! -f "$ENV_LOCAL" ]; then
+    touch "$ENV_LOCAL"
+    echo "[env] .env.local criado (vazio) — use para overrides locais."
   fi
   exit 0
 fi
@@ -86,3 +83,10 @@ EOF
 
 echo "[env] .env criado com configurações padrão de desenvolvimento."
 echo "[env] Edite o arquivo para ajustar DATABASE_URL, SMTP, etc."
+
+# Garante que .env.local exista — necessário para o --env-file no devcontainer
+ENV_LOCAL="$(dirname "$0")/../.env.local"
+if [ ! -f "$ENV_LOCAL" ]; then
+  touch "$ENV_LOCAL"
+  echo "[env] .env.local criado (vazio) — use para overrides locais."
+fi
