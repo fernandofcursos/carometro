@@ -12,7 +12,16 @@
 ENV_FILE="$(dirname "$0")/../.env"
 
 if [ -f "$ENV_FILE" ]; then
-  echo "[env] .env já existe — nenhuma ação necessária."
+  echo "[env] .env já existe — verificando variáveis obrigatórias..."
+  # Docker Compose v5 usa Bake por padrão; o BuildKit v0.37.2 bloqueia leitura
+  # de Dockerfiles temporários gerados pelo devcontainer CLI em /var/folders/...
+  # COMPOSE_BAKE=false desabilita o Bake e restaura o comportamento anterior.
+  if ! grep -q "^COMPOSE_BAKE=" "$ENV_FILE"; then
+    echo "" >> "$ENV_FILE"
+    echo "# Desabilita Docker Compose Bake (compatibilidade com BuildKit v0.37.2 / Docker Desktop 4.95+)" >> "$ENV_FILE"
+    echo "COMPOSE_BAKE=false" >> "$ENV_FILE"
+    echo "[env] COMPOSE_BAKE=false adicionado ao .env."
+  fi
   exit 0
 fi
 
@@ -66,6 +75,13 @@ POLITICA_VERSAO=1.0
 # Admin inicial (criado na primeira inicialização do banco)
 # ---------------------------------------------------------------------------
 ADMIN_EMAIL=admin@escola.edu.br
+
+# ---------------------------------------------------------------------------
+# Docker Compose — desabilita Bake (compatibilidade com BuildKit v0.37.2+)
+# Docker Compose v5 usa Bake por padrão, o que bloqueia leitura de Dockerfiles
+# temporários gerados pelo devcontainer CLI em /var/folders/... no macOS.
+# ---------------------------------------------------------------------------
+COMPOSE_BAKE=false
 EOF
 
 echo "[env] .env criado com configurações padrão de desenvolvimento."
