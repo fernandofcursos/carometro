@@ -23,10 +23,6 @@
   //   2. Cria .env de desenvolvimento se não existir (nunca sobrescreve existente)
   "initializeCommand": "bash ${localWorkspaceFolder}/scripts/criar-volume-pg.sh && bash ${localWorkspaceFolder}/scripts/criar-env-dev.sh",
 
-  "features": {
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
-  },
-
   "mounts": [
     "source=claude-code-config-${devcontainerId},target=/root/.claude,type=volume"
   ],
@@ -149,7 +145,9 @@
   // Comando executado UMA VEZ ao criar o container (post-create)
   // --------------------------------------------------------------------------
   // Instala dependências na primeira criação do container
-  "postCreateCommand": "cd /workspace && pnpm install --frozen-lockfile 2>/dev/null || pnpm install",
+  // claude-code instalado aqui (não via "features") para evitar que o devcontainer CLI
+  // gere um Dockerfile temporário em /var/folders/... que o BuildKit v0.37.2 bloqueia.
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code 2>/dev/null; cd /workspace && pnpm install --frozen-lockfile 2>/dev/null || pnpm install",
 
   // Sobe o PostgreSQL a cada start — sai rápido se já estiver rodando
   "postStartCommand": "bash /workspace/scripts/start-db.sh"
