@@ -19,7 +19,7 @@
     "dockerfile": "../Dockerfile",
     "context": ".."
   },
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/workspaces/seshat",
 
   // VSCode substitui o entrypoint/command do container pelo VS Code Server
   "overrideCommand": true,
@@ -158,8 +158,8 @@
   // --------------------------------------------------------------------------
   // Comando executado UMA VEZ ao criar o container (post-create)
   // --------------------------------------------------------------------------
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code 2>/dev/null; cd /workspace && pnpm install --frozen-lockfile 2>/dev/null || pnpm install",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code 2>/dev/null; cd /workspaces/seshat && pnpm install --frozen-lockfile 2>/dev/null || pnpm install",
 
   // Sobe o PostgreSQL a cada start — sai rápido se já estiver rodando
-  "postStartCommand": "bash /workspace/scripts/start-db.sh"
+  "postStartCommand": "bash /workspaces/seshat/scripts/start-db.sh"
 }
