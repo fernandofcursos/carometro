@@ -148,7 +148,7 @@ export function AppSidebar() {
         ...(canCreateRequerimentos ? [nav("Requerimentos", "/requerimentos", FileText)] : []),
       ],
     }] : []),
-    ...(canViewCarometro ? [{
+    ...((canViewCarometro || isAdmin) ? [{
       label: "Carômetro",   // nome da funcionalidade (mantido)
       icon: Grid,
       color: "#6366f1",
@@ -172,38 +172,38 @@ export function AppSidebar() {
         ...(canManageRequerimentos ? [nav("Análise de Requerimentos", "/requerimentos/analise", FileText)] : []),
       ],
     }] : []),
-    ...((hasAny("eeaa:manage") || hasAny("eeaa:view")) ? [{
+    ...((hasAny("eeaa:manage") || hasAny("eeaa:view") || isAdmin) ? [{
       label: "EEAA",
       icon: ShieldCheck,
       color: "#2563eb",
       bgColor: "#eff6ff",
       items: [
-        ...(hasAny("eeaa:manage") ? [nav("Atendimento", "/eeaa/gestao", ShieldCheck)] : []),
-        ...(!hasAny("eeaa:manage") && hasAny("eeaa:view") ? [nav("Acompanhamento", "/eeaa/analise", FileText)] : []),
+        ...(hasAny("eeaa:manage") || isAdmin ? [nav("Atendimento", "/eeaa/gestao", ShieldCheck)] : []),
+        ...(!hasAny("eeaa:manage") && !isAdmin && hasAny("eeaa:view") ? [nav("Acompanhamento", "/eeaa/analise", FileText)] : []),
       ],
     }] : []),
-    ...((hasAny("soe:manage") || hasAny("soe:view") || hasAny("soe:encaminhar")) ? [{
+    ...((hasAny("soe:manage") || hasAny("soe:view") || hasAny("soe:encaminhar") || isAdmin) ? [{
       label: "SOE",
       icon: HeartHandshake,
       color: "#16a34a",
       bgColor: "#f0fdf4",
       items: [
-        ...(hasAny("soe:manage") ? [nav("Atendimentos", "/soe/gestao", HeartHandshake)] : []),
-        ...(!hasAny("soe:manage") && hasAny("soe:view") ? [nav("Acompanhamento", "/soe/analise", FileText)] : []),
-        ...(!hasAny("soe:view") && hasAny("soe:encaminhar") ? [nav("Encaminhamentos", "/soe/encaminhar", ClipboardList)] : []),
+        ...(hasAny("soe:manage") || isAdmin ? [nav("Atendimentos", "/soe/gestao", HeartHandshake)] : []),
+        ...(!hasAny("soe:manage") && !isAdmin && hasAny("soe:view") ? [nav("Acompanhamento", "/soe/analise", FileText)] : []),
+        ...(!hasAny("soe:view") && !isAdmin && hasAny("soe:encaminhar") ? [nav("Encaminhamentos", "/soe/encaminhar", ClipboardList)] : []),
       ],
     }] : []),
-    ...((hasAny("sala_recursos:manage") || hasAny("sala_recursos:view")) ? [{
+    ...((hasAny("sala_recursos:manage") || hasAny("sala_recursos:view") || isAdmin) ? [{
       label: "Sala de Recursos",
       icon: GraduationCap,
       color: "#0369a1",
       bgColor: "#f0f9ff",
       items: [
-        ...(hasAny("sala_recursos:manage") || hasAny("sala_recursos:view") ? [nav("Gestão", "/sala-recursos/gestao", GraduationCap)] : []),
-        ...(hasAny("sala_recursos:view") ? [nav("Análise", "/sala-recursos/analise", BarChart2)] : []),
+        ...(hasAny("sala_recursos:manage") || hasAny("sala_recursos:view") || isAdmin ? [nav("Gestão", "/sala-recursos/gestao", GraduationCap)] : []),
+        ...(hasAny("sala_recursos:view") || isAdmin ? [nav("Análise", "/sala-recursos/analise", BarChart2)] : []),
       ],
     }] : []),
-    ...(hasAny("sala_recursos:professor") ? [{
+    ...(hasAny("sala_recursos:professor") || isAdmin ? [{
       label: "Adequações SR",
       icon: GraduationCap,
       color: "#0369a1",
